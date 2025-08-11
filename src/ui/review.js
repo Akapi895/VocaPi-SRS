@@ -76,6 +76,10 @@ class VocabSRSReview {
     
     // Complete screen
     document.getElementById('close-window-btn').addEventListener('click', () => this.closeWindow());
+    document.getElementById('continue-review-btn').addEventListener('click', () => this.continueReview());
+    
+    // End review button
+    document.getElementById('end-review-btn').addEventListener('click', () => this.endReviewEarly());
     
     // Error retry
     document.getElementById('retry-btn').addEventListener('click', () => this.loadReviewData());
@@ -132,6 +136,10 @@ class VocabSRSReview {
     document.getElementById('input-section').style.display = 'block';
     document.getElementById('result-section').style.display = 'none';
     document.getElementById('retype-section').style.display = 'none';
+    
+    // Update progress info in end review section
+    document.getElementById('current-progress').textContent = this.currentWordIndex;
+    document.getElementById('total-progress').textContent = this.currentReviewWords.length;
     
     // Clear and focus input
     const answerInput = document.getElementById('answer-input');
@@ -505,6 +513,23 @@ class VocabSRSReview {
     return updatedSRS;
   }
   
+  endReviewEarly() {
+    const remainingWords = this.currentReviewWords.length - this.currentWordIndex;
+    const confirmMessage = remainingWords > 0 
+      ? `End review session now? You have ${remainingWords} words remaining. Your progress will be saved.`
+      : 'End review session now? Your progress will be saved.';
+      
+    if (confirm(confirmMessage)) {
+      this.completeReview();
+    }
+  }
+  
+  continueReview() {
+    // Reset to show the review screen and continue from where we left off
+    this.showReviewScreen();
+    this.loadCurrentCard();
+  }
+  
   updateSessionStats() {
     document.getElementById('reviewed-count').textContent = this.reviewStats.reviewed;
     
@@ -525,6 +550,25 @@ class VocabSRSReview {
       ? Math.round((this.reviewStats.correct / this.reviewStats.reviewed) * 100)
       : 0;
     document.getElementById('final-accuracy-rate').textContent = `${accuracy}%`;
+    
+    // Calculate and show remaining words
+    const remainingWords = this.currentReviewWords.length - this.currentWordIndex;
+    document.getElementById('remaining-words-count').textContent = remainingWords;
+    
+    // Update complete message and show continue button if there are remaining words
+    const completeHeader = document.querySelector('.complete-header h2');
+    const completeText = document.querySelector('.complete-header p');
+    const continueBtn = document.getElementById('continue-review-btn');
+    
+    if (remainingWords > 0) {
+      completeHeader.textContent = 'Review Paused!';
+      completeText.textContent = `You've reviewed ${this.reviewStats.reviewed} out of ${this.currentReviewWords.length} words. Your progress has been saved.`;
+      continueBtn.style.display = 'inline-flex';
+    } else {
+      completeHeader.textContent = 'Review Complete!';
+      completeText.textContent = "Great job! You've finished today's review session.";
+      continueBtn.style.display = 'none';
+    }
   }
   
   closeWindow() {

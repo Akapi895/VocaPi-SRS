@@ -109,6 +109,16 @@
                     </div>
                 </div>
                 
+                <!-- End Review Option -->
+                <div class="end-review-section">
+                    <button id="end-review-btn" class="btn btn-outline">
+                        <span class="btn-icon">🏁</span> End Review & Save Progress
+                    </button>
+                    <div class="progress-info">
+                        <span id="progress-text">Progress: <span id="current-progress">0</span> / <span id="total-progress">0</span> words completed</span>
+                    </div>
+                </div>
+                
                 <!-- Retype section for wrong/skipped answers -->
                 <div class="retype-section" id="retype-section" style="display: none;">
                     <div class="retype-prompt">Please type the correct word to continue:</div>
@@ -137,9 +147,17 @@
                     <span class="stat-value" id="final-accuracy-rate">0%</span>
                     <span class="stat-text">accuracy</span>
                 </div>
+                <div class="complete-stat">
+                    <span class="stat-value" id="remaining-words-count">0</span>
+                    <span class="stat-text">words remaining</span>
+                </div>
             </div>
             
             <div class="complete-actions">
+                <button id="continue-review-btn" class="btn btn-primary" style="display: none;">
+                    <span class="btn-icon">▶️</span>
+                    Continue Remaining Words
+                </button>
                 <button id="close-window-btn" class="btn btn-primary">
                     <span class="btn-icon">✓</span>
                     Close Window
