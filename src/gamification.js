@@ -559,59 +559,97 @@ class VocabGamification {
     if (!data) return null;
     
     const today = new Date().toISOString().split('T')[0];
+    console.log(`🎯 [Generate] Checking daily challenge for ${today}`);
     
     // Check if we already have today's challenge
     if (data.dailyChallenge && data.dailyChallenge.date === today) {
+      console.log(`🎯 [Generate] Already have today's challenge:`, data.dailyChallenge);
       return data.dailyChallenge;
     }
     
-    // Generate new daily challenge
-    const challenges = Object.values(VocabGamification.DAILY_CHALLENGES);
-    const randomChallenge = challenges[Math.floor(Math.random() * challenges.length)];
+    // Generate new daily challenge - force Daily Five for testing
+    console.log(`🎯 [Generate] Creating new daily challenge...`);
+    
+    // For debugging, let's always create Daily Five challenge
+    const dailyFive = VocabGamification.DAILY_CHALLENGES.daily_5;
+    console.log(`🎯 [Generate] Daily Five template:`, dailyFive);
     
     data.dailyChallenge = {
-      ...randomChallenge,
+      ...dailyFive,
+      id: 'daily-five', // Make sure ID is set correctly
       date: today,
       progress: 0,
       completed: false,
       startedAt: new Date().toISOString()
     };
     
+    console.log(`🎯 [Generate] Created daily challenge:`, data.dailyChallenge);
+    
     await this.saveGamificationData(data);
     return data.dailyChallenge;
   }
   
   async updateChallengeProgress(type, value) {
+    console.log(`🎯 [Update] Called updateChallengeProgress with type: ${type}, value: ${value}`);
+    
     const data = await this.getGamificationData();
-    if (!data || !data.dailyChallenge) return;
+    console.log(`🎯 [Update] Gamification data exists: ${!!data}`);
+    console.log(`🎯 [Update] Daily challenge exists: ${!!data?.dailyChallenge}`);
+    
+    if (!data || !data.dailyChallenge) {
+      console.log(`🎯 [Update] Early return - no data or no daily challenge`);
+      return;
+    }
     
     const challenge = data.dailyChallenge;
+    console.log(`🎯 [Update] Challenge details:`, {
+      name: challenge.name,
+      id: challenge.id,
+      type: challenge.type,
+      progress: challenge.progress,
+      target: challenge.target,
+      completed: challenge.completed,
+      date: challenge.date
+    });
     
-    if (challenge.type === type && !challenge.completed) {
+    const today = new Date().toISOString().split('T')[0];
+    console.log(`🎯 [Update] Today: ${today}, Challenge date: ${challenge.date}`);
+    
+    const typeMatches = challenge.type === type;
+    const notCompleted = !challenge.completed;
+    const dateMatches = challenge.date === today;
+    
+    console.log(`🎯 [Update] Conditions check:`, {
+      typeMatches,
+      notCompleted,
+      dateMatches,
+      allConditionsMet: typeMatches && notCompleted && dateMatches
+    });
+    
+    if (typeMatches && notCompleted && dateMatches) {
+      console.log(`🎯 ✅ UPDATING CHALLENGE PROGRESS: ${challenge.name} (${type}) - Current: ${challenge.progress}, Adding: ${value}`);
+      
       if (type === 'review_count' || type === 'time_spent') {
         challenge.progress += value;
+        console.log(`🎯 Challenge progress incremented to: ${challenge.progress}/${challenge.target}`);
       } else if (type === 'accuracy') {
         challenge.progress = value; // Current accuracy
       } else if (type === 'streak_maintain') {
         challenge.progress = 1; // Maintained
       }
       
-      // For review_count challenges, sync with actual daily stats
+      // For review_count challenges, always sync with actual daily stats to ensure accuracy
       if (type === 'review_count' && this.analytics) {
         try {
-          const analytics = this.analytics;
-          const dashboardStats = await analytics.getDashboardStats();
           const today = new Date().toISOString().split('T')[0];
-          
-          // Get today's actual word review count from analytics
-          const analyticsData = await analytics.getAnalyticsData();
+          const analyticsData = await this.analytics.getAnalyticsData();
           const todayStats = analyticsData.dailyStats[today];
           const actualWordsToday = todayStats?.wordsReviewed || 0;
           
-          // Sync challenge progress with actual count
+          // Always use the actual count from analytics as source of truth
           challenge.progress = actualWordsToday;
           
-          console.log(`🎯 Challenge progress synced: ${challenge.progress}/${challenge.target} words reviewed today`);
+          console.log(`🔄 Challenge progress synced with analytics: ${challenge.progress}/${challenge.target} words (actual daily count)`);
         } catch (error) {
           console.warn('Could not sync challenge progress with analytics:', error);
         }
@@ -622,6 +660,8 @@ class VocabGamification {
         challenge.completed = true;
         challenge.completedAt = new Date().toISOString();
         
+        console.log(`🎉 Challenge completed: ${challenge.name} (${challenge.progress}/${challenge.target})`);
+        
         // Award XP
         await this.awardXP(challenge.xp, { challenge: true });
         
@@ -629,7 +669,7 @@ class VocabGamification {
         if (typeof chrome !== 'undefined' && chrome.notifications) {
           chrome.notifications.create({
             type: 'basic',
-            iconUrl: 'assets/icon48.png',
+            iconUrl: '/assets/icon48.png',
             title: '🎯 Daily Challenge Complete!',
             message: `${challenge.icon} ${challenge.name} completed! +${challenge.xp} XP`,
             priority: 1
@@ -781,49 +821,82 @@ class VocabGamification {
     
     // Check if we need a new daily challenge
     if (!data.dailyChallenge || data.dailyChallenge.date !== today) {
+      console.log(`🎯 Generating new daily challenge for ${today}`);
       await this.generateDailyChallenge();
       return await this.getCurrentChallenge();
     }
     
-    // Sync challenge progress with real analytics data before returning
+    console.log(`🎯 Getting current challenge: ${data.dailyChallenge.name} (${data.dailyChallenge.progress}/${data.dailyChallenge.target})`);
+    
+    // Always sync challenge progress with real analytics data before returning
     await this.syncChallengeWithAnalytics(data.dailyChallenge);
     
-    return data.dailyChallenge;
+    // Return fresh data after sync
+    const syncedData = await this.getGamificationData();
+    return syncedData.dailyChallenge;
   }
   
   // Sync challenge progress with current analytics data
   async syncChallengeWithAnalytics(challenge) {
-    if (!challenge || challenge.completed || !this.analytics) return;
+    if (!challenge || challenge.completed || !this.analytics) {
+      console.log(`🔄 [Sync] Skipping challenge sync - Challenge: ${!!challenge}, Completed: ${challenge?.completed}, Analytics: ${!!this.analytics}`);
+      return;
+    }
     
     try {
       const today = new Date().toISOString().split('T')[0];
       const analyticsData = await this.analytics.getAnalyticsData();
-      const todayStats = analyticsData.dailyStats[today];
+      const todayStats = analyticsData.dailyStats[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
       
-      if (challenge.type === 'review_count') {
-        const actualWordsToday = todayStats?.wordsReviewed || 0;
+      console.log(`🔄 [Sync] Challenge details:`, challenge);
+      console.log(`🔄 [Sync] Syncing challenge with analytics - Today: ${today}, Challenge ID: ${challenge.id}, Challenge type: ${challenge.type}, Current progress: ${challenge.progress}`);
+      console.log(`🔄 [Sync] Analytics data for today:`, todayStats);
+      
+      let needsUpdate = false;
+      
+      // Handle Daily Five challenge specifically
+      if (challenge.id === 'daily-five' || challenge.type === 'review_count') {
+        const actualWordsToday = todayStats.wordsReviewed || 0;
+        console.log(`📊 [Sync] Daily Five/Review Count - Actual words: ${actualWordsToday}, Challenge progress: ${challenge.progress}`);
+        
         if (challenge.progress !== actualWordsToday) {
+          console.log(`📊 [Sync] Updating challenge progress: ${challenge.progress} → ${actualWordsToday} words`);
           challenge.progress = actualWordsToday;
-          await this.saveGamificationData(await this.getGamificationData());
-          console.log(`🔄 Challenge progress synced: ${challenge.progress}/${challenge.target} words`);
+          needsUpdate = true;
         }
       } else if (challenge.type === 'time_spent') {
-        const actualTimeToday = Math.floor((todayStats?.timeSpent || 0) / 60000); // Convert to minutes
+        const actualTimeToday = Math.floor((todayStats.timeSpent || 0) / 60000); // Convert to minutes
         if (challenge.progress !== actualTimeToday) {
+          console.log(`⏱️ [Sync] Updating challenge progress: ${challenge.progress} → ${actualTimeToday} minutes`);
           challenge.progress = actualTimeToday;
-          await this.saveGamificationData(await this.getGamificationData());
-          console.log(`🔄 Challenge progress synced: ${challenge.progress}/${challenge.target} minutes`);
+          needsUpdate = true;
         }
       } else if (challenge.type === 'accuracy') {
-        const actualAccuracy = todayStats?.accuracy || 0;
+        const actualAccuracy = Math.round(todayStats.accuracy || 0);
         if (Math.abs(challenge.progress - actualAccuracy) > 0.1) {
+          console.log(`🎯 [Sync] Updating challenge progress: ${challenge.progress} → ${actualAccuracy}% accuracy`);
           challenge.progress = actualAccuracy;
-          await this.saveGamificationData(await this.getGamificationData());
-          console.log(`🔄 Challenge progress synced: ${challenge.progress.toFixed(1)}%/${challenge.target}% accuracy`);
+          needsUpdate = true;
         }
       }
+      
+      if (needsUpdate) {
+        const gamificationData = await this.getGamificationData();
+        await this.saveGamificationData(gamificationData);
+        console.log(`✅ [Sync] Challenge progress synced and saved: ${challenge.progress}/${challenge.target}`);
+        
+        // Check for completion after sync
+        if (challenge.progress >= challenge.target && !challenge.completed) {
+          console.log(`🎉 [Sync] Challenge completed after sync!`);
+          challenge.completed = true;
+          challenge.completedAt = new Date().toISOString();
+          await this.saveGamificationData(gamificationData);
+        }
+      } else {
+        console.log(`✅ [Sync] Challenge already in sync: ${challenge.progress}/${challenge.target}`);
+      }
     } catch (error) {
-      console.warn('Error syncing challenge with analytics:', error);
+      console.error('❌ [Sync] Error syncing challenge with analytics:', error);
     }
   }
 }

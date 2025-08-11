@@ -585,14 +585,18 @@ class AnalyticsDashboard {
           const totalReviews = Object.values(analyticsData.qualityDistribution || {})
             .reduce((sum, count) => sum + count, 0);
           
+          // Convert time from milliseconds to minutes for proper display
+          const totalTimeMinutes = Math.floor((analyticsData.totalTimeSpent || 0) / 60000);
+          const todayTimeMinutes = Math.floor((todayStats.timeSpent || 0) / 60000);
+          
           return {
             totalWordsLearned: analyticsData.totalWordsLearned || 0,
             totalWords: analyticsData.totalWordsLearned || 0,
-            totalTime: analyticsData.totalTimeSpent || 0,
+            totalTime: totalTimeMinutes,
             totalSessions: analyticsData.totalReviewSessions || 0,
             todayWords: todayStats.wordsReviewed || 0,
-            todayTime: todayStats.timeSpent || 0,
-            todayAccuracy: todayStats.accuracy || 0,
+            todayTime: todayTimeMinutes,
+            todayAccuracy: Math.round(todayStats.accuracy || 0),
             currentStreak: analyticsData.currentStreak || 0,
             longestStreak: analyticsData.longestStreak || 0,
             totalXP: analyticsData.totalXP || 0,

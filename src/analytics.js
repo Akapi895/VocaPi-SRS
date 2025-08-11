@@ -11,11 +11,28 @@ class VocabAnalytics {
   }
   
   async initGamification() {
-    if (typeof window !== 'undefined' && window.VocabGamification) {
-      this.gamification = new window.VocabGamification();
-      this.gamification.analytics = this; // Set reference
-      await this.gamification.initializeGamification();
+    if (typeof window !== 'undefined') {
+      // Wait for VocabGamification to be available
+      await this.waitForGamification();
+      if (window.VocabGamification) {
+        console.log('🎮 Initializing gamification system...');
+        this.gamification = new window.VocabGamification();
+        this.gamification.analytics = this; // Set reference
+        await this.gamification.initializeGamification();
+        console.log('✅ Gamification system initialized successfully');
+      }
     }
+  }
+  
+  async waitForGamification(maxAttempts = 50) {
+    for (let i = 0; i < maxAttempts; i++) {
+      if (typeof window !== 'undefined' && window.VocabGamification) {
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    console.warn('⚠️ VocabGamification not available after waiting');
+    return false;
   }
   
   async ensureInitialized() {
@@ -230,10 +247,32 @@ class VocabAnalytics {
   }
   
   async recordWordReview(wordId, userAnswer, correctAnswer, quality, timeSpent) {
+    console.log(`🔍 [Analytics] recordWordReview called with:`, {
+      wordId, userAnswer, correctAnswer, quality, timeSpent,
+      caller: new Error().stack.split('\n')[2]?.trim()
+    });
+    
     const data = await this.getAnalyticsData();
     
     // Track if this is the first time reviewing this word
     const isNewWord = !data.wordDifficulty[wordId];
+    
+    // Update daily stats FIRST
+    const today = new Date().toISOString().split('T')[0];
+    if (!data.dailyStats[today]) {
+      data.dailyStats[today] = { wordsReviewed: 0, timeSpent: 0, sessions: 0, accuracy: 0 };
+    }
+    
+    // Increment daily words reviewed count
+    data.dailyStats[today].wordsReviewed += 1;
+    data.dailyStats[today].timeSpent += timeSpent;
+    
+    // Update accuracy calculation for today
+    const totalQualityToday = (data.dailyStats[today].accuracy * (data.dailyStats[today].wordsReviewed - 1) + (quality * 20)) / data.dailyStats[today].wordsReviewed;
+    data.dailyStats[today].accuracy = Math.round(totalQualityToday);
+    
+    console.log(`📊 [Analytics] Daily stats updated - Today: ${today}, Words: ${data.dailyStats[today].wordsReviewed}, Time: ${data.dailyStats[today].timeSpent}ms`);
+    console.log(`📊 [Analytics] Full daily stats for ${today}:`, data.dailyStats[today]);
     
     // Update current session
     if (data.currentSession) {
@@ -292,7 +331,13 @@ class VocabAnalytics {
       }
       
       // Update challenge progress
-      await this.gamification.updateChallengeProgress('review_count', 1);
+      console.log(`📊 [Analytics] About to update challenge progress - gamification object exists: ${!!this.gamification}`);
+      if (this.gamification) {
+        console.log(`📊 [Analytics] Calling updateChallengeProgress('review_count', 1)`);
+        await this.gamification.updateChallengeProgress('review_count', 1);
+      } else {
+        console.log(`⚠️ [Analytics] Gamification object not available`);
+      }
     }
     
     await this.saveAnalyticsData(data);
@@ -331,14 +376,17 @@ class VocabAnalytics {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     // Constants for streak requirements
-    const MIN_WORDS_FOR_STREAK = 5;
-    const MIN_ACCURACY_FOR_STREAK = 60; // Optional: minimum accuracy requirement
+    const MIN_WORDS_FOR_STREAK = 5; // Chỉ cần 5 words, không quan tâm accuracy
     
-    // Check if user studied enough today to maintain/increase streak
     const todayStats = data.dailyStats[today];
-    const qualifiesForStreak = todayStats && 
-                              todayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK &&
-                              (todayStats.accuracy >= MIN_ACCURACY_FOR_STREAK || todayStats.accuracy === 0); // Allow 0 for new users
+    console.log(`🔥 Checking streak for ${today} - Words: ${todayStats?.wordsReviewed || 0}, Last study: ${data.lastStudyDate}`);
+    
+    // Check if user studied enough today to maintain/increase streak - chỉ cần đủ words
+    const qualifiesForStreak = todayStats && todayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK;
+    
+    console.log(`🔥 Qualifies for streak: ${qualifiesForStreak}`);
+    console.log(`   - Words: ${todayStats?.wordsReviewed} (need ${MIN_WORDS_FOR_STREAK}+) ${todayStats?.wordsReviewed >= MIN_WORDS_FOR_STREAK ? '✅' : '❌'}`);
+    console.log(`   - Accuracy: No requirement (removed) ✅`);
     
     if (qualifiesForStreak) {
       // Only update streak if it hasn't been updated today already
@@ -346,9 +394,11 @@ class VocabAnalytics {
         if (data.lastStudyDate === yesterday) {
           // Continuing streak - user studied yesterday and qualifies today
           data.currentStreak += 1;
+          console.log(`🔥✅ Continuing streak: ${data.currentStreak} days`);
         } else {
           // Starting new streak - either first time or streak was broken
           data.currentStreak = 1;
+          console.log(`🔥🆕 Starting new streak: ${data.currentStreak} days`);
         }
         
         data.lastStudyDate = today;
@@ -356,15 +406,16 @@ class VocabAnalytics {
         // Update longest streak
         if (data.currentStreak > data.longestStreak) {
           data.longestStreak = data.currentStreak;
+          console.log(`🏆 New longest streak record: ${data.longestStreak} days`);
         }
         
-        console.log(`📅 Streak updated: ${data.currentStreak} days (reviewed ${todayStats.wordsReviewed} words)`);
+        console.log(`📅✅ Streak updated: ${data.currentStreak} days (reviewed ${todayStats.wordsReviewed} words)`);
       } else {
         console.log(`📅 Streak already updated today: ${data.currentStreak} days`);
       }
     } else if (todayStats && todayStats.wordsReviewed > 0) {
-      // User studied but didn't meet minimum requirements
-      console.log(`📅 Studied ${todayStats.wordsReviewed} words today but need ${MIN_WORDS_FOR_STREAK} minimum for streak`);
+      // User studied but didn't meet minimum word requirements
+      console.log(`📅❌ Studied ${todayStats.wordsReviewed} words but need ${MIN_WORDS_FOR_STREAK}+ words for streak`);
     }
     
     // Don't save here - will be saved by caller to avoid multiple saves
@@ -555,13 +606,13 @@ class VocabAnalytics {
       // Main metrics (only from actual reviews)
       totalWordsLearned: uniqueWordsReviewed, // Only count words that have been actually reviewed
       totalWords: uniqueWordsReviewed, // alias
-      totalTime: data?.totalTimeSpent || 0,
+      totalTime: Math.floor((data?.totalTimeSpent || 0) / 60000), // Convert to minutes
       totalSessions: data?.totalReviewSessions || 0,
       
       // Today's metrics (from actual sessions)
       todayWords: todayStats.wordsReviewed || 0,
-      todayTime: todayStats.timeSpent || 0,
-      todayAccuracy: todayStats.accuracy || 0,
+      todayTime: Math.floor((todayStats.timeSpent || 0) / 60000), // Convert to minutes  
+      todayAccuracy: Math.round(todayStats.accuracy || 0), // Round to whole number
       
       // Streak metrics (based on real daily minimums)
       currentStreak: data?.currentStreak || 0,
@@ -609,8 +660,8 @@ class VocabAnalytics {
         date: dateStr,
         day: date.toLocaleDateString('en-US', { weekday: 'short' }),
         words: dayStats.wordsReviewed || 0,
-        time: dayStats.timeSpent || 0,
-        accuracy: dayStats.accuracy || 0
+        time: Math.floor((dayStats.timeSpent || 0) / 60000), // Convert milliseconds to minutes
+        accuracy: Math.round(dayStats.accuracy || 0) // Round to whole number
       });
     }
     
