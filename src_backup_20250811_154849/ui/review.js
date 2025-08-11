@@ -221,7 +221,7 @@ class VocabSRSReview {
         qualityButtons.style.display = 'none';
         setTimeout(() => {
           this.submitQuality(2);
-        }, 7000);
+        }, 5000);
       } else {
         // No hint + correct = show quality buttons (3, 4, 5 only)
         qualityButtons.style.display = 'block';

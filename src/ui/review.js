@@ -221,7 +221,7 @@ class VocabSRSReview {
         qualityButtons.style.display = 'none';
         setTimeout(() => {
           this.submitQuality(2);
-        }, 7000);
+        }, 5000);
       } else {
         // No hint + correct = show quality buttons (3, 4, 5 only)
         qualityButtons.style.display = 'block';
@@ -330,8 +330,8 @@ class VocabSRSReview {
     // Show retype section instead of auto-advancing
     setTimeout(() => {
       this.showRetypeSection();
-    }, 10000); // 10 seconds to see the result
-    
+    }, 5000); // 5 seconds to see the result
+
     // Auto-play audio after showing answer for skipped words
     setTimeout(() => {
       this.playCurrentAudio();

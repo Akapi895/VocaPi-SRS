@@ -3,17 +3,16 @@ const VocabAddModal = {
   modal: null,
   overlay: null,
   currentWord: '',
-  
+
   init() {
     this.createModal();
     this.bindEvents();
   },
-  
+
   createModal() {
     // Create overlay
     this.overlay = document.createElement('div');
     this.overlay.className = 'vocab-modal-overlay';
-    this.overlay.style.display = 'none';
     
     // Create modal container
     this.modal = document.createElement('div');
@@ -73,9 +72,8 @@ const VocabAddModal = {
     this.overlay.appendChild(this.modal);
     document.body.appendChild(this.overlay);
   },
-  
+
   bindEvents() {
-    // Close modal events
     const closeBtn = this.modal.querySelector('.vocab-modal-close');
     const cancelBtn = this.modal.querySelector('#vocab-cancel');
     
@@ -85,26 +83,21 @@ const VocabAddModal = {
       if (e.target === this.overlay) this.hide();
     });
     
-    // Escape key to close
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && this.isVisible()) {
         this.hide();
       }
     });
     
-    // Fetch pronunciation button
     const fetchBtn = this.modal.querySelector('#vocab-fetch-pronunciation');
     fetchBtn.addEventListener('click', () => this.fetchPronunciation());
-    
-    // Play audio button
+
     const playBtn = this.modal.querySelector('#vocab-play-audio');
     playBtn.addEventListener('click', () => this.playAudio());
     
-    // Save word button
     const saveBtn = this.modal.querySelector('#vocab-save-word');
     saveBtn.addEventListener('click', () => this.saveWord());
     
-    // Enter key to save (when meaning field is focused)
     const meaningInput = this.modal.querySelector('#vocab-meaning');
     meaningInput.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') {
@@ -112,11 +105,15 @@ const VocabAddModal = {
       }
     });
   },
-  
+
   show(word) {
+    if (!word || typeof word !== 'string') {
+      console.warn('VocabAddModal.show() called with invalid word:', word);
+      return;
+    }
+    
     this.currentWord = word;
     
-    // Reset form
     this.modal.querySelector('#vocab-word').value = word;
     this.modal.querySelector('#vocab-meaning').value = '';
     this.modal.querySelector('#vocab-example').value = '';
@@ -124,25 +121,24 @@ const VocabAddModal = {
     this.modal.querySelector('#vocab-api-status').textContent = '';
     this.modal.querySelector('#vocab-audio-group').style.display = 'none';
     
-    // Show modal
-    this.overlay.style.display = 'flex';
-    
-    // Focus meaning input
+    this.overlay.classList.add('show');
     setTimeout(() => {
       this.modal.querySelector('#vocab-meaning').focus();
-    }, 100);
+    }, 150);
   },
-  
+
   hide() {
-    this.overlay.style.display = 'none';
+    this.overlay.classList.remove('show');
     this.currentWord = '';
-    window.VocabAPI.AudioPlayer.stop();
+    if (window.VocabAPI?.AudioPlayer?.stop) {
+      window.VocabAPI.AudioPlayer.stop();
+    }
   },
-  
+
   isVisible() {
-    return this.overlay && this.overlay.style.display === 'flex';
+    return this.overlay && this.overlay.classList.contains('show');
   },
-  
+
   async fetchPronunciation() {
     const fetchBtn = this.modal.querySelector('#vocab-fetch-pronunciation');
     const statusDiv = this.modal.querySelector('#vocab-api-status');
@@ -154,8 +150,7 @@ const VocabAddModal = {
       return;
     }
     
-    // Update UI for loading state
-    fetchBtn.textContent = 'Fetching...';
+    fetchBtn.classList.add('loading');
     fetchBtn.disabled = true;
     statusDiv.textContent = 'Fetching pronunciation...';
     statusDiv.className = 'vocab-status-message vocab-status-loading';
@@ -163,7 +158,6 @@ const VocabAddModal = {
     try {
       const wordData = await window.VocabAPI.DictionaryAPI.fetchWordData(this.currentWord);
       
-      // Update phonetic field
       if (wordData.phonetic) {
         phoneticInput.value = wordData.phonetic;
       } else {
@@ -172,24 +166,20 @@ const VocabAddModal = {
         phoneticInput.readOnly = false;
       }
       
-      // Always show audio controls (we have TTS fallback)
       audioGroup.style.display = 'block';
       audioGroup.dataset.audioUrl = wordData.audioUrl || '';
       
-      // Update button text based on audio availability
       const playBtn = this.modal.querySelector('#vocab-play-audio');
       if (wordData.audioUrl) {
-        playBtn.innerHTML = '<span class="btn-icon">🔊</span> Play Audio';
+        playBtn.innerHTML = '🔊 Play Audio';
         this.showStatus('Pronunciation fetched successfully!', 'success');
       } else {
-        playBtn.innerHTML = '<span class="btn-icon">🗣️</span> Play (TTS)';
-        this.showStatus('Pronunciation fetched (will use text-to-speech)', 'warning');
+        playBtn.innerHTML = '🗣️ Play (TTS)';
+        this.showStatus('Pronunciation fetched successfully!', 'success');
       }
       
-      // Auto-play audio after successful fetch
-      setTimeout(() => {
-        this.playAudio();
-      }, 500); // Small delay to let UI update
+      // Auto-play audio without showing status messages
+      setTimeout(() => this.playAudio(), 500);
       
     } catch (error) {
       console.error('Fetch pronunciation error:', error);
@@ -197,73 +187,71 @@ const VocabAddModal = {
       phoneticInput.placeholder = 'Enter phonetic manually (API failed)';
       phoneticInput.readOnly = false;
       
-      // Still show audio controls for TTS fallback
       audioGroup.style.display = 'block';
       audioGroup.dataset.audioUrl = '';
       const playBtn = this.modal.querySelector('#vocab-play-audio');
-      playBtn.innerHTML = '<span class="btn-icon">🗣️</span> Play (TTS)';
+      playBtn.innerHTML = '🗣️ Play (TTS)';
       
       this.showStatus(`Failed to fetch pronunciation: ${error.message}`, 'error');
     } finally {
-      fetchBtn.textContent = 'Fetch Pronunciation';
+      fetchBtn.classList.remove('loading');
       fetchBtn.disabled = false;
     }
   },
-  
+
   async playAudio() {
     const audioGroup = this.modal.querySelector('#vocab-audio-group');
     const playBtn = this.modal.querySelector('#vocab-play-audio');
     const audioStatus = this.modal.querySelector('#vocab-audio-status');
+    const saveBtn = this.modal.querySelector('#vocab-save-word');
     
     const audioUrl = audioGroup.dataset.audioUrl;
     const word = this.currentWord;
     
     if (!audioUrl && !word) {
-      audioStatus.textContent = 'No audio or word available';
       return;
     }
     
-    playBtn.textContent = '⏸ Playing...';
+    playBtn.classList.add('loading');
     playBtn.disabled = true;
-    audioStatus.textContent = audioUrl ? 'Playing audio...' : 'Playing with text-to-speech...';
+    saveBtn.disabled = true; // Disable save button during audio playback
+    audioStatus.textContent = ''; // Clear any previous status
     
     try {
       const result = await window.VocabAPI.AudioPlayer.playAudio(word, audioUrl);
-      
-      // Show appropriate success message
-      if (result.method === 'audio') {
-        audioStatus.textContent = 'Audio played successfully';
-      } else if (result.method === 'tts') {
-        audioStatus.textContent = 'Played with text-to-speech';
-      }
-      
+      // Don't show any success messages
     } catch (error) {
       console.error('Audio play error:', error);
-      audioStatus.textContent = 'Audio playback failed';
+      // Don't show error messages in UI
     } finally {
-      playBtn.textContent = '▶ Play Audio';
+      playBtn.classList.remove('loading');
       playBtn.disabled = false;
+      saveBtn.disabled = false; // Re-enable save button after audio playback
     }
   },
-  
+
   async saveWord() {
     const meaningInput = this.modal.querySelector('#vocab-meaning');
     const exampleInput = this.modal.querySelector('#vocab-example');
     const phoneticInput = this.modal.querySelector('#vocab-phonetic');
     const audioGroup = this.modal.querySelector('#vocab-audio-group');
     const saveBtn = this.modal.querySelector('#vocab-save-word');
+    const playBtn = this.modal.querySelector('#vocab-play-audio');
+    
+    // Check if audio is currently playing
+    if (playBtn.disabled || playBtn.classList.contains('loading')) {
+      return; // Don't save if audio is playing
+    }
     
     const meaning = meaningInput.value.trim();
     
-    // Validation
     if (!meaning) {
       this.showStatus('Please enter a meaning in Vietnamese', 'error');
       meaningInput.focus();
       return;
     }
     
-    // Update save button state
-    saveBtn.textContent = 'Saving...';
+    saveBtn.classList.add('loading');
     saveBtn.disabled = true;
     
     try {
@@ -275,31 +263,35 @@ const VocabAddModal = {
         audioUrl: audioGroup.dataset.audioUrl || ''
       };
       
-      await window.VocabUtils.VocabStorage.addWord(wordData);
+      // Debug logging
+      console.log('Saving word data:', wordData);
       
+      await window.VocabUtils.VocabStorage.addWord(wordData);
       this.showStatus('Word saved successfully!', 'success');
       
-      // Close modal after short delay
+      // Store currentWord before hiding modal (since hide() clears it)
+      const savedWord = this.currentWord;
+      console.log('Saved word for toast:', savedWord);
+      
       setTimeout(() => {
         this.hide();
-        this.showToast(`"New word added to your dictionary!`);
-      }, 1000);
+        this.showToast(`New word "${savedWord}" added to your dictionary!`);
+      }, 800);
       
     } catch (error) {
       console.error('Save word error:', error);
       this.showStatus(`Failed to save word: ${error.message}`, 'error');
     } finally {
-      saveBtn.textContent = 'Save Word';
+      saveBtn.classList.remove('loading');
       saveBtn.disabled = false;
     }
   },
-  
+
   showStatus(message, type = 'info') {
     const statusDiv = this.modal.querySelector('#vocab-api-status');
     statusDiv.textContent = message;
     statusDiv.className = `vocab-status-message vocab-status-${type}`;
     
-    // Auto-hide success messages
     if (type === 'success') {
       setTimeout(() => {
         statusDiv.textContent = '';
@@ -307,19 +299,14 @@ const VocabAddModal = {
       }, 3000);
     }
   },
-  
+
   showToast(message) {
-    // Create toast notification
     const toast = document.createElement('div');
     toast.className = 'vocab-toast vocab-toast-success';
     toast.textContent = message;
     
     document.body.appendChild(toast);
-    
-    // Show toast
     setTimeout(() => toast.classList.add('vocab-toast-show'), 100);
-    
-    // Hide and remove toast
     setTimeout(() => {
       toast.classList.remove('vocab-toast-show');
       setTimeout(() => document.body.removeChild(toast), 300);
@@ -327,31 +314,29 @@ const VocabAddModal = {
   }
 };
 
-// Floating Add Button for text selection
+// Floating Add Button
 const VocabFloatingButton = {
   button: null,
   currentSelection: null,
-  
+
   init() {
     this.createButton();
     this.bindSelectionEvents();
   },
-  
+
   createButton() {
     this.button = document.createElement('button');
     this.button.className = 'vocab-floating-btn';
-    this.button.innerHTML = '+ Add to Dictionary';
-    this.button.style.display = 'none';
-    
+    this.button.textContent = '+ Add to Dictionary';
+    document.body.appendChild(this.button);
+
     this.button.addEventListener('click', (e) => {
       e.preventDefault();
       e.stopPropagation();
       this.handleAddWord();
     });
-    
-    document.body.appendChild(this.button);
   },
-  
+
   bindSelectionEvents() {
     document.addEventListener('mouseup', () => {
       setTimeout(() => this.handleSelection(), 10);
@@ -361,14 +346,13 @@ const VocabFloatingButton = {
       setTimeout(() => this.handleSelection(), 10);
     });
     
-    // Hide button when clicking elsewhere
     document.addEventListener('click', (e) => {
       if (e.target !== this.button) {
         this.hideButton();
       }
     });
   },
-  
+
   handleSelection() {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
@@ -381,34 +365,30 @@ const VocabFloatingButton = {
     this.currentSelection = selectedText;
     this.showButton(selection);
   },
-  
+
   showButton(selection) {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
-    
-    // Position button near the selection
     this.button.style.left = `${rect.left + window.scrollX}px`;
     this.button.style.top = `${rect.bottom + window.scrollY + 5}px`;
-    this.button.style.display = 'block';
+    this.button.classList.add('show');
   },
-  
+
   hideButton() {
-    this.button.style.display = 'none';
+    this.button.classList.remove('show');
     this.currentSelection = null;
   },
-  
+
   handleAddWord() {
     if (this.currentSelection) {
       VocabAddModal.show(this.currentSelection);
       this.hideButton();
-      
-      // Clear selection
       window.getSelection().removeAllRanges();
     }
   }
 };
 
-// Initialize when DOM is ready
+// Initialize
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     VocabAddModal.init();
@@ -425,12 +405,10 @@ if (typeof window !== 'undefined') {
     showAddModal: (word) => VocabAddModal.show(word),
     hideAddModal: () => VocabAddModal.hide(),
     showError: (message) => {
-      // Create simple error toast
       const toast = document.createElement('div');
       toast.className = 'vocab-toast vocab-toast-error';
       toast.textContent = message;
       document.body.appendChild(toast);
-      
       setTimeout(() => toast.classList.add('vocab-toast-show'), 100);
       setTimeout(() => {
         toast.classList.remove('vocab-toast-show');
