@@ -43,17 +43,15 @@ body {
 }
 
 .review-title {
-  font-size: 24px;
-  font-weight: 700;
+  font: 700 24px inherit;
   color: white;
   margin-bottom: 4px;
   text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .review-progress {
-  font-size: 16px;
+  font: 500 16px inherit;
   color: rgba(255, 255, 255, 0.9);
-  font-weight: 500;
 }
 
 .session-stats {
@@ -81,30 +79,31 @@ body {
   width: 100%;
 }
 
-/* Meaning Card */
-.meaning-card {
+/* Cards */
+.meaning-card, .input-section, .result-section {
   background: white;
   border-radius: 20px;
   padding: 40px;
   text-align: center;
   box-shadow: 0 10px 40px rgba(5, 150, 105, 0.15), 0 4px 20px rgba(0, 0, 0, 0.1);
-  margin-bottom: 30px;
   width: 100%;
   border: 1px solid rgba(5, 150, 105, 0.1);
 }
 
+.meaning-card {
+  margin-bottom: 30px;
+}
+
 .meaning-display {
-  font-size: 36px;
-  font-weight: 600;
+  font: 600 36px inherit;
   color: #059669;
   margin-bottom: 16px;
   line-height: 1.4;
 }
 
 .example-display {
-  font-size: 18px;
+  font: italic 18px inherit;
   color: #6b7280;
-  font-style: italic;
   margin-bottom: 24px;
   line-height: 1.6;
 }
@@ -139,20 +138,8 @@ body {
   box-shadow: none;
 }
 
-/* Input Section */
-.input-section {
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  text-align: center;
-  box-shadow: 0 10px 40px rgba(5, 150, 105, 0.15), 0 4px 20px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  border: 1px solid rgba(5, 150, 105, 0.1);
-}
-
 .input-prompt {
-  font-size: 20px;
-  font-weight: 500;
+  font: 500 20px inherit;
   color: #374151;
   margin-bottom: 24px;
 }
@@ -184,15 +171,6 @@ body {
 }
 
 /* Result Section */
-.result-section {
-  background: white;
-  border-radius: 20px;
-  padding: 40px;
-  box-shadow: 0 10px 40px rgba(5, 150, 105, 0.15), 0 4px 20px rgba(0, 0, 0, 0.1);
-  width: 100%;
-  border: 1px solid rgba(5, 150, 105, 0.1);
-}
-
 .result-section.correct-answer {
   background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
   border: 3px solid #059669;
@@ -218,14 +196,12 @@ body {
 }
 
 .answer-label {
-  font-size: 16px;
-  font-weight: 500;
+  font: 500 16px inherit;
   color: #374151;
 }
 
 .user-answer, .correct-answer {
-  font-size: 18px;
-  font-weight: 600;
+  font: 600 18px inherit;
   padding: 6px 12px;
   border-radius: 6px;
 }
@@ -252,9 +228,8 @@ body {
 }
 
 .phonetic-display {
-  font-size: 16px;
+  font: inherit 16px serif;
   color: #6b7280;
-  font-family: serif;
   background: rgba(255, 255, 255, 0.8);
   padding: 8px 16px;
   border-radius: 6px;
@@ -267,8 +242,7 @@ body {
 }
 
 .quality-label {
-  font-size: 18px;
-  font-weight: 500;
+  font: 500 18px inherit;
   color: #374151;
   margin-bottom: 24px;
   text-align: center;
@@ -301,14 +275,12 @@ body {
 }
 
 .quality-number {
-  font-size: 24px;
-  font-weight: 700;
+  font: 700 24px inherit;
   margin-bottom: 4px;
 }
 
 .quality-name {
-  font-size: 14px;
-  font-weight: 500;
+  font: 500 14px inherit;
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
@@ -369,8 +341,7 @@ body {
   padding: 12px 24px;
   border: none;
   border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
+  font: 500 14px inherit;
   cursor: pointer;
   transition: all 0.2s;
   text-decoration: none;
@@ -421,12 +392,6 @@ body {
   box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
 }
 
-.btn-audio:hover {
-  background: linear-gradient(135deg, #059669 0%, #10b981 100%);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 25px rgba(5, 150, 105, 0.4);
-}
-
 .btn-icon {
   font-size: 16px;
 }
@@ -442,8 +407,7 @@ body {
 }
 
 .retype-prompt {
-  font-size: 18px;
-  font-weight: 500;
+  font: 500 18px inherit;
   color: #92400e;
   margin-bottom: 20px;
   line-height: 1.4;
@@ -513,14 +477,13 @@ body {
 }
 
 .complete-header h2 {
-  font-size: 32px;
-  font-weight: 700;
+  font: 700 32px inherit;
   color: #1a202c;
   margin-bottom: 8px;
 }
 
 .complete-header p {
-  font-size: 16px;
+  font: inherit 16px inherit;
   color: #6b7280;
 }
 
@@ -537,17 +500,15 @@ body {
 
 .stat-value {
   display: block;
-  font-size: 48px;
-  font-weight: 700;
+  font: 700 48px inherit;
   color: #059669;
   margin-bottom: 8px;
 }
 
 .stat-text {
-  font-size: 14px;
+  font: 500 14px inherit;
   color: #6b7280;
   text-transform: uppercase;
-  font-weight: 500;
   letter-spacing: 0.5px;
 }
 

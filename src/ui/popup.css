@@ -3,17 +3,11 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
-}
-
-/* Global scrollbar hiding for all elements */
-* {
-  /* Hide scrollbar for Firefox */
+  /* Global scrollbar hiding */
   scrollbar-width: none !important;
-  /* Hide scrollbar for IE 10+ */
   -ms-overflow-style: none !important;
 }
 
-/* Hide scrollbar for Chrome, Safari and Opera */
 *::-webkit-scrollbar {
   display: none !important;
 }
@@ -23,16 +17,8 @@ body {
   background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 100%);
   color: #1a202c;
   width: 400px;
-  /* min-height: 550px; */
   margin: 0;
   padding: 0;
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-body::-webkit-scrollbar {
-  display: none;
 }
 
 .popup-container {
@@ -42,14 +28,6 @@ body::-webkit-scrollbar {
   box-shadow: 0 20px 40px rgba(5, 150, 105, 0.1), 0 5px 15px rgba(0, 0, 0, 0.08);
   backdrop-filter: blur(20px);
   border: 1px solid rgba(255, 255, 255, 0.2);
-  /* Hide scrollbar for */
-  scrollbar-width: none;
-  -ms-overflow-style: none;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.popup-container::-webkit-scrollbar {
-  display: none;
 }
 
 /* Header */
@@ -173,12 +151,10 @@ body::-webkit-scrollbar {
   padding: 14px 20px;
   border: none;
   border-radius: 12px;
-  font-size: 15px;
-  font-weight: 600;
+  font: 600 15px inherit;
   cursor: pointer;
   transition: all 0.3s ease;
   text-decoration: none;
-  font-family: inherit;
   position: relative;
   overflow: hidden;
 }
@@ -234,7 +210,6 @@ body::-webkit-scrollbar {
   padding: 10px 16px;
   font-size: 13px;
   backdrop-filter: blur(10px);
-  transition: all 0.3s ease;
 }
 
 .btn-outline:hover {
@@ -517,8 +492,7 @@ body::-webkit-scrollbar {
 }
 
 .quality-label {
-  font-size: 14px;
-  font-weight: 500;
+  font: 500 14px inherit;
   color: #374151;
   margin-bottom: 16px;
 }
@@ -537,8 +511,7 @@ body::-webkit-scrollbar {
   border-radius: 8px;
   background: white;
   color: #374151;
-  font-size: 12px;
-  font-weight: 500;
+  font: 500 12px inherit;
   cursor: pointer;
   transition: all 0.2s;
   text-align: center;
@@ -571,7 +544,6 @@ body::-webkit-scrollbar {
   color: #059669;
 }
 
-/* Suggested quality button */
 .quality-btn.suggested {
   border-color: #059669;
   background: linear-gradient(135deg, #f0fdfa 0%, #dcfce7 100%);
@@ -579,13 +551,10 @@ body::-webkit-scrollbar {
   box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.1);
 }
 
-/* Multiple suggestions styling (for correct answers) */
 .quality-btn.suggested.quality-3,
 .quality-btn.suggested.quality-4,
 .quality-btn.suggested.quality-5 {
   border-color: #10b981;
-  background: linear-gradient(135deg, #f0fdfa 0%, #dcfce7 100%);
-  color: #059669;
   box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
   animation: pulse-green-small 2s infinite;
 }
@@ -778,7 +747,7 @@ body::-webkit-scrollbar {
   letter-spacing: 0.5px;
 }
 
-/* Loading and Error States */
+/* Loading States */
 .loading-state, .error-state {
   padding: 60px 20px;
   text-align: center;
@@ -799,18 +768,6 @@ body::-webkit-scrollbar {
   margin-bottom: 24px;
 }
 
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-.loading-state p {
-  color: #6b7280;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-/* Enhanced loading spinner with pulse effect */
 .spinner::after {
   content: '';
   position: absolute;
@@ -822,7 +779,6 @@ body::-webkit-scrollbar {
   animation: spin 1.5s linear infinite reverse;
 }
 
-/* Progress bar for loading */
 .loading-progress {
   width: 100%;
   max-width: 300px;
@@ -840,9 +796,42 @@ body::-webkit-scrollbar {
   animation: loading-wave 2s linear infinite;
 }
 
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
 @keyframes loading-wave {
   0% { background-position: 200% 0; }
   100% { background-position: -200% 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-8px); }
+  75% { transform: translateX(8px); }
+}
+
+.loading-state p {
+  color: #6b7280;
+  font: 500 16px inherit;
+}
+
+.error-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+}
+
+.error-state p {
+  color: #6b7280;
+  margin-bottom: 20px;
+}
+
+.empty-state {
+  padding: 40px 20px;
+  text-align: center;
+  color: #6b7280;
+  font-style: italic;
 }
 
 /* Retype Section */
@@ -850,14 +839,13 @@ body::-webkit-scrollbar {
   margin-top: 24px;
   padding: 20px;
   background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-  border-radius: 12px;
   border: 2px solid #f59e0b;
+  border-radius: 12px;
   text-align: center;
 }
 
 .retype-prompt {
-  font-size: 16px;
-  font-weight: 500;
+  font: 500 16px inherit;
   color: #92400e;
   margin-bottom: 16px;
   line-height: 1.4;
@@ -885,47 +873,10 @@ body::-webkit-scrollbar {
   transform: translateY(-1px);
 }
 
-/* Shake animation for wrong retype */
-@keyframes shake {
-  0%, 100% { 
-    transform: translateX(0); 
-  }
-  25% { 
-    transform: translateX(-8px); 
-  }
-  75% { 
-    transform: translateX(8px); 
-  }
-}
-
-.error-icon {
-  font-size: 48px;
-  margin-bottom: 16px;
-}
-
-.error-state p {
-  color: #6b7280;
-  margin-bottom: 20px;
-}
-
-.empty-state {
-  padding: 40px 20px;
-  text-align: center;
-  color: #6b7280;
-  font-style: italic;
-}
-
-/* Hide scrollbar while maintaining scroll functionality */
+/* Hide word-list scrollbar */
 .word-list {
-  /* Hide scrollbar for Firefox */
-  scrollbar-width: none;
-  /* Hide scrollbar for IE 10+ */
-  -ms-overflow-style: none;
-}
-
-/* Hide scrollbar for Chrome, Safari and Opera */
-.word-list::-webkit-scrollbar {
-  display: none;
+  max-height: 300px;
+  overflow-y: auto;
 }
 
 /* Responsive adjustments */
