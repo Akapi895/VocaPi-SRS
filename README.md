@@ -18,7 +18,7 @@
 ### 🚀 **Seamless Integration**
 
 - **One-Click Addition**: Highlight any word → Right-click → Add to dictionary
-- **Context Menu**: Quick access từ any webpage
+- **Context Menu**: Quick access from any webpage
 - **Omnibox Commands**: Type `vocab search term` in address bar
 - **Review Sessions**: Dedicated fullscreen review window
 
@@ -31,9 +31,9 @@
 
 ### ⚡ **Performance Optimized**
 
-- **Smart Caching**: LRU cache với TTL for instant lookups
+- **Smart Caching**: LRU cache with TTL for instant lookups
 - **Lazy Loading**: Efficient memory usage for large vocabularies
-- **Background Sync**: Auto-backup với exponential backoff
+- **Background Sync**: Auto-backup with exponential backoff
 - **Performance Dashboard**: Real-time metrics monitoring
 
 ---
@@ -42,11 +42,11 @@
 
 ### Installation
 
-1. Download hoặc clone repository này
-2. Mở Chrome → `chrome://extensions/`
+1. Download or clone this repository
+2. Open Chrome → `chrome://extensions/`
 3. Enable "Developer mode"
 4. Click "Load unpacked" → Select folder `vocab-srs-extension`
-5. Extension icon xuất hiện trong toolbar!
+5. Extension icon appears in toolbar!
 
 ### Basic Usage
 
@@ -91,9 +91,9 @@ useAdvanced: true;
 
 ### **Performance Optimization**
 
-- **Cache Settings**: Configurable TTL và size limits
+- **Cache Settings**: Configurable TTL and size limits
 - **Memory Management**: Automatic cleanup routines
-- **Background Sync**: Smart retry logic với exponential backoff
+- **Background Sync**: Smart retry logic with exponential backoff
 
 ### **Integration Capabilities**
 

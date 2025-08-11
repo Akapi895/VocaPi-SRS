@@ -162,8 +162,11 @@ class AnalyticsDashboard {
       // Calculate stats from vocabulary data
       const analyticsData = await window.VocabAnalytics.getAnalyticsData();
       
-      // Update stats based on vocabulary
-      analyticsData.totalWordsLearned = vocabData.length;
+      // Update stats based on vocabulary - but don't override totalWordsLearned
+      // totalWordsLearned should only be updated when words are actually reviewed
+      // Set it to number of unique words that have been reviewed (have wordDifficulty entries)
+      const reviewedUniqueWords = Object.keys(analyticsData.wordDifficulty || {}).length;
+      analyticsData.totalWordsLearned = Math.max(reviewedUniqueWords, analyticsData.totalWordsLearned || 0);
       
       // Create some realistic historical data
       const today = new Date().toISOString().split('T')[0];

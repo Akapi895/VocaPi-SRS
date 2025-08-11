@@ -30,6 +30,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "src/logger.js",
         "src/utils.js",
         "src/api.js",
         "src/advanced-srs.js",

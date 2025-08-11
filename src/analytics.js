@@ -145,16 +145,24 @@ class VocabAnalytics {
     // Calculate accuracy for this session
     if (data.currentSession.wordsReviewed > 0) {
       const sessionAccuracy = (data.currentSession.correctAnswers / data.currentSession.wordsReviewed) * 100;
-      todayStats.accuracy = Math.round((todayStats.accuracy + sessionAccuracy) / 2);
+      
+      // Calculate weighted average accuracy for today
+      const currentSessions = todayStats.sessions || 0;
+      if (currentSessions === 0) {
+        todayStats.accuracy = Math.round(sessionAccuracy);
+      } else {
+        // Weighted average: (previous_accuracy * previous_sessions + new_accuracy) / total_sessions
+        const totalWeight = currentSessions + 1;
+        todayStats.accuracy = Math.round((todayStats.accuracy * currentSessions + sessionAccuracy) / totalWeight);
+      }
     }
     
     // Update global stats
     data.totalReviewSessions += 1;
     data.totalTimeSpent += sessionDuration;
-    data.totalWordsLearned += data.currentSession.wordsReviewed;
     
     // Update streak
-    await this.updateStreak();
+    await this.updateStreak(data);
     
     // Check achievements
     await this.checkAchievements(data);
@@ -168,6 +176,9 @@ class VocabAnalytics {
   
   async recordWordReview(wordId, userAnswer, correctAnswer, quality, timeSpent) {
     const data = await this.getAnalyticsData();
+    
+    // Track if this is the first time reviewing this word
+    const isNewWord = !data.wordDifficulty[wordId];
     
     // Update current session
     if (data.currentSession) {
@@ -202,12 +213,20 @@ class VocabAnalytics {
     // Update quality distribution
     data.qualityDistribution[quality] = (data.qualityDistribution[quality] || 0) + 1;
     
+    // Only increment totalWordsLearned for new words
+    if (isNewWord) {
+      data.totalWordsLearned += 1;
+    }
+    
     // Award XP
     const xpGained = this.calculateXP(quality, timeSpent);
     data.totalXP += xpGained;
     
     await this.saveAnalyticsData(data);
-    console.log(`Analytics: Word review recorded - ${wordId}, Quality: ${quality}, XP: +${xpGained}`);
+    
+    if (window.VocabLogger) {
+      window.VocabLogger.debug(`Word review recorded - ${wordId}, Quality: ${quality}, XP: +${xpGained}, New Word: ${isNewWord}`);
+    }
   }
   
   calculateXP(quality, timeSpent) {
@@ -230,8 +249,8 @@ class VocabAnalytics {
     return xp;
   }
   
-  async updateStreak() {
-    const data = await this.getAnalyticsData();
+  async updateStreak(data) {
+    // Accept data parameter to avoid race condition
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
@@ -253,7 +272,24 @@ class VocabAnalytics {
       }
     }
     
-    await this.saveAnalyticsData(data);
+    // Don't save here - will be saved by caller to avoid multiple saves
+  }
+  
+  async checkStreakBreak() {
+    // Helper function to check if streak should be broken
+    const data = await this.getAnalyticsData();
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    
+    // If user didn't study yesterday and last study date is not today
+    if (data.lastStudyDate && data.lastStudyDate !== today && data.lastStudyDate !== yesterday) {
+      data.currentStreak = 0;
+      await this.saveAnalyticsData(data);
+      
+      if (window.VocabLogger) {
+        window.VocabLogger.info('Streak reset due to missed days');
+      }
+    }
   }
   
   async checkAchievements(data) {
@@ -278,7 +314,11 @@ class VocabAnalytics {
         id: 'words_100',
         name: 'Century Club',
         description: 'Reviewed 100 words',
-        condition: () => data.totalWordsLearned >= 100,
+        condition: () => {
+          // Use total quality distribution count instead of totalWordsLearned
+          const totalReviews = Object.values(data.qualityDistribution || {}).reduce((sum, count) => sum + count, 0);
+          return totalReviews >= 100;
+        },
         icon: '💯',
         xp: 500
       },
@@ -328,13 +368,11 @@ class VocabAnalytics {
     await this.ensureInitialized();
     const data = await this.getAnalyticsData();
     const today = new Date().toISOString().split('T')[0];
-    const todayStats = data.dailyStats[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
+    const todayStats = data.dailyStats?.[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
     
-    console.log('Raw analytics data for dashboard:', {
-      data,
-      today,
-      todayStats
-    });
+    if (window.VocabLogger) {
+      window.VocabLogger.debug('Raw analytics data for dashboard', { data, today, todayStats });
+    }
     
     const stats = {
       // Main metrics (matching UI element IDs)
@@ -360,7 +398,9 @@ class VocabAnalytics {
       qualityDistribution: data?.qualityDistribution || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
     };
     
-    console.log('Processed dashboard stats:', stats);
+    if (window.VocabLogger) {
+      window.VocabLogger.debug('Processed dashboard stats', stats);
+    }
     return stats;
   }
   

@@ -142,24 +142,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
-  if (request.action === 'openReviewWindow') {
-    // Open review window
-    chrome.windows.create({
-      url: chrome.runtime.getURL('src/ui/review.html'),
-      type: 'popup',
-      width: 1000,
-      height: 700,
-      focused: true
-    }).then((window) => {
-      sendResponse({ success: true, windowId: window.id });
-    }).catch((error) => {
-      console.error('Error opening review window:', error);
-      sendResponse({ success: false, error: error.message });
-    });
-    
-    return true; // Will respond asynchronously
-  }
-  
   // Handle any other background tasks if needed
   return false;
 });
