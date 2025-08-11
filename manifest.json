@@ -67,7 +67,10 @@
         "src/ui/addModal.css",
         "src/ui/review.html",
         "src/ui/review.css",
-        "src/ui/review.js"
+        "src/ui/review.js",
+        "src/ui/analytics.html",
+        "src/ui/analytics.css",
+        "src/ui/analytics.js"
       ],
       "matches": ["<all_urls>"]
     }
