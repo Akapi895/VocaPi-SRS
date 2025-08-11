@@ -129,25 +129,42 @@ const VocabStorage = {
         throw new Error('Word already exists in your dictionary');
       }
       
-      // Create word object with SRS data
+      // Create word object preserving all provided data
       const newWord = {
-        id: generateUUID(),
+        id: wordData.id || generateUUID(),
         word: wordData.word,
-        meaning: wordData.meaning,
+        meaning: wordData.meaning || '',
         example: wordData.example || '',
         phonetic: wordData.phonetic || '',
-        audioUrl: wordData.audioUrl || '',
-        createdAt: DateUtils.now(),
-        srs: {
+        audioUrl: wordData.audioUrl || null,
+        
+        // Preserve or create SRS data
+        srs: wordData.srs && typeof wordData.srs === 'object' ? {
+          easiness: wordData.srs.easiness || 2.5,
+          interval: wordData.srs.interval || 0,
+          repetitions: wordData.srs.repetitions || 0,
+          nextReview: wordData.srs.nextReview || DateUtils.now()
+        } : {
           easiness: 2.5,
           interval: 0,
           repetitions: 0,
           nextReview: DateUtils.now()
-        }
+        },
+        
+        // Preserve metadata
+        createdAt: wordData.createdAt || DateUtils.now(),
+        lastModified: DateUtils.now(),
+        tags: wordData.tags || [],
+        difficulty: wordData.difficulty || 'medium',
+        source: wordData.source || 'manual'
       };
+      
+      console.log('Adding word to storage:', newWord);
       
       words.push(newWord);
       await StorageManager.set(this.VOCAB_KEY, words);
+      
+      console.log('Word added successfully:', newWord.word);
       return newWord;
     } catch (error) {
       console.error('Error adding word:', error);

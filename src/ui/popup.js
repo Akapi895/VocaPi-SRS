@@ -47,6 +47,7 @@ class VocabSRSPopup {
     // Main screen buttons
     document.getElementById('start-review-btn').addEventListener('click', () => this.startReview());
     document.getElementById('view-all-words-btn').addEventListener('click', () => this.showWordList());
+    document.getElementById('view-analytics-btn').addEventListener('click', () => this.openAnalytics());
     document.getElementById('export-btn').addEventListener('click', () => this.exportVocab());
     document.getElementById('import-btn').addEventListener('click', () => this.importVocab());
     document.getElementById('import-file').addEventListener('change', (e) => this.handleFileImport(e));
@@ -121,6 +122,26 @@ class VocabSRSPopup {
     } catch (error) {
       console.error('Error starting review:', error);
       this.showError('Failed to start review');
+    }
+  }
+  
+  async openAnalytics() {
+    try {
+      // Send message to background script to open analytics window
+      chrome.runtime.sendMessage({
+        action: 'openAnalyticsWindow'
+      }, (response) => {
+        if (response && response.success) {
+          // Close the extension popup
+          window.close();
+        } else {
+          this.showError('Failed to open analytics window');
+        }
+      });
+      
+    } catch (error) {
+      console.error('Error opening analytics:', error);
+      this.showError('Failed to open analytics');
     }
   }
   
@@ -678,44 +699,141 @@ class VocabSRSPopup {
     if (!file) return;
     
     try {
+      this.showLoading('Importing vocabulary...');
+      
       const text = await file.text();
       const importData = JSON.parse(text);
       
-      if (!importData.words || !Array.isArray(importData.words)) {
-        throw new Error('Invalid file format');
+      console.log('Import data structure:', importData);
+      console.log('Sample word data:', importData.words[0]);
+      
+      // Validate file format - support multiple formats
+      let wordsArray;
+      
+      if (importData.words && Array.isArray(importData.words)) {
+        // Standard format: { words: [...] }
+        wordsArray = importData.words;
+      } else if (Array.isArray(importData)) {
+        // Direct array format: [...]
+        wordsArray = importData;
+      } else if (importData.vocabulary && Array.isArray(importData.vocabulary)) {
+        // Alternative format: { vocabulary: [...] }
+        wordsArray = importData.vocabulary;
+      } else {
+        throw new Error('Invalid file format: no words array found. Expected { words: [...] } or direct array');
       }
+      
+      if (wordsArray.length === 0) {
+        throw new Error('No words found in the file');
+      }
+      
+      console.log(`Found ${wordsArray.length} words to import`);
       
       let importedCount = 0;
       let skippedCount = 0;
+      let errorCount = 0;
       
       const existingWords = await window.VocabUtils.VocabStorage.getAllWords();
       const existingWordsSet = new Set(existingWords.map(w => w.word.toLowerCase()));
       
-      for (const word of importData.words) {
-        if (!existingWordsSet.has(word.word.toLowerCase())) {
-          try {
-            await window.VocabUtils.VocabStorage.addWord(word);
-            importedCount++;
-          } catch (error) {
-            console.warn('Failed to import word:', word.word, error);
-            skippedCount++;
+      console.log(`Processing ${wordsArray.length} words for import`);
+      
+      for (const [index, wordData] of wordsArray.entries()) {
+        try {
+          // Validate word structure
+          if (!wordData.word || typeof wordData.word !== 'string') {
+            console.warn(`Skipping invalid word at index ${index}:`, wordData);
+            errorCount++;
+            continue;
           }
-        } else {
-          skippedCount++;
+          
+          // Check for duplicates
+          if (existingWordsSet.has(wordData.word.toLowerCase())) {
+            console.log(`Skipping duplicate word: ${wordData.word}`);
+            skippedCount++;
+            continue;
+          }
+          
+          // Create complete word object with proper structure
+          const completeWord = {
+            word: wordData.word.trim(),
+            meaning: wordData.meaning || '',
+            phonetic: wordData.phonetic || '',
+            example: wordData.example || '',
+            audioUrl: wordData.audioUrl || null,
+            
+            // SRS data - use existing or create new
+            srs: wordData.srs && typeof wordData.srs === 'object' ? {
+              interval: wordData.srs.interval || 1,
+              repetitions: wordData.srs.repetitions || 0,
+              easiness: wordData.srs.easiness || 2.5,
+              nextReview: wordData.srs.nextReview || new Date().toISOString()
+            } : {
+              interval: 1,
+              repetitions: 0,
+              easiness: 2.5,
+              nextReview: new Date().toISOString()
+            },
+            
+            // Metadata
+            createdAt: wordData.createdAt || new Date().toISOString(),
+            lastModified: new Date().toISOString(),
+            tags: wordData.tags || [],
+            difficulty: wordData.difficulty || 'medium',
+            source: wordData.source || 'imported'
+          };
+          
+          console.log(`Importing word ${index + 1}/${wordsArray.length}:`, completeWord.word);
+          
+          // Add word to storage
+          await window.VocabUtils.VocabStorage.addWord(completeWord);
+          importedCount++;
+          
+          // Update progress every 10 words
+          if (importedCount % 10 === 0) {
+            this.showLoading(`Importing... ${importedCount}/${wordsArray.length} words processed`);
+          }
+          
+        } catch (error) {
+          console.error(`Failed to import word at index ${index}:`, wordData, error);
+          errorCount++;
         }
       }
       
-      alert(`Import complete!\n${importedCount} words imported\n${skippedCount} words skipped (duplicates or errors)`);
+      this.hideLoading();
       
-      // Refresh stats and word list
-      this.loadStats();
+      // Show detailed import results
+      const totalProcessed = importedCount + skippedCount + errorCount;
+      const resultMessage = [
+        'Import Results:',
+        `✅ ${importedCount} words successfully imported`,
+        `⏭️ ${skippedCount} words skipped (already exist)`,
+        `❌ ${errorCount} words failed (invalid format)`,
+        `📊 Total processed: ${totalProcessed}/${wordsArray.length}`
+      ].join('\n');
+      
+      alert(resultMessage);
+      
+      // Refresh the interface
+      await this.loadStats();
       if (document.getElementById('word-list-screen').style.display === 'block') {
-        this.showWordList();
+        await this.showWordList();
       }
       
+      console.log('Import completed successfully');
+      
     } catch (error) {
+      this.hideLoading();
       console.error('Import error:', error);
-      this.showError('Failed to import vocabulary file');
+      
+      let errorMessage = 'Failed to import vocabulary file';
+      if (error.message.includes('JSON')) {
+        errorMessage = 'Invalid JSON file format';
+      } else if (error.message.includes('words')) {
+        errorMessage = error.message;
+      }
+      
+      this.showError(errorMessage);
     } finally {
       // Reset file input
       event.target.value = '';
@@ -735,9 +853,19 @@ class VocabSRSPopup {
     this.loadStats(); // Refresh stats
   }
   
-  showLoading() {
+  showLoading(message = 'Loading...') {
     this.hideAllScreens();
     document.getElementById('loading-state').style.display = 'block';
+    
+    // Update loading message if element exists
+    const loadingMessage = document.querySelector('#loading-state p');
+    if (loadingMessage) {
+      loadingMessage.textContent = message;
+    }
+  }
+  
+  hideLoading() {
+    document.getElementById('loading-state').style.display = 'none';
   }
   
   showError(message) {

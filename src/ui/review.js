@@ -15,6 +15,12 @@ class VocabSRSReview {
   
   async init() {
     console.log('Initializing Vocab SRS Review Window');
+    
+    // Initialize analytics tracking
+    if (window.VocabAnalytics) {
+      await window.VocabAnalytics.startSession();
+    }
+    
     await this.loadReviewData();
     this.bindEvents();
   }
@@ -120,6 +126,7 @@ class VocabSRSReview {
     this.isAnswerRevealed = false;
     this.wasHintUsed = false;
     this.wasSkipped = false;
+    this.currentWordStartTime = Date.now(); // Track timing for analytics
     
     // Show Vietnamese meaning first (reverse review mode)
     document.getElementById('meaning-display').textContent = this.currentWordData.meaning;
@@ -229,7 +236,7 @@ class VocabSRSReview {
         qualityButtons.style.display = 'none';
         setTimeout(() => {
           this.submitQuality(2);
-        }, 5000);
+        }, 3000);
       } else {
         // No hint + correct = show quality buttons (3, 4, 5 only)
         qualityButtons.style.display = 'block';
@@ -259,7 +266,7 @@ class VocabSRSReview {
       // Show a "Continue" button instead of auto-advancing
       setTimeout(() => {
         this.showRetypeSection();
-      }, 5000); // 5 seconds to see the result
+      }, 3000); // 3 seconds to see the result
     }
     
     // Auto-play audio after showing answer (always play for all cases)
@@ -338,7 +345,7 @@ class VocabSRSReview {
     // Show retype section instead of auto-advancing
     setTimeout(() => {
       this.showRetypeSection();
-    }, 5000); // 5 seconds to see the result
+    }, 3000); // 3 seconds to see the result
 
     // Auto-play audio after showing answer for skipped words
     setTimeout(() => {
@@ -449,6 +456,18 @@ class VocabSRSReview {
       
       // Update stats
       this.reviewStats.reviewed++;
+      
+      // Track analytics
+      if (window.VocabAnalytics) {
+        const timeSpent = Date.now() - (this.currentWordStartTime || Date.now());
+        await window.VocabAnalytics.recordWordReview(
+          this.currentWordData.id,
+          this.userAnswer,
+          this.currentWordData.word,
+          quality,
+          timeSpent
+        );
+      }
       
       // Consider correct if user got it right AND rated quality >= 3
       const wasCorrect = this.userAnswer.toLowerCase() === this.currentWordData.word.toLowerCase();
@@ -573,6 +592,11 @@ class VocabSRSReview {
   
   closeWindow() {
     if (confirm('Are you sure you want to close the review session?')) {
+      // End analytics session
+      if (window.VocabAnalytics) {
+        window.VocabAnalytics.endSession(this.reviewStats);
+      }
+      
       window.close();
     }
   }

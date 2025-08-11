@@ -105,4 +105,15 @@ useAdvanced: true;
 
 **Made with ❤️ for language learners worldwide**
 
-[⭐ Star this repo](https://github.com/Akapi895/vocab-srs) | [🍴 Fork](https://github.com/Akapi895/vocab-srs/fork) | [📥 Download](https://github.com/Akapi895/vocab-srs/archive/main.zip)
+## 🗺️ Development Roadmap
+
+This project is actively developed with exciting features planned! Check out our [detailed roadmap](ROADMAP.md) for upcoming features:
+
+- 📊 **Analytics Dashboard** - Learning insights and progress tracking
+- 🌐 **Cloud Sync** - Multi-device synchronization via Google Drive
+- 🎮 **Gamification** - XP system, achievements, and challenges
+- 🤖 **AI Integration** - GPT-powered personalized learning
+- 📱 **Mobile PWA** - Responsive mobile experience
+- 🔗 **Platform Integrations** - Netflix, YouTube, and more
+
+[⭐ Star this repo](https://github.com/Akapi895/vocab-srs) | [🍴 Fork](https://github.com/Akapi895/vocab-srs/fork) | [📥 Download](https://github.com/Akapi895/vocab-srs/archive/main.zip) | [🗺️ View Roadmap](ROADMAP.md)

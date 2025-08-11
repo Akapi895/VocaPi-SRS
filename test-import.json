@@ -1,0 +1,51 @@
+{
+  "version": "1.0.0",
+  "exportedAt": "2025-08-11T10:54:17.885Z",
+  "words": [
+    {
+      "audioUrl": "https://api.dictionaryapi.dev/media/pronunciations/en/single-us.mp3",
+      "createdAt": "2025-08-11T10:52:46.396Z",
+      "example": "I am single and ready to mingle",
+      "id": "9a408091-a1b9-4401-8766-b97da7bb7a52",
+      "meaning": "lẻ bóng",
+      "phonetic": "/ˈsɪŋɡəl/",
+      "srs": {
+        "easiness": 2.5,
+        "interval": 0,
+        "nextReview": "2025-08-11T10:52:46.396Z",
+        "repetitions": 0
+      },
+      "word": "single"
+    },
+    {
+      "audioUrl": null,
+      "createdAt": "2025-08-11T10:53:15.123Z",
+      "example": "She has a beautiful smile",
+      "id": "8b517092-b2c9-5512-9877-c98ea8cc8b63",
+      "meaning": "nụ cười",
+      "phonetic": "/smaɪl/",
+      "srs": {
+        "easiness": 2.8,
+        "interval": 3,
+        "nextReview": "2025-08-14T10:53:15.123Z",
+        "repetitions": 2
+      },
+      "word": "smile"
+    },
+    {
+      "audioUrl": "https://api.dictionaryapi.dev/media/pronunciations/en/happy-us.mp3",
+      "createdAt": "2025-08-11T10:54:00.000Z",
+      "example": "",
+      "id": "7c426081-c3d8-6623-a988-d09fb9dd9c74",
+      "meaning": "vui vẻ, hạnh phúc",
+      "phonetic": "/ˈhæpi/",
+      "srs": {
+        "easiness": 2.5,
+        "interval": 1,
+        "nextReview": "2025-08-12T10:54:00.000Z",
+        "repetitions": 1
+      },
+      "word": "happy"
+    }
+  ]
+}

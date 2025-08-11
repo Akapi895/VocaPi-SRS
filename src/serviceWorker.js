@@ -1,7 +1,7 @@
 // Service Worker for Vocab SRS Extension
 console.log('Vocab SRS Service Worker started');
 
-// Context menu setup
+// Menu setup
 chrome.runtime.onInstalled.addListener(async () => {
   try {
     // Remove existing context menus to avoid duplicates
@@ -85,6 +85,60 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   
   if (request.action === 'ping') {
     sendResponse({ status: 'pong' });
+    return true;
+  }
+  
+  if (request.action === 'openReviewWindow') {
+    // Open review window
+    chrome.windows.create({
+      url: chrome.runtime.getURL('src/ui/review.html'),
+      type: 'popup',
+      width: 1000,
+      height: 700,
+      focused: true
+    }).then((window) => {
+      sendResponse({ success: true, windowId: window.id });
+    }).catch((error) => {
+      console.error('Error opening review window:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    return true;
+  }
+  
+  if (request.action === 'openAnalyticsWindow') {
+    // Open analytics window
+    chrome.windows.create({
+      url: chrome.runtime.getURL('src/ui/analytics.html'),
+      type: 'popup',
+      width: 1200,
+      height: 800,
+      focused: true
+    }).then((window) => {
+      sendResponse({ success: true, windowId: window.id });
+    }).catch((error) => {
+      console.error('Error opening analytics window:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
+    return true;
+  }
+  
+  if (request.action === 'openDebugWindow') {
+    // Open debug analytics window
+    chrome.windows.create({
+      url: chrome.runtime.getURL('src/ui/debug-analytics.html'),
+      type: 'popup',
+      width: 800,
+      height: 600,
+      focused: true
+    }).then((window) => {
+      sendResponse({ success: true, windowId: window.id });
+    }).catch((error) => {
+      console.error('Error opening debug window:', error);
+      sendResponse({ success: false, error: error.message });
+    });
+    
     return true;
   }
   

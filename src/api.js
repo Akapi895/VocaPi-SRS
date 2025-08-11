@@ -193,7 +193,7 @@ const AudioPlayer = {
             window.speechSynthesis.cancel();
           }
           resolve({ method: 'tts', success: true });
-        }, 5000);
+        }, 3000);
         
       } catch (error) {
         reject(new Error(`TTS setup failed: ${error.message}`));
