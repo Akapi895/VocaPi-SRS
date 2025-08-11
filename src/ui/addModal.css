@@ -51,7 +51,7 @@
   justify-content: space-between;
   padding: 24px 28px 20px;
   border-bottom: 1px solid #e1e5e9;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 100%);
   border-radius: 16px 16px 0 0;
 }
 
@@ -59,7 +59,7 @@
   margin: 0;
   font-size: 20px;
   font-weight: 600;
-  color: #2c3e50;
+  color: #064e3b;
 }
 
 .vocab-modal-close {
@@ -79,8 +79,8 @@
 }
 
 .vocab-modal-close:hover {
-  background-color: #f8f9fa;
-  color: #dc3545;
+  background-color: #f0fdfa;
+  color: #059669;
 }
 
 /* Modal Body */
@@ -97,14 +97,14 @@
   display: block;
   margin-bottom: 6px;
   font-weight: 500;
-  color: #374151;
+  color: #064e3b;
   font-size: 14px;
 }
 
 .vocab-form-group input {
   width: 100%;
   padding: 12px 16px;
-  border: 2px solid #e1e5e9;
+  border: 2px solid #d1fae5;
   border-radius: 8px;
   font-size: 16px;
   transition: border-color 0.2s, box-shadow 0.2s;
@@ -113,17 +113,17 @@
 
 .vocab-form-group input:focus {
   outline: none;
-  border-color: #4f46e5;
-  box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+  border-color: #059669;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, 0.1);
 }
 
 .vocab-form-group input:hover {
-  border-color: #a5b4fc;
+  border-color: #10b981;
 }
 
 .vocab-input-readonly {
-  background-color: #f8f9fa !important;
-  color: #6c757d;
+  background-color: #f0fdfa !important;
+  color: #6b7280;
 }
 
 /* Phonetic Group */
@@ -146,12 +146,12 @@
 
 #vocab-audio-status {
   font-size: 14px;
-  color: #6c757d;
+  color: #059669;
 }
 
 /* Buttons */
 .vocab-btn {
-  background: #4f46e5;
+  background: #059669;
   color: white;
   border: none;
   padding: 12px 20px;
@@ -166,7 +166,7 @@
 }
 
 .vocab-btn:hover {
-  background: #4338ca;
+  background: #047857;
   transform: translateY(-1px);
 }
 
@@ -177,21 +177,21 @@
 }
 
 .vocab-btn-secondary {
-  background: #6b7280;
+  background: #10b981;
 }
 
 .vocab-btn-secondary:hover {
-  background: #4b5563;
+  background: #059669;
 }
 
 .vocab-btn-audio {
-  background: #10b981;
+  background: #34d399;
   padding: 8px 12px;
   font-size: 13px;
 }
 
 .vocab-btn-audio:hover {
-  background: #059669;
+  background: #10b981;
 }
 
 /* Button Loading Spinner */
@@ -228,15 +228,15 @@
 }
 
 .vocab-status-loading {
-  background-color: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #c7d2fe;
+  background-color: #f0fdfa;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .vocab-status-success {
-  background-color: #f0fdf4;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background-color: #ecfdf5;
+  color: #047857;
+  border: 1px solid #a7f3d0;
 }
 
 .vocab-status-warning {
@@ -257,13 +257,13 @@
   display: flex;
   gap: 12px;
   justify-content: flex-end;
-  border-top: 1px solid #e1e5e9;
+  border-top: 1px solid #d1fae5;
 }
 
 /* Floating Button */
 .vocab-floating-btn {
   position: absolute;
-  background: #4f46e5;
+  background: #059669;
   color: white;
   border: none;
   padding: 8px 16px;
@@ -287,7 +287,7 @@
 }
 
 .vocab-floating-btn:hover {
-  background: #4338ca;
+  background: #047857;
   transform: translateY(-2px);
   box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
 }
@@ -317,8 +317,9 @@
 }
 
 .vocab-toast-success {
-  border-left: 4px solid #10b981;
+  border-left: 4px solid #059669;
   color: #047857;
+  background-color: #f0fdfa;
 }
 
 .vocab-toast-error {

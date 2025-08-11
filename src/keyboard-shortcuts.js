@@ -292,52 +292,196 @@ const keyboardCSS = `
   
   /* Focus indicators */
   [data-focused="true"] {
-    outline: 2px solid #4f46e5 !important;
+    outline: 2px solid #059669 !important;
     outline-offset: 2px !important;
   }
   
-  /* Keyboard shortcut help styles */
-  .shortcut-section {
-    margin-bottom: 24px;
+  /* Keyboard shortcuts modal - unique styling */
+  .keyboard-shortcuts-modal {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    background: rgba(0, 0, 0, 0.7) !important;
+    backdrop-filter: blur(8px) !important;
+    z-index: 999999 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    animation: fadeIn 0.3s ease !important;
   }
   
-  .shortcut-section h4 {
-    font-size: 16px;
-    font-weight: 600;
-    margin-bottom: 12px;
-    color: #374151;
+  @keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
   }
   
-  .shortcut-list {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
+  .keyboard-shortcuts-modal .vocab-modal {
+    background: white !important;
+    border-radius: 20px !important;
+    box-shadow: 0 25px 50px rgba(5, 150, 105, 0.2), 0 10px 25px rgba(0, 0, 0, 0.15) !important;
+    width: 90% !important;
+    max-width: 480px !important;
+    max-height: 80vh !important;
+    overflow-y: auto !important;
+    border: 2px solid rgba(5, 150, 105, 0.1) !important;
+    transform: scale(0.9) !important;
+    animation: modalScale 0.3s ease forwards !important;
+    scrollbar-width: none !important; /* Firefox */
+    -ms-overflow-style: none !important; /* Internet Explorer 10+ */
   }
   
-  .shortcut-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 8px 12px;
-    background: #f9fafb;
-    border-radius: 6px;
+  /* Hide scrollbar for webkit browsers */
+  .keyboard-shortcuts-modal .vocab-modal::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    background: transparent !important;
   }
   
-  .shortcut-item kbd {
-    background: #374151;
-    color: white;
-    padding: 4px 8px;
-    border-radius: 4px;
-    font-family: monospace;
-    font-size: 12px;
-    font-weight: 600;
-    border: 1px solid #6b7280;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+  @keyframes modalScale {
+    to { 
+      transform: scale(1); 
+    }
   }
   
-  .shortcut-item span {
-    font-size: 14px;
-    color: #6b7280;
+  .keyboard-shortcuts-modal .vocab-modal-header {
+    background: linear-gradient(135deg, #059669 0%, #10b981 100%) !important;
+    color: white !important;
+    padding: 24px 28px !important;
+    border-radius: 18px 18px 0 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    border-bottom: none !important;
+  }
+  
+  .keyboard-shortcuts-modal .vocab-modal-header h3 {
+    margin: 0 !important;
+    font-size: 20px !important;
+    font-weight: 700 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+  }
+  
+  .keyboard-shortcuts-modal .vocab-close-btn {
+    background: rgba(255, 255, 255, 0.15) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    color: white !important;
+    border-radius: 8px !important;
+    padding: 8px 12px !important;
+    font-size: 18px !important;
+    cursor: pointer !important;
+    transition: all 0.2s ease !important;
+    line-height: 1 !important;
+  }
+  
+  .keyboard-shortcuts-modal .vocab-close-btn:hover {
+    background: rgba(255, 255, 255, 0.25) !important;
+    transform: scale(1.1) !important;
+  }
+  
+  .keyboard-shortcuts-modal .vocab-modal-content {
+    padding: 28px !important;
+    background: white !important;
+  }
+  
+  /* Shortcut sections */
+  .keyboard-shortcuts-modal .shortcut-section {
+    margin-bottom: 32px !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-section:last-child {
+    margin-bottom: 0 !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-section h4 {
+    font-size: 18px !important;
+    font-weight: 700 !important;
+    margin-bottom: 16px !important;
+    color: #1f2937 !important;
+    border-bottom: 2px solid #f3f4f6 !important;
+    padding-bottom: 8px !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 12px !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-item {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    padding: 16px 20px !important;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%) !important;
+    border-radius: 12px !important;
+    border: 1px solid #e2e8f0 !important;
+    transition: all 0.2s ease !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-item:hover {
+    background: linear-gradient(135deg, #f0fdfa 0%, #ecfdf5 100%) !important;
+    border-color: #059669 !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(5, 150, 105, 0.1) !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-item kbd {
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%) !important;
+    color: white !important;
+    padding: 8px 12px !important;
+    border-radius: 8px !important;
+    font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', Consolas, 'Courier New', monospace !important;
+    font-size: 13px !important;
+    font-weight: 600 !important;
+    border: 1px solid #4b5563 !important;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1) !important;
+    text-shadow: 0 1px 1px rgba(0, 0, 0, 0.5) !important;
+    min-width: 45px !important;
+    text-align: center !important;
+  }
+  
+  .keyboard-shortcuts-modal .shortcut-item span {
+    font-size: 15px !important;
+    color: #4b5563 !important;
+    font-weight: 500 !important;
+    flex: 1 !important;
+    margin-left: 16px !important;
+  }
+  
+  /* Dark mode support for keyboard shortcuts modal */
+  @media (prefers-color-scheme: dark) {
+    .keyboard-shortcuts-modal .vocab-modal {
+      background: #1e293b !important;
+      border-color: rgba(5, 150, 105, 0.3) !important;
+    }
+    
+    .keyboard-shortcuts-modal .vocab-modal-content {
+      background: #1e293b !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-section h4 {
+      color: #f1f5f9 !important;
+      border-bottom-color: #374151 !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-item {
+      background: linear-gradient(135deg, #374151 0%, #475569 100%) !important;
+      border-color: #4b5563 !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-item:hover {
+      background: linear-gradient(135deg, #065f46 0%, #047857 100%) !important;
+      border-color: #10b981 !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-item span {
+      color: #d1d5db !important;
+    }
   }
   
   /* High contrast mode support */
@@ -346,12 +490,31 @@ const keyboardCSS = `
       outline: 3px solid #000 !important;
       background: #ffff00 !important;
     }
+    
+    .keyboard-shortcuts-modal .shortcut-item kbd {
+      background: #000 !important;
+      color: #fff !important;
+      border-color: #333 !important;
+    }
   }
   
   /* Reduced motion support */
   @media (prefers-reduced-motion: reduce) {
-    .vocab-modal {
+    .keyboard-shortcuts-modal {
       animation: none !important;
+    }
+    
+    .keyboard-shortcuts-modal .vocab-modal {
+      animation: none !important;
+      transform: scale(1) !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-item {
+      transition: none !important;
+    }
+    
+    .keyboard-shortcuts-modal .shortcut-item:hover {
+      transform: none !important;
     }
   }
 `;
