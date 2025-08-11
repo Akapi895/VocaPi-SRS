@@ -425,64 +425,6 @@ body {
   font-size: 16px;
 }
 
-/* Retype Section */
-.retype-section {
-  margin-top: 32px;
-  padding: 24px;
-  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-  border-radius: 16px;
-  border: 3px solid #f59e0b;
-  text-align: center;
-}
-
-.retype-prompt {
-  font-size: 18px;
-  font-weight: 500;
-  color: #92400e;
-  margin-bottom: 20px;
-  line-height: 1.4;
-}
-
-.retype-section .answer-input {
-  border: 3px solid #f59e0b;
-  background: white;
-  margin-bottom: 20px;
-  font-size: 18px;
-  padding: 16px 20px;
-}
-
-.retype-section .answer-input:focus {
-  border-color: #d97706;
-  box-shadow: 0 0 0 4px rgba(251, 146, 60, 0.2);
-}
-
-.retype-section .btn {
-  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-  color: white;
-  border: none;
-  padding: 16px 32px;
-  font-size: 16px;
-}
-
-.retype-section .btn:hover {
-  background: linear-gradient(135deg, #d97706 0%, #b45309 100%);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
-}
-
-/* Shake animation for wrong retype */
-@keyframes shake {
-  0%, 100% { 
-    transform: translateX(0); 
-  }
-  25% { 
-    transform: translateX(-12px); 
-  }
-  75% { 
-    transform: translateX(12px); 
-  }
-}
-
 /* Review Complete */
 .review-complete {
   background: rgba(255, 255, 255, 0.95);

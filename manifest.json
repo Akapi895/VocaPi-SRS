@@ -8,8 +8,19 @@
     "storage",
     "scripting", 
     "activeTab",
-    "contextMenus"
+    "contextMenus",
+    "notifications",
+    "background"
   ],
+  
+  "optional_permissions": [
+    "tabs",
+    "webNavigation"
+  ],
+  
+  "omnibox": {
+    "keyword": "vocab"
+  },
   
   "background": {
     "service_worker": "src/serviceWorker.js"
@@ -20,7 +31,11 @@
       "matches": ["<all_urls>"],
       "js": [
         "src/utils.js",
-        "src/api.js", 
+        "src/api.js",
+        "src/advanced-srs.js",
+        "src/performance-optimizer.js",
+        "src/integration-manager.js",
+        "src/keyboard-shortcuts.js",
         "src/ui/addModal.js",
         "src/contentScript.js"
       ],

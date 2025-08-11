@@ -90,9 +90,6 @@ class VocabSRSPopup {
     
     // Error retry
     document.getElementById('retry-btn').addEventListener('click', () => this.loadStats());
-    
-    // Help button
-    document.getElementById('help-btn').addEventListener('click', () => this.showKeyboardHelp());
   }
   
   async startReview() {
@@ -719,13 +716,6 @@ class VocabSRSPopup {
     } finally {
       // Reset file input
       event.target.value = '';
-    }
-  }
-  
-  showKeyboardHelp() {
-    // Use static method to avoid creating multiple instances
-    if (window.VocabKeyboardHandler) {
-      window.VocabKeyboardHandler.showHelp();
     }
   }
   

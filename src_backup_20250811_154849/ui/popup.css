@@ -26,27 +26,6 @@ body {
   color: white;
   padding: 20px;
   text-align: center;
-  position: relative;
-}
-
-.help-button {
-  position: absolute;
-  top: 20px;
-  right: 20px;
-  background: rgba(255, 255, 255, 0.2);
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  color: white;
-  border-radius: 8px;
-  padding: 8px 12px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  backdrop-filter: blur(5px);
-}
-
-.help-button:hover {
-  background: rgba(255, 255, 255, 0.3);
-  transform: translateY(-1px);
 }
 
 .popup-title {
@@ -699,7 +678,7 @@ body {
 
 /* Loading and Error States */
 .loading-state, .error-state {
-  padding: 60px 20px;
+  padding: 40px 20px;
   text-align: center;
   min-height: 400px;
   display: flex;
@@ -709,13 +688,13 @@ body {
 }
 
 .spinner {
-  width: 48px;
-  height: 48px;
-  border: 4px solid #f3f4f6;
-  border-top: 4px solid #4f46e5;
+  width: 32px;
+  height: 32px;
+  border: 3px solid #e5e7eb;
+  border-top: 3px solid #4f46e5;
   border-radius: 50%;
   animation: spin 1s linear infinite;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 @keyframes spin {
@@ -723,98 +702,10 @@ body {
   100% { transform: rotate(360deg); }
 }
 
-.loading-state p {
-  color: #6b7280;
-  font-size: 16px;
-  font-weight: 500;
-}
-
-/* Enhanced loading spinner with pulse effect */
-.spinner::after {
-  content: '';
-  position: absolute;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  border: 4px solid transparent;
-  border-top: 4px solid rgba(79, 70, 229, 0.3);
-  animation: spin 1.5s linear infinite reverse;
-}
-
-/* Progress bar for loading */
-.loading-progress {
-  width: 100%;
-  max-width: 300px;
-  height: 6px;
-  background: #f3f4f6;
-  border-radius: 3px;
-  overflow: hidden;
-  margin: 20px 0;
-}
-
-.loading-progress-bar {
-  height: 100%;
-  background: linear-gradient(90deg, #4f46e5, #7c3aed, #4f46e5);
-  background-size: 200% 100%;
-  animation: loading-wave 2s linear infinite;
-}
-
-@keyframes loading-wave {
-  0% { background-position: 200% 0; }
-  100% { background-position: -200% 0; }
-}
-
-/* Retype Section */
-.retype-section {
-  margin-top: 24px;
-  padding: 20px;
-  background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
-  border-radius: 12px;
-  border: 2px solid #f59e0b;
-  text-align: center;
-}
-
-.retype-prompt {
-  font-size: 16px;
-  font-weight: 500;
-  color: #92400e;
-  margin-bottom: 16px;
-  line-height: 1.4;
-}
-
-.retype-section .answer-input {
-  border: 2px solid #f59e0b;
-  background: white;
-  margin-bottom: 16px;
-}
-
-.retype-section .answer-input:focus {
-  border-color: #d97706;
-  box-shadow: 0 0 0 3px rgba(251, 146, 60, 0.1);
-}
-
-.retype-section .btn {
-  background: #f59e0b;
-  color: white;
-  border: none;
-}
-
-.retype-section .btn:hover {
-  background: #d97706;
-  transform: translateY(-1px);
-}
-
-/* Shake animation for wrong retype */
 @keyframes shake {
-  0%, 100% { 
-    transform: translateX(0); 
-  }
-  25% { 
-    transform: translateX(-8px); 
-  }
-  75% { 
-    transform: translateX(8px); 
-  }
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-5px); }
+  75% { transform: translateX(5px); }
 }
 
 .error-icon {

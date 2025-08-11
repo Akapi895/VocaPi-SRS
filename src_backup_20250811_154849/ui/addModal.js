@@ -282,7 +282,7 @@ const VocabAddModal = {
       // Close modal after short delay
       setTimeout(() => {
         this.hide();
-        this.showToast(`"New word added to your dictionary!`);
+        this.showToast(`New word added to your dictionary!`);
       }, 1000);
       
     } catch (error) {

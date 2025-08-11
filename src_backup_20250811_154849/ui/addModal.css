@@ -18,21 +18,19 @@
 /* Modal Container */
 .vocab-modal {
   background: white;
-  border-radius: 16px;
-  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   width: 90%;
-  max-width: 520px;
+  max-width: 500px;
   max-height: 90vh;
   overflow-y: auto;
-  animation: vocab-modal-appear 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-  backdrop-filter: blur(10px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  animation: vocab-modal-appear 0.3s ease-out;
 }
 
 @keyframes vocab-modal-appear {
   from {
     opacity: 0;
-    transform: scale(0.8) translateY(-30px);
+    transform: scale(0.9) translateY(-20px);
   }
   to {
     opacity: 1;
@@ -45,10 +43,8 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 24px 28px 20px;
+  padding: 20px 24px 16px;
   border-bottom: 1px solid #e1e5e9;
-  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-  border-radius: 16px 16px 0 0;
 }
 
 .vocab-modal-header h3 {

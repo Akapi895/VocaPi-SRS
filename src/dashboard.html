@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab SRS - Performance Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        
+        .dashboard {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .card h2 {
+            margin-top: 0;
+            color: #333;
+            border-bottom: 2px solid #007acc;
+            padding-bottom: 10px;
+        }
+        
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .metric:last-child {
+            border-bottom: none;
+        }
+        
+        .metric-value {
+            font-weight: bold;
+            color: #007acc;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 10px 0;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(45deg, #007acc, #00a8ff);
+            transition: width 0.3s ease;
+        }
+        
+        .chart-container {
+            height: 200px;
+            margin: 20px 0;
+            background: #f9f9f9;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        
+        .status-good { background: #4CAF50; }
+        .status-warning { background: #FF9800; }
+        .status-error { background: #f44336; }
+        
+        .integration-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .integration-item {
+            display: flex;
+            align-items: center;
+            padding: 8px 0;
+        }
+        
+        .refresh-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        
+        .refresh-btn:hover {
+            background: #0056b3;
+        }
+    </style>
+</head>
+<body>
+    <div class="dashboard">
+        <!-- Performance Metrics -->
+        <div class="card">
+            <h2>🚀 Performance Metrics</h2>
+            <div class="metric">
+                <span>Cache Hit Rate</span>
+                <span class="metric-value" id="cache-hit-rate">--</span>
+            </div>
+            <div class="metric">
+                <span>Average Response Time</span>
+                <span class="metric-value" id="avg-response-time">--</span>
+            </div>
+            <div class="metric">
+                <span>Memory Usage</span>
+                <span class="metric-value" id="memory-usage">--</span>
+            </div>
+            <div class="metric">
+                <span>API Calls</span>
+                <span class="metric-value" id="api-calls">--</span>
+            </div>
+            <button class="refresh-btn" onclick="refreshMetrics()">Refresh</button>
+        </div>
+
+        <!-- SRS Algorithm Stats -->
+        <div class="card">
+            <h2>🧠 SRS Algorithm</h2>
+            <div class="metric">
+                <span>Algorithm Type</span>
+                <span class="metric-value" id="srs-type">Advanced SM-2+</span>
+            </div>
+            <div class="metric">
+                <span>Total Reviews Today</span>
+                <span class="metric-value" id="reviews-today">--</span>
+            </div>
+            <div class="metric">
+                <span>Retention Rate</span>
+                <span class="metric-value" id="retention-rate">--</span>
+            </div>
+            <div class="metric">
+                <span>Adaptive Factor</span>
+                <span class="metric-value" id="adaptive-factor">--</span>
+            </div>
+        </div>
+
+        <!-- Integration Status -->
+        <div class="card">
+            <h2>🔧 Integrations</h2>
+            <ul class="integration-list" id="integration-list">
+                <li class="integration-item">
+                    <span class="status-indicator status-good"></span>
+                    Context Menu: Active
+                </li>
+                <li class="integration-item">
+                    <span class="status-indicator status-good"></span>
+                    Omnibox: Active
+                </li>
+                <li class="integration-item">
+                    <span class="status-indicator status-warning"></span>
+                    Cloud Sync: Pending
+                </li>
+                <li class="integration-item">
+                    <span class="status-indicator status-error"></span>
+                    Netflix: Disabled
+                </li>
+            </ul>
+        </div>
+
+        <!-- Learning Insights -->
+        <div class="card">
+            <h2>📊 Learning Insights</h2>
+            <div class="metric">
+                <span>Best Learning Time</span>
+                <span class="metric-value" id="best-time">9:00 AM</span>
+            </div>
+            <div class="metric">
+                <span>Current Streak</span>
+                <span class="metric-value" id="current-streak">--</span>
+            </div>
+            <div class="metric">
+                <span>Words This Week</span>
+                <span class="metric-value" id="words-week">--</span>
+            </div>
+            <div class="chart-container" id="learning-chart">
+                Learning pattern chart will be displayed here
+            </div>
+        </div>
+
+        <!-- Cache Status -->
+        <div class="card">
+            <h2>💾 Cache Status</h2>
+            <div class="metric">
+                <span>Cache Size</span>
+                <span class="metric-value" id="cache-size">--</span>
+            </div>
+            <div class="metric">
+                <span>Cache Hits</span>
+                <span class="metric-value" id="cache-hits">--</span>
+            </div>
+            <div class="metric">
+                <span>Cache Misses</span>
+                <span class="metric-value" id="cache-misses">--</span>
+            </div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="cache-efficiency" style="width: 0%"></div>
+            </div>
+            <button class="refresh-btn" onclick="clearCache()">Clear Cache</button>
+        </div>
+
+        <!-- System Health -->
+        <div class="card">
+            <h2>🏥 System Health</h2>
+            <div class="metric">
+                <span>Extension Status</span>
+                <span class="metric-value">
+                    <span class="status-indicator status-good"></span>
+                    Healthy
+                </span>
+            </div>
+            <div class="metric">
+                <span>Database Status</span>
+                <span class="metric-value" id="db-status">--</span>
+            </div>
+            <div class="metric">
+                <span>Last Backup</span>
+                <span class="metric-value" id="last-backup">--</span>
+            </div>
+            <div class="metric">
+                <span>Error Rate</span>
+                <span class="metric-value" id="error-rate">--</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Dashboard JavaScript
+        class PerformanceDashboard {
+            constructor() {
+                this.init();
+            }
+
+            async init() {
+                await this.loadMetrics();
+                this.setupAutoRefresh();
+            }
+
+            async loadMetrics() {
+                try {
+                    // Load performance metrics
+                    if (window.performanceOptimizer) {
+                        const metrics = window.performanceOptimizer.getMetrics();
+                        this.updatePerformanceMetrics(metrics);
+                    }
+
+                    // Load SRS stats
+                    await this.loadSRSStats();
+
+                    // Load learning insights
+                    await this.loadLearningInsights();
+
+                } catch (error) {
+                    console.error('Error loading dashboard metrics:', error);
+                }
+            }
+
+            updatePerformanceMetrics(metrics) {
+                document.getElementById('cache-hit-rate').textContent = 
+                    `${metrics.cacheHitRate.toFixed(1)}%`;
+                document.getElementById('avg-response-time').textContent = 
+                    `${metrics.avgResponseTime.toFixed(0)}ms`;
+                document.getElementById('memory-usage').textContent = 
+                    `${(metrics.memoryUsage / 1024 / 1024).toFixed(1)}MB`;
+                document.getElementById('api-calls').textContent = metrics.apiCalls;
+                
+                document.getElementById('cache-size').textContent = metrics.cacheSize;
+                document.getElementById('cache-hits').textContent = metrics.cacheHits;
+                document.getElementById('cache-misses').textContent = metrics.cacheMisses;
+                
+                // Update cache efficiency bar
+                const efficiency = metrics.cacheHitRate;
+                document.getElementById('cache-efficiency').style.width = `${efficiency}%`;
+            }
+
+            async loadSRSStats() {
+                try {
+                    const stats = await window.VocabUtils.VocabStorage.getStats();
+                    document.getElementById('reviews-today').textContent = stats.reviewsToday || 0;
+                    document.getElementById('retention-rate').textContent = `${stats.retentionRate || 85}%`;
+                    document.getElementById('adaptive-factor').textContent = (stats.adaptiveFactor || 1.0).toFixed(2);
+                } catch (error) {
+                    console.error('Error loading SRS stats:', error);
+                }
+            }
+
+            async loadLearningInsights() {
+                try {
+                    const insights = await window.VocabUtils.VocabStorage.getLearningInsights();
+                    document.getElementById('current-streak').textContent = `${insights.streak || 0} days`;
+                    document.getElementById('words-week').textContent = insights.wordsThisWeek || 0;
+                } catch (error) {
+                    console.error('Error loading learning insights:', error);
+                }
+            }
+
+            setupAutoRefresh() {
+                // Refresh metrics every 30 seconds
+                setInterval(() => {
+                    this.loadMetrics();
+                }, 30000);
+            }
+        }
+
+        // Global functions
+        function refreshMetrics() {
+            dashboard.loadMetrics();
+        }
+
+        function clearCache() {
+            if (window.performanceOptimizer) {
+                window.performanceOptimizer.cache.clear();
+                alert('Cache cleared successfully!');
+                refreshMetrics();
+            }
+        }
+
+        // Initialize dashboard
+        let dashboard;
+        document.addEventListener('DOMContentLoaded', () => {
+            dashboard = new PerformanceDashboard();
+        });
+    </script>
+</body>
+</html>

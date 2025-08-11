@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab SRS - Options</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="options-container">
+        <header class="options-header">
+            <h1>📚 Vocab SRS Options</h1>
+            <p>Manage your vocabulary learning settings and data</p>
+        </header>
+        
+        <main class="options-content">
+            <!-- Statistics Section -->
+            <section class="options-section">
+                <h2>📊 Statistics</h2>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <span class="stat-label">Total Words:</span>
+                        <span class="stat-value" id="total-words">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Words Due:</span>
+                        <span class="stat-value" id="due-words">0</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-label">Storage Used:</span>
+                        <span class="stat-value" id="storage-used">0 KB</span>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- Data Management Section -->
+            <section class="options-section">
+                <h2>💾 Data Management</h2>
+                
+                <div class="option-group">
+                    <h3>Export Data</h3>
+                    <p>Download your vocabulary data as a JSON file for backup or transfer.</p>
+                    <button id="export-data-btn" class="btn btn-primary">
+                        📤 Export Vocabulary Data
+                    </button>
+                </div>
+                
+                <div class="option-group">
+                    <h3>Import Data</h3>
+                    <p>Upload a previously exported JSON file to restore your vocabulary.</p>
+                    <div class="import-controls">
+                        <input type="file" id="import-file" accept=".json" style="display: none;">
+                        <button id="import-data-btn" class="btn btn-secondary">
+                            📥 Import Vocabulary Data
+                        </button>
+                        <div id="import-status" class="status-message"></div>
+                    </div>
+                </div>
+                
+                <div class="option-group danger-zone">
+                    <h3>⚠️ Danger Zone</h3>
+                    <p>Permanently delete all your vocabulary data. This action cannot be undone!</p>
+                    <button id="clear-data-btn" class="btn btn-danger">
+                        🗑️ Clear All Data
+                    </button>
+                </div>
+            </section>
+            
+            <!-- Settings Section -->
+            <section class="options-section">
+                <h2>⚙️ Settings</h2>
+                
+                <div class="option-group">
+                    <h3>Review Settings</h3>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="auto-play-audio">
+                        <span class="checkmark"></span>
+                        Auto-play audio when revealing answers
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="show-context-menu" checked>
+                        <span class="checkmark"></span>
+                        Show "Add to Dictionary" in context menu (right-click)
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="show-floating-button" checked>
+                        <span class="checkmark"></span>
+                        Show floating "Add to Dictionary" button on text selection
+                    </label>
+                </div>
+                
+                <div class="option-group">
+                    <h3>Storage Preference</h3>
+                    <label class="radio-label">
+                        <input type="radio" name="storage-type" value="sync" checked>
+                        <span class="radio-checkmark"></span>
+                        <span class="radio-text">
+                            <strong>Sync Storage</strong> (Recommended)
+                            <br><small>Syncs across devices, limited to ~100KB</small>
+                        </span>
+                    </label>
+                    
+                    <label class="radio-label">
+                        <input type="radio" name="storage-type" value="local">
+                        <span class="radio-checkmark"></span>
+                        <span class="radio-text">
+                            <strong>Local Storage</strong>
+                            <br><small>Device only, unlimited space</small>
+                        </span>
+                    </label>
+                </div>
+            </section>
+            
+            <!-- About Section -->
+            <section class="options-section">
+                <h2>ℹ️ About</h2>
+                <div class="about-content">
+                    <h3>Vocab SRS - Spaced Repetition Vocabulary Learning</h3>
+                    <p><strong>Version:</strong> 1.0.0</p>
+                    <p><strong>Algorithm:</strong> SM-2 (SuperMemo 2)</p>
+                    <p><strong>Dictionary API:</strong> dictionaryapi.dev (Free)</p>
+                    
+                    <h4>How it works:</h4>
+                    <ul>
+                        <li>Highlight any English word on any webpage</li>
+                        <li>Click "Add to Dictionary" to save it with meaning</li>
+                        <li>Use the extension popup to review due words</li>
+                        <li>Rate your knowledge (0-5) to optimize review intervals</li>
+                    </ul>
+                    
+                    <h4>Privacy:</h4>
+                    <ul>
+                        <li>No user data is sent to external servers (except dictionary lookups)</li>
+                        <li>Only the selected word is sent to dictionary API</li>
+                        <li>All vocabulary data is stored locally in your browser</li>
+                        <li>No tracking, analytics, or user identification</li>
+                    </ul>
+                </div>
+            </section>
+        </main>
+        
+        <!-- Status Messages -->
+        <div id="toast-container"></div>
+    </div>
+    
+    <script src="utils.js"></script>
+    <script src="api.js"></script>
+    <script src="options.js"></script>
+</body>
+</html>
