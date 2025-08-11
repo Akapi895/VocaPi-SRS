@@ -340,6 +340,9 @@ class VocabAnalytics {
       }
     }
     
+    // Update streak after recording the word review
+    await this.updateStreak(data);
+    
     await this.saveAnalyticsData(data);
     
     // Notify UI components that data has changed
