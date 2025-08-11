@@ -5,11 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Vocab SRS - Analytics Dashboard</title>
     <link rel="stylesheet" href="analytics.css">
+    <link rel="stylesheet" href="gamification.css">
     <!-- Chart.js Optional - fallback available if not loaded -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js" onerror="console.log('Chart.js not loaded from CDN, using fallback charts')"></script>
 </head>
 <body>
     <div class="analytics-container">
+        <!-- Gamification Section -->
+        <div id="gamification-dashboard">
+            <!-- Gamification content will be rendered here -->
+        </div>
+
         <!-- Header -->
         <div class="analytics-header">
             <div class="header-left">
@@ -24,9 +30,6 @@
             <div class="header-right">
                 <button id="refresh-analytics" class="btn btn-outline">
                     <span class="btn-icon">🔄</span> Refresh
-                </button>
-                <button id="create-sample-data" class="btn btn-outline">
-                    <span class="btn-icon">🎲</span> Sample Data
                 </button>
             </div>
         </div>
@@ -165,7 +168,61 @@
     </div>
 
     <script src="../utils.js"></script>
+    <script>
+        // Mock Chrome storage for testing in browser
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                storage: {
+                    local: {
+                        get: function(keys, callback) {
+                            setTimeout(() => {
+                                try {
+                                    if (typeof keys === 'string') {
+                                        const value = localStorage.getItem(keys);
+                                        callback({ [keys]: value ? JSON.parse(value) : null });
+                                    } else if (Array.isArray(keys)) {
+                                        const result = {};
+                                        keys.forEach(key => {
+                                            const value = localStorage.getItem(key);
+                                            result[key] = value ? JSON.parse(value) : null;
+                                        });
+                                        callback(result);
+                                    } else {
+                                        const result = {};
+                                        for (const key of Object.keys(keys)) {
+                                            const value = localStorage.getItem(key);
+                                            result[key] = value ? JSON.parse(value) : keys[key];
+                                        }
+                                        callback(result);
+                                    }
+                                } catch (error) {
+                                    console.error('Mock chrome storage error:', error);
+                                    callback({});
+                                }
+                            }, 10);
+                        },
+                        set: function(items, callback) {
+                            setTimeout(() => {
+                                try {
+                                    for (const [key, value] of Object.entries(items)) {
+                                        localStorage.setItem(key, JSON.stringify(value));
+                                    }
+                                    if (callback) callback();
+                                } catch (error) {
+                                    console.error('Mock chrome storage set error:', error);
+                                    if (callback) callback();
+                                }
+                            }, 10);
+                        }
+                    }
+                }
+            };
+            console.log('📦 Mock Chrome storage initialized for Analytics');
+        }
+    </script>
     <script src="../analytics.js"></script>
+    <script src="../gamification.js"></script>
+    <script src="gamificationUI.js"></script>
     <script src="analytics.js"></script>
     <script>
         // Comprehensive initialization check

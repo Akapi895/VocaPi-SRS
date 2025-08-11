@@ -4,6 +4,18 @@ class VocabAnalytics {
     this.storageKey = 'vocabAnalytics';
     // Don't call init() in constructor to avoid async issues
     this.initPromise = null;
+    
+    // Initialize gamification system
+    this.gamification = null;
+    this.initGamification();
+  }
+  
+  async initGamification() {
+    if (typeof window !== 'undefined' && window.VocabGamification) {
+      this.gamification = new window.VocabGamification();
+      this.gamification.analytics = this; // Set reference
+      await this.gamification.initializeGamification();
+    }
   }
   
   async ensureInitialized() {
@@ -14,8 +26,11 @@ class VocabAnalytics {
   }
   
   async init() {
-    console.log('Initializing Vocab Analytics System');
+    if (window.VocabLogger) {
+      window.VocabLogger.info('Initializing Vocab Analytics System with Gamification');
+    }
     await this.initializeStorage();
+    await this.initGamification();
   }
   
   async initializeStorage() {
@@ -116,8 +131,19 @@ class VocabAnalytics {
       qualityRatings: []
     };
     
+    // Track study time for patterns analysis
+    if (!data.studyTimes) {
+      data.studyTimes = [];
+    }
+    data.studyTimes.push(sessionStart);
+    
+    // Keep only last 50 study sessions for pattern analysis
+    if (data.studyTimes.length > 50) {
+      data.studyTimes = data.studyTimes.slice(-50);
+    }
+    
     await this.saveAnalyticsData(data);
-    console.log('Analytics: Study session started');
+    console.log('Analytics: Study session started at', new Date(sessionStart).toLocaleString());
     return sessionStart;
   }
   
@@ -138,22 +164,27 @@ class VocabAnalytics {
     }
     
     const todayStats = data.dailyStats[today];
-    todayStats.wordsReviewed += data.currentSession.wordsReviewed;
+    const wordsReviewedThisSession = data.currentSession.wordsReviewed || 0;
+    todayStats.wordsReviewed += wordsReviewedThisSession;
     todayStats.timeSpent += sessionDuration;
     todayStats.sessions += 1;
     
     // Calculate accuracy for this session
-    if (data.currentSession.wordsReviewed > 0) {
-      const sessionAccuracy = (data.currentSession.correctAnswers / data.currentSession.wordsReviewed) * 100;
+    if (wordsReviewedThisSession > 0) {
+      const sessionAccuracy = (data.currentSession.correctAnswers / wordsReviewedThisSession) * 100;
       
       // Calculate weighted average accuracy for today
-      const currentSessions = todayStats.sessions || 0;
-      if (currentSessions === 0) {
+      const totalWordsToday = todayStats.wordsReviewed;
+      const previousWords = totalWordsToday - wordsReviewedThisSession;
+      
+      if (previousWords === 0) {
         todayStats.accuracy = Math.round(sessionAccuracy);
       } else {
-        // Weighted average: (previous_accuracy * previous_sessions + new_accuracy) / total_sessions
-        const totalWeight = currentSessions + 1;
-        todayStats.accuracy = Math.round((todayStats.accuracy * currentSessions + sessionAccuracy) / totalWeight);
+        // Weighted average based on word count
+        const previousAccuracy = todayStats.accuracy || 0;
+        todayStats.accuracy = Math.round(
+          (previousAccuracy * previousWords + sessionAccuracy * wordsReviewedThisSession) / totalWordsToday
+        );
       }
     }
     
@@ -161,17 +192,41 @@ class VocabAnalytics {
     data.totalReviewSessions += 1;
     data.totalTimeSpent += sessionDuration;
     
-    // Update streak
+    // Update streak (will only update if requirements are met)
     await this.updateStreak(data);
     
     // Check achievements
     await this.checkAchievements(data);
     
+    // Update gamification challenges
+    if (this.gamification) {
+      await this.gamification.updateChallengeProgress('time_spent', sessionDuration);
+      if (todayStats.accuracy === 100) {
+        await this.gamification.updateChallengeProgress('accuracy', 100);
+      }
+      
+      // Check for streak milestone challenges
+      if (data.currentStreak >= 7) {
+        await this.gamification.updateChallengeProgress('streak_week', data.currentStreak);
+      }
+    }
+    
+    // Session summary for logging
+    const sessionSummary = {
+      wordsReviewed: wordsReviewedThisSession,
+      duration: sessionDuration,
+      accuracy: wordsReviewedThisSession > 0 ? (data.currentSession.correctAnswers / wordsReviewedThisSession * 100) : 0,
+      todayTotal: todayStats.wordsReviewed,
+      currentStreak: data.currentStreak
+    };
+    
     // Clean up session
     delete data.currentSession;
     
     await this.saveAnalyticsData(data);
-    console.log(`Analytics: Session ended - ${sessionDuration}min, ${data.currentSession?.wordsReviewed || 0} words`);
+    console.log(`📊 Session ended:`, sessionSummary);
+    
+    return sessionSummary;
   }
   
   async recordWordReview(wordId, userAnswer, correctAnswer, quality, timeSpent) {
@@ -218,11 +273,32 @@ class VocabAnalytics {
       data.totalWordsLearned += 1;
     }
     
-    // Award XP
-    const xpGained = this.calculateXP(quality, timeSpent);
+    // Award XP with gamification system
+    let xpGained = this.calculateXP(quality, timeSpent);
     data.totalXP += xpGained;
     
+    // Enhanced XP with gamification bonuses
+    if (this.gamification) {
+      const context = {
+        perfectAnswer: quality === 5,
+        fastAnswer: timeSpent < 3000,
+        difficultWord: wordStats.avgQuality < 3,
+        firstTime: isNewWord
+      };
+      
+      const bonusXP = await this.gamification.awardXP(xpGained, context);
+      if (bonusXP > xpGained) {
+        data.totalXP += (bonusXP - xpGained); // Add bonus difference
+      }
+      
+      // Update challenge progress
+      await this.gamification.updateChallengeProgress('review_count', 1);
+    }
+    
     await this.saveAnalyticsData(data);
+    
+    // Notify UI components that data has changed
+    this.notifyDataUpdated();
     
     if (window.VocabLogger) {
       window.VocabLogger.debug(`Word review recorded - ${wordId}, Quality: ${quality}, XP: +${xpGained}, New Word: ${isNewWord}`);
@@ -254,22 +330,41 @@ class VocabAnalytics {
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    // Check if user studied today
-    if (data.dailyStats[today] && data.dailyStats[today].wordsReviewed > 0) {
-      if (data.lastStudyDate === yesterday) {
-        // Continuing streak
-        data.currentStreak += 1;
-      } else if (data.lastStudyDate !== today) {
-        // New streak or broken streak
-        data.currentStreak = 1;
+    // Constants for streak requirements
+    const MIN_WORDS_FOR_STREAK = 5;
+    const MIN_ACCURACY_FOR_STREAK = 60; // Optional: minimum accuracy requirement
+    
+    // Check if user studied enough today to maintain/increase streak
+    const todayStats = data.dailyStats[today];
+    const qualifiesForStreak = todayStats && 
+                              todayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK &&
+                              (todayStats.accuracy >= MIN_ACCURACY_FOR_STREAK || todayStats.accuracy === 0); // Allow 0 for new users
+    
+    if (qualifiesForStreak) {
+      // Only update streak if it hasn't been updated today already
+      if (data.lastStudyDate !== today) {
+        if (data.lastStudyDate === yesterday) {
+          // Continuing streak - user studied yesterday and qualifies today
+          data.currentStreak += 1;
+        } else {
+          // Starting new streak - either first time or streak was broken
+          data.currentStreak = 1;
+        }
+        
+        data.lastStudyDate = today;
+        
+        // Update longest streak
+        if (data.currentStreak > data.longestStreak) {
+          data.longestStreak = data.currentStreak;
+        }
+        
+        console.log(`📅 Streak updated: ${data.currentStreak} days (reviewed ${todayStats.wordsReviewed} words)`);
+      } else {
+        console.log(`📅 Streak already updated today: ${data.currentStreak} days`);
       }
-      
-      data.lastStudyDate = today;
-      
-      // Update longest streak
-      if (data.currentStreak > data.longestStreak) {
-        data.longestStreak = data.currentStreak;
-      }
+    } else if (todayStats && todayStats.wordsReviewed > 0) {
+      // User studied but didn't meet minimum requirements
+      console.log(`📅 Studied ${todayStats.wordsReviewed} words today but need ${MIN_WORDS_FOR_STREAK} minimum for streak`);
     }
     
     // Don't save here - will be saved by caller to avoid multiple saves
@@ -280,20 +375,93 @@ class VocabAnalytics {
     const data = await this.getAnalyticsData();
     const today = new Date().toISOString().split('T')[0];
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
-    // If user didn't study yesterday and last study date is not today
-    if (data.lastStudyDate && data.lastStudyDate !== today && data.lastStudyDate !== yesterday) {
-      data.currentStreak = 0;
-      await this.saveAnalyticsData(data);
+    const MIN_WORDS_FOR_STREAK = 5;
+    
+    // If user has a streak but didn't study yesterday (and it's past the day)
+    if (data.currentStreak > 0 && data.lastStudyDate !== today) {
+      const yesterdayStats = data.dailyStats[yesterday];
       
-      if (window.VocabLogger) {
-        window.VocabLogger.info('Streak reset due to missed days');
+      // Check if yesterday's activity qualifies for streak
+      const yesterdayQualifies = yesterdayStats && 
+                                yesterdayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK;
+      
+      // If last study date is older than yesterday, or yesterday didn't qualify, break streak
+      if (data.lastStudyDate !== yesterday || !yesterdayQualifies) {
+        const oldStreak = data.currentStreak;
+        data.currentStreak = 0;
+        await this.saveAnalyticsData(data);
+        
+        console.log(`💔 Streak broken! Was ${oldStreak} days. Last qualifying study: ${data.lastStudyDate}`);
+        
+        // Show streak break notification
+        this.showStreakBreakNotification(oldStreak);
+        return true;
       }
+    }
+    
+    return false;
+  }
+  
+  showStreakBreakNotification(oldStreak) {
+    // Show streak break notification
+    if (typeof chrome !== 'undefined' && chrome.notifications && oldStreak >= 3) {
+      chrome.notifications.create({
+        type: 'basic',
+        iconUrl: 'assets/icon48.png',
+        title: '💔 Streak Broken!',
+        message: `Your ${oldStreak}-day streak ended. Start a new one by reviewing 5+ words today!`,
+        priority: 1
+      });
     }
   }
   
+  // Utility function to get today's progress towards streak requirement
+  async getTodayStreakProgress() {
+    const data = await this.getAnalyticsData();
+    const today = new Date().toISOString().split('T')[0];
+    const todayStats = data.dailyStats[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
+    
+    const MIN_WORDS_FOR_STREAK = 5;
+    const progress = Math.min(todayStats.wordsReviewed, MIN_WORDS_FOR_STREAK);
+    const percentage = Math.round((progress / MIN_WORDS_FOR_STREAK) * 100);
+    
+    return {
+      wordsReviewed: todayStats.wordsReviewed,
+      wordsNeeded: Math.max(0, MIN_WORDS_FOR_STREAK - todayStats.wordsReviewed),
+      percentage: percentage,
+      qualifiesForStreak: todayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK,
+      currentStreak: data.currentStreak,
+      canIncreaseStreak: todayStats.wordsReviewed >= MIN_WORDS_FOR_STREAK && data.lastStudyDate !== today
+    };
+  }
+  
   async checkAchievements(data) {
-    const achievements = [
+    // Use gamification system if available, otherwise fall back to basic achievements
+    if (this.gamification) {
+      try {
+        const newAchievements = await this.gamification.checkAchievements(data);
+        
+        if (newAchievements.length > 0) {
+          // Update analytics achievements array for backward compatibility
+          data.achievements = data.achievements || [];
+          newAchievements.forEach(achievement => {
+            if (!data.achievements.find(a => a.id === achievement.id)) {
+              data.achievements.push(achievement);
+            }
+          });
+        }
+        
+        return newAchievements;
+      } catch (error) {
+        console.error('Gamification achievements error, using fallback:', error);
+        // Continue to fallback system
+      }
+    }
+    
+    // Fallback basic achievement system
+    const basicAchievements = [
       {
         id: 'first_word',
         name: 'First Step',
@@ -335,12 +503,15 @@ class VocabAnalytics {
       }
     ];
     
-    for (const achievement of achievements) {
+    const newAchievements = [];
+    for (const achievement of basicAchievements) {
       if (!data.achievements.find(a => a.id === achievement.id) && achievement.condition()) {
-        data.achievements.push({
+        const unlockedAchievement = {
           ...achievement,
           unlockedAt: new Date().toISOString()
-        });
+        };
+        data.achievements.push(unlockedAchievement);
+        newAchievements.push(unlockedAchievement);
         data.totalXP += achievement.xp;
         console.log(`🏆 Achievement unlocked: ${achievement.name}`);
         
@@ -348,6 +519,8 @@ class VocabAnalytics {
         this.showAchievementNotification(achievement);
       }
     }
+    
+    return newAchievements;
   }
   
   showAchievementNotification(achievement) {
@@ -371,36 +544,54 @@ class VocabAnalytics {
     const todayStats = data.dailyStats?.[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
     
     if (window.VocabLogger) {
-      window.VocabLogger.debug('Raw analytics data for dashboard', { data, today, todayStats });
+      window.VocabLogger.debug('📊 Getting dashboard stats - RAW data:', { data, today, todayStats });
     }
     
+    // Calculate actual metrics from real data only
+    const totalReviews = Object.values(data.qualityDistribution || {}).reduce((sum, count) => sum + count, 0);
+    const uniqueWordsReviewed = Object.keys(data.wordDifficulty || {}).length;
+    
     const stats = {
-      // Main metrics (matching UI element IDs)
-      totalWordsLearned: data?.totalWordsLearned || 0,
-      totalWords: data?.totalWordsLearned || 0, // alias
+      // Main metrics (only from actual reviews)
+      totalWordsLearned: uniqueWordsReviewed, // Only count words that have been actually reviewed
+      totalWords: uniqueWordsReviewed, // alias
       totalTime: data?.totalTimeSpent || 0,
       totalSessions: data?.totalReviewSessions || 0,
       
-      // Today's metrics
+      // Today's metrics (from actual sessions)
       todayWords: todayStats.wordsReviewed || 0,
       todayTime: todayStats.timeSpent || 0,
       todayAccuracy: todayStats.accuracy || 0,
       
-      // Streak metrics  
+      // Streak metrics (based on real daily minimums)
       currentStreak: data?.currentStreak || 0,
       longestStreak: data?.longestStreak || 0,
       
-      // XP & Achievements
+      // XP & Achievements (from real activities)
       totalXP: data?.totalXP || 0,
       achievementCount: data?.achievements?.length || 0,
       
-      // Quality Distribution
-      qualityDistribution: data?.qualityDistribution || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+      // Quality Distribution (from actual reviews)
+      qualityDistribution: data?.qualityDistribution || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+      
+      // Additional real data metrics
+      totalReviews: totalReviews,
+      isDataReal: totalReviews > 0 || uniqueWordsReviewed > 0 || (data?.totalReviewSessions || 0) > 0
     };
     
     if (window.VocabLogger) {
-      window.VocabLogger.debug('Processed dashboard stats', stats);
+      window.VocabLogger.debug('📊 Processed dashboard stats - REAL ONLY:', stats);
     }
+    
+    console.log('📊 Analytics Dashboard Stats (REAL DATA ONLY):', {
+      uniqueWords: uniqueWordsReviewed,
+      totalReviews: totalReviews,
+      sessions: stats.totalSessions,
+      streak: stats.currentStreak,
+      xp: stats.totalXP,
+      isReal: stats.isDataReal
+    });
+    
     return stats;
   }
   
@@ -447,6 +638,24 @@ class VocabAnalytics {
     return (data?.achievements || [])
       .sort((a, b) => new Date(b.unlockedAt) - new Date(a.unlockedAt))
       .slice(0, limit);
+  }
+  
+  // Notify all UI components that analytics data has been updated
+  notifyDataUpdated() {
+    // Dispatch custom event to notify UI components
+    if (typeof window !== 'undefined') {
+      const event = new CustomEvent('vocabAnalyticsUpdated', {
+        detail: { timestamp: Date.now() }
+      });
+      window.dispatchEvent(event);
+      
+      // Also trigger refresh for specific components if they exist
+      if (window.analyticsUI && typeof window.analyticsUI.refreshStatsFromStorage === 'function') {
+        window.analyticsUI.refreshStatsFromStorage();
+      }
+      
+      console.log('📊 Analytics data updated - UI components notified');
+    }
   }
 }
 

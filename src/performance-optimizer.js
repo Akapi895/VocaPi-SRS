@@ -151,11 +151,18 @@ class PerformanceOptimizer {
     // Clear old cache entries
     const now = Date.now();
     const maxAge = 3600000; // 1 hour
+    let cleanedCount = 0;
     
     for (const [key, value] of this.cache.entries()) {
       if (now - value.timestamp > maxAge) {
         this.cache.delete(key);
+        cleanedCount++;
       }
+    }
+    
+    // Clear preload queue if it gets too large
+    if (this.preloadQueue.length > 100) {
+      this.preloadQueue = this.preloadQueue.slice(-50); // Keep last 50
     }
     
     // Force garbage collection if available
@@ -164,6 +171,10 @@ class PerformanceOptimizer {
     }
     
     this.updateMemoryMetrics();
+    
+    if (cleanedCount > 0) {
+      console.log(`🧹 Cleaned ${cleanedCount} expired cache entries`);
+    }
   }
 
   /**

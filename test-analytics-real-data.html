@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analytics Real Data Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+        }
+        .success { background: rgba(16, 185, 129, 0.2); border: 1px solid #10b981; }
+        .error { background: rgba(239, 68, 68, 0.2); border: 1px solid #ef4444; }
+        .warning { background: rgba(245, 158, 11, 0.2); border: 1px solid #f59e0b; }
+        .info { background: rgba(59, 130, 246, 0.2); border: 1px solid #3b82f6; }
+        
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #2563eb; }
+        button:disabled { background: #6b7280; cursor: not-allowed; }
+        
+        .data-display {
+            background: #111;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔬 Analytics Real Data Test</h1>
+    <p>Testing that analytics shows real data, not hardcoded values</p>
+
+    <div class="test-section">
+        <h3>📦 Chrome Storage Simulation</h3>
+        <button onclick="initializeStorageSimulation()">Initialize Storage Simulation</button>
+        <button onclick="addSampleVocabData()">Add Sample Vocab Data</button>
+        <button onclick="simulateReviewSession()">Simulate Review Session</button>
+        <button onclick="clearAllData()">Clear All Data</button>
+        
+        <div id="storage-status" class="test-result info">
+            Click "Initialize Storage Simulation" to start
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📊 Analytics System Test</h3>
+        <button onclick="testAnalyticsSystem()">Test Analytics System</button>
+        <button onclick="getDashboardStats()">Get Dashboard Stats</button>
+        <button onclick="getStorageData()">Check Storage Data</button>
+        
+        <div id="analytics-status" class="test-result info">
+            Ready to test analytics system
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>📈 Data Display</h3>
+        <div id="data-display" class="data-display">
+            Data will appear here...
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h3>🧪 Test Results</h3>
+        <div id="test-results">
+            <!-- Test results will appear here -->
+        </div>
+    </div>
+
+    <script src="src/analytics.js"></script>
+    <script>
+        // Chrome Storage Simulation
+        window.chrome = {
+            storage: {
+                local: {
+                    data: {},
+                    get(keys, callback) {
+                        console.log('📦 Chrome storage GET:', keys);
+                        if (typeof keys === 'string') {
+                            keys = [keys];
+                        } else if (keys === null) {
+                            // Get all data
+                            callback(this.data);
+                            return;
+                        }
+                        
+                        const result = {};
+                        keys.forEach(key => {
+                            if (this.data.hasOwnProperty(key)) {
+                                result[key] = JSON.parse(JSON.stringify(this.data[key])); // Deep clone
+                            }
+                        });
+                        callback(result);
+                    },
+                    set(data, callback) {
+                        console.log('📦 Chrome storage SET:', Object.keys(data));
+                        Object.assign(this.data, data);
+                        if (callback) callback();
+                    },
+                    clear(callback) {
+                        console.log('📦 Chrome storage CLEAR');
+                        this.data = {};
+                        if (callback) callback();
+                    }
+                }
+            },
+            notifications: {
+                create(id, options, callback) {
+                    console.log('🔔 Notification:', options.title, options.message);
+                    if (callback) callback();
+                }
+            }
+        };
+
+        let analytics = null;
+
+        function logResult(message, type = 'info', data = null) {
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${type}`;
+            resultDiv.innerHTML = `
+                <strong>${new Date().toLocaleTimeString()}</strong>: ${message}
+                ${data ? `<pre style="margin-top: 10px; font-size: 11px;">${JSON.stringify(data, null, 2)}</pre>` : ''}
+            `;
+            document.getElementById('test-results').appendChild(resultDiv);
+            
+            // Auto-scroll to bottom
+            resultDiv.scrollIntoView({ behavior: 'smooth' });
+            
+            console.log(`[${type.toUpperCase()}]`, message, data);
+        }
+
+        function updateDisplay(title, data) {
+            const displayDiv = document.getElementById('data-display');
+            displayDiv.innerHTML = `=== ${title} ===\n${JSON.stringify(data, null, 2)}`;
+        }
+
+        function initializeStorageSimulation() {
+            logResult('Initializing Chrome storage simulation...', 'info');
+            
+            // Clear existing data
+            chrome.storage.local.clear();
+            
+            // Initialize analytics
+            try {
+                analytics = new VocabAnalytics();
+                logResult('VocabAnalytics instance created', 'success');
+                
+                analytics.init().then(() => {
+                    logResult('Analytics system initialized successfully', 'success');
+                    document.getElementById('storage-status').innerHTML = '✅ Storage simulation initialized';
+                    document.getElementById('storage-status').className = 'test-result success';
+                }).catch(error => {
+                    logResult('Analytics initialization failed', 'error', error);
+                    document.getElementById('storage-status').innerHTML = '❌ Storage initialization failed: ' + error.message;
+                    document.getElementById('storage-status').className = 'test-result error';
+                });
+                
+            } catch (error) {
+                logResult('Failed to create VocabAnalytics instance', 'error', error);
+                document.getElementById('storage-status').innerHTML = '❌ Failed to create analytics instance';
+                document.getElementById('storage-status').className = 'test-result error';
+            }
+        }
+
+        function addSampleVocabData() {
+            const sampleWords = [
+                { id: '1', word: 'Hello', definition: 'A greeting', difficulty: 1 },
+                { id: '2', word: 'World', definition: 'The earth', difficulty: 2 },
+                { id: '3', word: 'Computer', definition: 'Electronic device', difficulty: 3 },
+                { id: '4', word: 'Programming', definition: 'Writing code', difficulty: 4 },
+                { id: '5', word: 'Algorithm', definition: 'Problem-solving steps', difficulty: 5 }
+            ];
+
+            chrome.storage.local.set({ vocabWords: sampleWords }, () => {
+                logResult(`Added ${sampleWords.length} vocabulary words to storage`, 'success', sampleWords);
+                updateDisplay('Vocabulary Words', sampleWords);
+            });
+        }
+
+        async function simulateReviewSession() {
+            if (!analytics) {
+                logResult('Analytics not initialized. Click "Initialize Storage Simulation" first.', 'warning');
+                return;
+            }
+
+            try {
+                logResult('Starting simulated review session...', 'info');
+                
+                // Start session
+                await analytics.startSession();
+                logResult('Review session started', 'success');
+                
+                // Simulate reviewing 6 words (above minimum for streak)
+                const words = ['hello', 'world', 'computer', 'programming', 'algorithm', 'variable'];
+                let correctAnswers = 0;
+                
+                for (let i = 0; i < words.length; i++) {
+                    const wordId = `word_${i + 1}`;
+                    const userAnswer = words[i];
+                    const correctAnswer = words[i];
+                    const quality = 3 + Math.floor(Math.random() * 3); // Quality 3-5
+                    const timeSpent = 2000 + Math.random() * 3000; // 2-5 seconds
+                    
+                    await analytics.recordWordReview(wordId, userAnswer, correctAnswer, quality, timeSpent);
+                    
+                    if (quality >= 3) correctAnswers++;
+                    
+                    logResult(`Reviewed word: ${words[i]} (Quality: ${quality})`, 'info');
+                }
+                
+                // End session
+                const sessionSummary = await analytics.endSession();
+                logResult('Review session completed', 'success', sessionSummary);
+                
+                // Get updated stats
+                const stats = await analytics.getDashboardStats();
+                updateDisplay('Updated Analytics Stats', stats);
+                logResult('Session simulation completed successfully', 'success');
+                
+            } catch (error) {
+                logResult('Review session simulation failed', 'error', error);
+            }
+        }
+
+        async function testAnalyticsSystem() {
+            try {
+                logResult('Testing analytics system...', 'info');
+                
+                if (!analytics) {
+                    analytics = new VocabAnalytics();
+                    await analytics.ensureInitialized();
+                }
+                
+                // Test basic functionality
+                const tests = [
+                    {
+                        name: 'Get Dashboard Stats',
+                        test: async () => await analytics.getDashboardStats()
+                    },
+                    {
+                        name: 'Get Weekly Progress',
+                        test: async () => await analytics.getWeeklyProgress()
+                    },
+                    {
+                        name: 'Get Recent Achievements',
+                        test: async () => await analytics.getRecentAchievements(3)
+                    },
+                    {
+                        name: 'Get Difficult Words',
+                        test: async () => await analytics.getDifficultWords(5)
+                    }
+                ];
+                
+                const results = {};
+                
+                for (const test of tests) {
+                    try {
+                        const result = await test.test();
+                        results[test.name] = result;
+                        logResult(`✅ ${test.name}: OK`, 'success');
+                    } catch (error) {
+                        results[test.name] = { error: error.message };
+                        logResult(`❌ ${test.name}: ${error.message}`, 'error');
+                    }
+                }
+                
+                updateDisplay('Analytics Test Results', results);
+                document.getElementById('analytics-status').innerHTML = '✅ Analytics system tested';
+                document.getElementById('analytics-status').className = 'test-result success';
+                
+            } catch (error) {
+                logResult('Analytics system test failed', 'error', error);
+                document.getElementById('analytics-status').innerHTML = '❌ Analytics test failed';
+                document.getElementById('analytics-status').className = 'test-result error';
+            }
+        }
+
+        async function getDashboardStats() {
+            if (!analytics) {
+                logResult('Analytics not initialized', 'warning');
+                return;
+            }
+
+            try {
+                const stats = await analytics.getDashboardStats();
+                logResult('Dashboard stats retrieved', 'success');
+                updateDisplay('Current Dashboard Stats', stats);
+                
+                // Verify data is not hardcoded
+                const isHardcoded = (
+                    stats.totalWordsLearned === 5 && 
+                    stats.currentStreak === 1 && 
+                    stats.totalXP === 100
+                );
+                
+                if (isHardcoded) {
+                    logResult('⚠️ WARNING: Data appears to be hardcoded!', 'warning');
+                } else {
+                    logResult('✅ Data appears to be dynamic/real', 'success');
+                }
+                
+            } catch (error) {
+                logResult('Failed to get dashboard stats', 'error', error);
+            }
+        }
+
+        function getStorageData() {
+            chrome.storage.local.get(null, (data) => {
+                logResult('Retrieved all storage data', 'info');
+                updateDisplay('Raw Storage Data', data);
+                
+                // Check what data exists
+                const hasAnalytics = !!data.vocabAnalytics;
+                const hasVocab = !!data.vocabWords;
+                
+                logResult(`Storage contains: ${hasAnalytics ? '✅' : '❌'} Analytics, ${hasVocab ? '✅' : '❌'} Vocabulary`, 'info');
+                
+                if (hasAnalytics) {
+                    const analytics = data.vocabAnalytics;
+                    logResult(`Analytics data: ${analytics.totalWordsLearned} words, ${analytics.currentStreak} streak, ${analytics.totalXP} XP`, 'info');
+                }
+            });
+        }
+
+        function clearAllData() {
+            chrome.storage.local.clear(() => {
+                logResult('All data cleared from storage', 'warning');
+                updateDisplay('Storage Data', 'CLEARED');
+                document.getElementById('storage-status').innerHTML = '🗑️ Storage cleared - reinitialize to continue';
+                document.getElementById('storage-status').className = 'test-result warning';
+                analytics = null;
+            });
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', () => {
+            logResult('Analytics Real Data Test page loaded', 'info');
+            console.log('🔬 Analytics Real Data Test ready');
+        });
+    </script>
+</body>
+</html>

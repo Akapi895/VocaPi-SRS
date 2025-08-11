@@ -2,6 +2,7 @@
 class AnalyticsDashboard {
   constructor() {
     this.charts = {};
+    this.gamificationUI = null;
     this.ensureAnalyticsAvailable();
     this.init();
   }
@@ -39,6 +40,14 @@ class AnalyticsDashboard {
   
   async init() {
     console.log('Initializing Analytics Dashboard');
+    
+    // Initialize gamification UI
+    if (typeof GamificationUI !== 'undefined') {
+      this.gamificationUI = new GamificationUI();
+      await this.gamificationUI.init();
+      console.log('✅ Gamification UI initialized');
+    }
+    
     await this.loadDashboard();
     this.bindEvents();
   }
@@ -46,10 +55,37 @@ class AnalyticsDashboard {
   async loadDashboard() {
     try {
       this.showLoading();
+      console.log('🔄 Loading analytics dashboard...');
+      
+      // Ensure DOM is ready
+      if (document.readyState === 'loading') {
+        await new Promise(resolve => {
+          document.addEventListener('DOMContentLoaded', resolve);
+        });
+      }
+      
+      // Verify required DOM elements exist
+      const requiredElements = ['weekly-progress-chart', 'quality-chart', 'total-words', 'current-streak'];
+      const missingElements = requiredElements.filter(id => !document.getElementById(id));
+      
+      if (missingElements.length > 0) {
+        console.error('Missing required DOM elements:', missingElements);
+        throw new Error(`Required elements not found: ${missingElements.join(', ')}`);
+      }
+      
+      // Clear any existing charts to prevent conflicts
+      if (this.charts.weeklyProgress) {
+        this.charts.weeklyProgress.destroy();
+        this.charts.weeklyProgress = null;
+      }
+      if (this.charts.qualityDistribution) {
+        this.charts.qualityDistribution.destroy();
+        this.charts.qualityDistribution = null;
+      }
       
       // Ensure VocabAnalytics is initialized
       if (!window.VocabAnalytics) {
-        console.error('VocabAnalytics not found, initializing...');
+        console.log('⚙️ Initializing VocabAnalytics...');
         if (typeof VocabAnalytics === 'undefined') {
           throw new Error('VocabAnalytics class not loaded. Please check script loading order.');
         }
@@ -58,84 +94,163 @@ class AnalyticsDashboard {
       
       // Ensure analytics is properly initialized
       await window.VocabAnalytics.ensureInitialized();
-      console.log('VocabAnalytics initialized successfully');
+      console.log('✅ VocabAnalytics initialized');
       
-      console.log('Loading analytics data...');
+      console.log('📊 Loading analytics data...');
       
-      // Load all analytics data
+      // Load analytics data with timeout and error handling
+      const loadWithTimeout = (promise, timeout = 10000) => {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timed out')), timeout)
+          )
+        ]);
+      };
+      
       const [dashboardStats, weeklyProgress, difficultWords, recentAchievements] = await Promise.all([
-        window.VocabAnalytics.getDashboardStats(),
-        window.VocabAnalytics.getWeeklyProgress(),
-        window.VocabAnalytics.getDifficultWords(8),
-        window.VocabAnalytics.getRecentAchievements(6)
+        loadWithTimeout(window.VocabAnalytics.getDashboardStats().catch(err => {
+          console.warn('Dashboard stats failed:', err);
+          return this.getDefaultDashboardStats();
+        })),
+        loadWithTimeout(window.VocabAnalytics.getWeeklyProgress().catch(err => {
+          console.warn('Weekly progress failed:', err);
+          return this.getDefaultWeeklyProgress();
+        })),
+        loadWithTimeout(window.VocabAnalytics.getDifficultWords(8).catch(err => {
+          console.warn('Difficult words failed:', err);
+          return [];
+        })),
+        loadWithTimeout(window.VocabAnalytics.getRecentAchievements(6).catch(err => {
+          console.warn('Recent achievements failed:', err);
+          return [];
+        }))
       ]);
       
-      console.log('Analytics data loaded:', { dashboardStats, weeklyProgress });
+      console.log('📊 Analytics data loaded:', { dashboardStats, weeklyProgress });
       
       // Check if we have meaningful data
       const hasData = dashboardStats.totalWords > 0 || 
                      dashboardStats.totalSessions > 0 ||
                      dashboardStats.totalTime > 0 ||
+                     dashboardStats.totalXP > 0 ||
                      weeklyProgress.some(day => day.words > 0);
       
-      console.log('Has meaningful data:', hasData);
+      console.log('📊 Has meaningful data:', hasData);
       
       if (!hasData) {
-        console.log('No analytics data found, checking vocabulary storage...');
-        await this.populateFromVocabularyData(dashboardStats);
+        console.log('📊 No analytics data found - showing empty state');
+        // Instead of creating fake data, just show empty state with real vocabulary count
+        await this.showEmptyAnalyticsState(dashboardStats);
+      } else {
+        console.log('📊 Displaying real analytics data');
+        // Update UI with real data
+        this.updateOverviewStats(dashboardStats);
+        
+        // Create charts with real data
+        try {
+          this.createWeeklyProgressChart(weeklyProgress);
+          console.log('✅ Weekly progress chart created');
+        } catch (error) {
+          console.error('❌ Failed to create weekly progress chart:', error);
+        }
+        
+        try {
+          this.createQualityDistributionChart(dashboardStats.qualityDistribution || {});
+          console.log('✅ Quality distribution chart created');
+        } catch (error) {
+          console.error('❌ Failed to create quality distribution chart:', error);
+        }
+        
+        this.loadAchievements(recentAchievements);
+        this.loadDifficultWords(difficultWords);
+        this.loadLearningPatterns(dashboardStats, weeklyProgress);
+        
+        // Load gamification dashboard
+        await this.loadGamificationDashboard();
       }
-      
-      // Update overview stats
-      this.updateOverviewStats(dashboardStats);
-      
-      // Create charts (with fallback)
-      this.createWeeklyProgressChart(weeklyProgress);
-      this.createQualityDistributionChart(dashboardStats.qualityDistribution);
-      
-      // Load other sections
-      this.loadAchievements(recentAchievements);
-      this.loadDifficultWords(difficultWords);
-      this.loadLearningPatterns(dashboardStats, weeklyProgress);
       
       // Add debug info
       this.addDebugInfo(dashboardStats);
       
       this.hideLoading();
+      console.log('✅ Dashboard loaded successfully');
       
     } catch (error) {
-      console.error('Error loading analytics dashboard:', error);
-      console.error('VocabAnalytics available:', !!window.VocabAnalytics);
-      console.error('Chrome available:', !!window.chrome);
-      console.error('Chrome storage available:', !!(window.chrome && window.chrome.storage));
-      console.error('VocabAnalytics class available:', typeof VocabAnalytics !== 'undefined');
-      console.error('Error stack:', error.stack);
+      console.error('❌ Error loading analytics dashboard:', error);
       
       // Try fallback to show basic analytics
       try {
-        console.log('Attempting fallback analytics...');
+        console.log('🔄 Attempting fallback analytics...');
         await this.showFallbackAnalytics();
       } catch (fallbackError) {
-        console.error('Fallback analytics also failed:', fallbackError);
+        console.error('❌ Fallback analytics also failed:', fallbackError);
         
-        let errorMessage = 'Failed to load analytics data.';
+        let errorMessage = 'Failed to load analytics data. ';
         
         if (!window.chrome || !window.chrome.storage) {
-          errorMessage += ' Chrome storage not available.';
+          errorMessage += 'Chrome storage not available. ';
         } else if (typeof VocabAnalytics === 'undefined') {
-          errorMessage += ' Analytics system not loaded.';
+          errorMessage += 'Analytics system not loaded. ';
         } else if (!window.VocabAnalytics) {
-          errorMessage += ' Analytics instance not created.';
+          errorMessage += 'Analytics instance not created. ';
         } else {
-          errorMessage += ` Error: ${error.message}`;
+          errorMessage += `Error: ${error.message} `;
         }
         
-        errorMessage += ' Please try refreshing.';
+        errorMessage += 'Please try refreshing.';
         
         this.showError(errorMessage);
       }
     }
   }
   
+  getDefaultDashboardStats() {
+    return {
+      totalWords: 0,
+      totalTime: 0,
+      totalSessions: 0,
+      todayWords: 0,
+      todayTime: 0,
+      todayAccuracy: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      totalXP: 0,
+      achievementCount: 0,
+      qualityDistribution: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    };
+  }
+  
+  getDefaultWeeklyProgress() {
+    const today = new Date();
+    const weeklyProgress = [];
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today.getTime() - i * 24 * 60 * 60 * 1000);
+      weeklyProgress.push({
+        day: date.toLocaleDateString('en-US', { weekday: 'short' }),
+        date: date.toISOString().split('T')[0],
+        words: 0,
+        time: 0
+      });
+    }
+    return weeklyProgress;
+  }
+
+  async loadGamificationDashboard() {
+    if (!this.gamificationUI) return;
+    
+    try {
+      const container = document.getElementById('gamification-dashboard');
+      if (container) {
+        await this.gamificationUI.renderDashboard(container);
+        console.log('✅ Gamification dashboard rendered');
+      }
+    } catch (error) {
+      console.error('❌ Error loading gamification dashboard:', error);
+    }
+  }
+  // DEPRECATED: No longer creating fake data, showing real data only
+  /*
   async populateFromVocabularyData(currentStats) {
     try {
       console.log('Populating analytics from vocabulary data...');
@@ -274,9 +389,94 @@ class AnalyticsDashboard {
     await window.VocabAnalytics.saveAnalyticsData(analyticsData);
     console.log('Minimal sample data created');
   }
+  */
+  // END DEPRECATED METHODS
+  
+  async showEmptyAnalyticsState(stats) {
+    console.log('Showing empty analytics state with real vocabulary count...');
+    
+    // Get actual vocabulary count from storage
+    let vocabCount = 0;
+    try {
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const result = await new Promise((resolve) => {
+          chrome.storage.local.get(['vocabWords'], (data) => {
+            resolve(data);
+          });
+        });
+        
+        if (result.vocabWords && Array.isArray(result.vocabWords)) {
+          vocabCount = result.vocabWords.length;
+        }
+      }
+    } catch (error) {
+      console.warn('Could not get vocabulary count:', error);
+    }
+    
+    // Show stats with real vocab count but zero analytics
+    const emptyStats = {
+      totalWordsLearned: vocabCount, // Show actual vocabulary count
+      totalWords: vocabCount,
+      totalTime: 0,
+      totalSessions: 0,
+      todayWords: 0,
+      todayTime: 0,
+      todayAccuracy: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      totalXP: 0,
+      achievementCount: 0,
+      qualityDistribution: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
+    };
+    
+    this.updateOverviewStats(emptyStats);
+    
+    // Create empty charts
+    this.createWeeklyProgressChart([]);
+    this.createQualityDistributionChart(emptyStats.qualityDistribution);
+    
+    // Show empty sections with helpful messages
+    this.loadAchievements([]);
+    this.loadDifficultWords([]);
+    this.loadLearningPatterns(emptyStats, []);
+    
+    this.hideLoading();
+    
+    // Show informative message
+    setTimeout(() => {
+      const messageDiv = document.createElement('div');
+      messageDiv.innerHTML = `
+        <div style="
+          background: rgba(59, 130, 246, 0.1);
+          border: 1px solid rgba(59, 130, 246, 0.3);
+          color: #60a5fa;
+          padding: 20px;
+          margin: 20px;
+          border-radius: 12px;
+          text-align: center;
+        ">
+          <div style="font-size: 48px; margin-bottom: 16px;">📊</div>
+          <h3 style="margin: 0 0 12px 0; color: white;">Start Your Learning Journey!</h3>
+          <p style="margin: 0 0 16px 0; opacity: 0.8;">
+            You have ${vocabCount} word${vocabCount !== 1 ? 's' : ''} in your vocabulary.
+            ${vocabCount > 0 ? 'Start reviewing them to see your progress analytics!' : 'Add some words and start reviewing to track your progress!'}
+          </p>
+          <div style="font-size: 14px; opacity: 0.7;">
+            💡 Tip: Review at least 5 words daily to build your learning streak
+          </div>
+        </div>
+      `;
+      
+      const container = document.querySelector('.analytics-container');
+      if (container && !container.querySelector('.empty-state-message')) {
+        messageDiv.className = 'empty-state-message';
+        container.appendChild(messageDiv);
+      }
+    }, 500);
+  }
   
   async showFallbackAnalytics() {
-    console.log('Showing fallback analytics...');
+    console.log('Showing fallback analytics without fake data...');
     
     // Show basic stats with zeros
     const fallbackStats = {
@@ -293,70 +493,27 @@ class AnalyticsDashboard {
       qualityDistribution: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }
     };
     
-    // Try to get actual vocab data if VocabStorage is available
-    if (window.VocabUtils && window.VocabUtils.VocabStorage) {
+    // Get actual vocab count if available
+    if (typeof chrome !== 'undefined' && chrome.storage) {
       try {
-        const allWords = await window.VocabUtils.VocabStorage.getAllWords();
-        fallbackStats.totalWords = allWords.length;
-        console.log(`Found ${allWords.length} words in storage`);
+        const result = await new Promise((resolve) => {
+          chrome.storage.local.get(['vocabWords'], (data) => {
+            resolve(data);
+          });
+        });
+        
+        if (result.vocabWords && Array.isArray(result.vocabWords)) {
+          fallbackStats.totalWords = result.vocabWords.length;
+          console.log(`Found ${result.vocabWords.length} words in vocabulary`);
+        }
       } catch (error) {
         console.warn('Could not load word count:', error);
       }
     }
     
-    // Create sample analytics data if none exists
-    if (window.VocabAnalytics && fallbackStats.totalWords > 0) {
-      try {
-        console.log('Creating sample analytics data...');
-        const sampleData = {
-          initialized: true,
-          version: '1.0.0',
-          createdAt: new Date().toISOString(),
-          totalWordsLearned: fallbackStats.totalWords,
-          totalReviewSessions: Math.max(1, Math.floor(fallbackStats.totalWords / 5)),
-          totalTimeSpent: Math.max(10, fallbackStats.totalWords * 2), // 2 mins per word estimate
-          currentStreak: Math.floor(Math.random() * 7) + 1,
-          longestStreak: Math.floor(Math.random() * 14) + 5,
-          lastStudyDate: new Date().toISOString().split('T')[0],
-          dailyStats: {
-            [new Date().toISOString().split('T')[0]]: {
-              wordsReviewed: Math.min(10, fallbackStats.totalWords),
-              timeSpent: 15,
-              sessions: 1,
-              accuracy: 85
-            }
-          },
-          wordDifficulty: {},
-          studyTimes: [Date.now()],
-          qualityDistribution: { 0: 1, 1: 2, 2: 3, 3: 8, 4: 5, 5: 3 },
-          achievements: [
-            {
-              id: 'first_word',
-              name: 'First Step',
-              description: 'Added your first word',
-              icon: '📝',
-              xp: 50,
-              unlockedAt: new Date().toISOString()
-            }
-          ],
-          totalXP: 150
-        };
-        
-        await window.VocabAnalytics.saveAnalyticsData(sampleData);
-        
-        // Reload with real data
-        const realStats = await window.VocabAnalytics.getDashboardStats();
-        fallbackStats = realStats;
-        console.log('Sample data created and loaded:', realStats);
-        
-      } catch (error) {
-        console.warn('Could not create sample data:', error);
-      }
-    }
-    
     this.updateOverviewStats(fallbackStats);
     
-    // Create empty charts (fallback)
+    // Create empty charts
     this.createWeeklyProgressChart([]);
     this.createQualityDistributionChart(fallbackStats.qualityDistribution);
     
@@ -367,7 +524,7 @@ class AnalyticsDashboard {
     
     this.hideLoading();
     
-    // Show warning message
+    // Show warning message about system availability
     setTimeout(() => {
       const warningDiv = document.createElement('div');
       warningDiv.innerHTML = `
@@ -380,7 +537,13 @@ class AnalyticsDashboard {
           border-radius: 8px;
           text-align: center;
         ">
-          ⚠️ Analytics data is not available yet. Start reviewing words to see your progress!
+          ⚠️ Analytics system is not fully available. This may be because:
+          <ul style="text-align: left; margin-top: 10px;">
+            <li>Chrome extension context is not loaded</li>
+            <li>Analytics data hasn't been initialized</li>
+            <li>No review sessions have been completed yet</li>
+          </ul>
+          Try refreshing or start reviewing words to activate analytics.
         </div>
       `;
       document.querySelector('.analytics-container').appendChild(warningDiv);
@@ -390,23 +553,134 @@ class AnalyticsDashboard {
   updateOverviewStats(stats) {
     console.log('Updating overview stats with:', stats);
     
-    // Update each stat with safety checks
+    // Force refresh data from storage before updating UI
+    this.refreshStatsFromStorage().then(freshStats => {
+      const statsToUse = freshStats || stats;
+      console.log('Using fresh stats:', statsToUse);
+      this.renderOverviewStats(statsToUse);
+    }).catch(error => {
+      console.warn('Failed to get fresh stats, using provided:', error);
+      this.renderOverviewStats(stats);
+    });
+  }
+  
+  async refreshStatsFromStorage() {
+    try {
+      // Get fresh data directly from chrome storage
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const result = await new Promise((resolve) => {
+          chrome.storage.local.get(['vocabAnalytics', 'vocabWords'], (data) => {
+            resolve(data);
+          });
+        });
+        
+        console.log('Fresh storage data:', result);
+        
+        if (result.vocabAnalytics) {
+          const analyticsData = result.vocabAnalytics;
+          const today = new Date().toISOString().split('T')[0];
+          const todayStats = analyticsData.dailyStats?.[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
+          
+          // Calculate actual total reviews from quality distribution
+          const totalReviews = Object.values(analyticsData.qualityDistribution || {})
+            .reduce((sum, count) => sum + count, 0);
+          
+          return {
+            totalWordsLearned: analyticsData.totalWordsLearned || 0,
+            totalWords: analyticsData.totalWordsLearned || 0,
+            totalTime: analyticsData.totalTimeSpent || 0,
+            totalSessions: analyticsData.totalReviewSessions || 0,
+            todayWords: todayStats.wordsReviewed || 0,
+            todayTime: todayStats.timeSpent || 0,
+            todayAccuracy: todayStats.accuracy || 0,
+            currentStreak: analyticsData.currentStreak || 0,
+            longestStreak: analyticsData.longestStreak || 0,
+            totalXP: analyticsData.totalXP || 0,
+            achievementCount: analyticsData.achievements?.length || 0,
+            qualityDistribution: analyticsData.qualityDistribution || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+            totalReviews: totalReviews
+          };
+        }
+        
+        // If no analytics data, try to get vocabulary count
+        if (result.vocabWords && Array.isArray(result.vocabWords)) {
+          return {
+            totalWordsLearned: result.vocabWords.length,
+            totalWords: result.vocabWords.length,
+            totalTime: 0,
+            totalSessions: 0,
+            todayWords: 0,
+            todayTime: 0,
+            todayAccuracy: 0,
+            currentStreak: 0,
+            longestStreak: 0,
+            totalXP: 0,
+            achievementCount: 0,
+            qualityDistribution: { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+            totalReviews: 0
+          };
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error refreshing stats from storage:', error);
+      return null;
+    }
+  }
+  
+  renderOverviewStats(stats) {
+    // Update each stat with safety checks and improved formatting
     const totalWordsEl = document.getElementById('total-words');
     const currentStreakEl = document.getElementById('current-streak');
     const totalTimeEl = document.getElementById('total-time');
     const todayAccuracyEl = document.getElementById('today-accuracy');
     const totalXpEl = document.getElementById('total-xp');
-    
     if (totalWordsEl) {
       const value = stats.totalWordsLearned || stats.totalWords || 0;
       totalWordsEl.textContent = value.toLocaleString();
+      
+      // Show additional info if we have reviews
+      if (stats.totalReviews && stats.totalReviews !== value) {
+        totalWordsEl.title = `${value} unique words, ${stats.totalReviews} total reviews`;
+      }
+      
       console.log('Total words updated:', value);
     }
     
     if (currentStreakEl) {
       const value = stats.currentStreak || 0;
-      currentStreakEl.textContent = value;
-      console.log('Current streak updated:', value);
+      const streakText = value > 0 ? `${value} day${value > 1 ? 's' : ''}` : '0 days';
+      currentStreakEl.textContent = streakText;
+      
+      // Add visual indicator for streak status
+      const streakContainer = currentStreakEl.parentElement;
+      streakContainer.className = streakContainer.className.replace(/ streak-\w+/g, '');
+      
+      if (value === 0) {
+        streakContainer.classList.add('streak-broken');
+        // Show hint about minimum requirement
+        let hintEl = streakContainer.querySelector('.streak-hint');
+        if (!hintEl) {
+          hintEl = document.createElement('div');
+          hintEl.className = 'streak-hint';
+          streakContainer.appendChild(hintEl);
+        }
+        hintEl.textContent = 'Review 5+ words daily to build streak';
+        hintEl.style.cssText = 'font-size: 10px; color: rgba(255,255,255,0.6); margin-top: 2px;';
+      } else if (value >= 7) {
+        streakContainer.classList.add('streak-fire');
+        // Remove hint if exists
+        const hintEl = streakContainer.querySelector('.streak-hint');
+        if (hintEl) hintEl.remove();
+      } else {
+        streakContainer.classList.add('streak-active');
+        // Remove hint if exists
+        const hintEl = streakContainer.querySelector('.streak-hint');
+        if (hintEl) hintEl.remove();
+      }
+      
+      console.log('Current streak updated:', streakText);
     }
     
     if (totalTimeEl) {
@@ -417,8 +691,22 @@ class AnalyticsDashboard {
     
     if (todayAccuracyEl) {
       const value = stats.todayAccuracy || 0;
-      todayAccuracyEl.textContent = `${value}%`;
-      console.log('Today accuracy updated:', value);
+      const accuracyText = `${value}%`;
+      todayAccuracyEl.textContent = accuracyText;
+      
+      // Add visual indicator for accuracy
+      const accuracyContainer = todayAccuracyEl.parentElement;
+      accuracyContainer.className = accuracyContainer.className.replace(/ accuracy-\w+/g, '');
+      
+      if (value >= 90) {
+        accuracyContainer.classList.add('accuracy-excellent');
+      } else if (value >= 70) {
+        accuracyContainer.classList.add('accuracy-good');
+      } else if (value > 0) {
+        accuracyContainer.classList.add('accuracy-needs-work');
+      }
+      
+      console.log('Today accuracy updated:', accuracyText);
     }
     
     if (totalXpEl) {
@@ -429,7 +717,13 @@ class AnalyticsDashboard {
   }
   
   createWeeklyProgressChart(weeklyData) {
-    const ctx = document.getElementById('weekly-progress-chart').getContext('2d');
+    const canvas = document.getElementById('weekly-progress-chart');
+    
+    // Check if canvas element exists
+    if (!canvas) {
+      console.error('Weekly progress canvas not found');
+      return;
+    }
     
     // Check if Chart.js is available
     if (typeof Chart === 'undefined') {
@@ -437,6 +731,8 @@ class AnalyticsDashboard {
       this.createTextBasedWeeklyChart(weeklyData);
       return;
     }
+    
+    const ctx = canvas.getContext('2d');
     
     this.charts.weeklyProgress = new Chart(ctx, {
       type: 'line',
@@ -496,10 +792,18 @@ class AnalyticsDashboard {
         }
       }
     });
+    
+    console.log('✅ Weekly progress chart created with Chart.js');
   }
   
   createQualityDistributionChart(qualityData) {
-    const ctx = document.getElementById('quality-chart').getContext('2d');
+    const canvas = document.getElementById('quality-chart');
+    
+    // Check if canvas element exists
+    if (!canvas) {
+      console.error('Quality chart canvas not found');
+      return;
+    }
     
     // Check if Chart.js is available
     if (typeof Chart === 'undefined') {
@@ -507,6 +811,8 @@ class AnalyticsDashboard {
       this.createTextBasedQualityChart(qualityData);
       return;
     }
+    
+    const ctx = canvas.getContext('2d');
     
     const labels = ['Blackout', 'Incorrect', 'Hard', 'Correct', 'Easy', 'Perfect'];
     const data = [0, 1, 2, 3, 4, 5].map(q => qualityData[q] || 0);
@@ -546,11 +852,18 @@ class AnalyticsDashboard {
         }
       }
     });
+    
+    console.log('✅ Quality distribution chart created with Chart.js');
   }
   
   // Fallback chart methods when Chart.js is not available
   createTextBasedWeeklyChart(weeklyData) {
     const canvas = document.getElementById('weekly-progress-chart');
+    if (!canvas) {
+      console.error('Weekly progress canvas not found for fallback chart');
+      return;
+    }
+    
     const container = canvas.parentElement;
     
     // Replace canvas with HTML chart
@@ -595,6 +908,11 @@ class AnalyticsDashboard {
   
   createTextBasedQualityChart(qualityData) {
     const canvas = document.getElementById('quality-chart');
+    if (!canvas) {
+      console.error('Quality chart canvas not found for fallback chart');
+      return;
+    }
+    
     const container = canvas.parentElement;
     
     const labels = ['Blackout', 'Incorrect', 'Hard', 'Correct', 'Easy', 'Perfect'];
@@ -609,7 +927,8 @@ class AnalyticsDashboard {
           ${labels.map((label, index) => {
             const count = qualityData[index] || 0;
             const percentage = Math.round((count / total) * 100);
-            const displayText = count === 0 ? `${percentage}%` : `${count} (${percentage}%)`;
+            const displayText = `${percentage}%`;
+            // const displayText = count === 0 ? `${percentage}%` : `${count} - ${percentage}%`;
             return `
               <div class="quality-item">
                 <div class="quality-label">${label}</div>
@@ -706,68 +1025,214 @@ class AnalyticsDashboard {
   }
   
   loadLearningPatterns(stats, weeklyData) {
-    // Calculate best study time (placeholder for now)
-    document.getElementById('best-study-time').textContent = 'Evening';
+    console.log('📊 Loading learning patterns with real data:', { stats, weeklyData });
     
-    // Find most active day
+    // Calculate best study time from actual session data
+    const studyTimePreferences = this.calculateBestStudyTime(stats);
+    const bestStudyTime = studyTimePreferences.bestTime || 'No data yet';
+    document.getElementById('best-study-time').textContent = bestStudyTime;
+    console.log('⏰ Best study time calculated:', bestStudyTime);
+    
+    // Find most active day from actual weekly data
     const dayTotals = weeklyData.reduce((acc, day) => {
       const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' });
       acc[dayName] = (acc[dayName] || 0) + day.words;
       return acc;
     }, {});
     
-    const mostActiveDay = Object.entries(dayTotals)
-      .sort(([,a], [,b]) => b - a)[0]?.[0] || 'Monday';
-    document.getElementById('most-active-day').textContent = mostActiveDay;
+    const hasWeeklyActivity = Object.values(dayTotals).some(total => total > 0);
+    const mostActiveDay = hasWeeklyActivity 
+      ? Object.entries(dayTotals).sort(([,a], [,b]) => b - a)[0]?.[0] 
+      : 'No activity yet';
     
-    // Calculate average session length
+    document.getElementById('most-active-day').textContent = mostActiveDay;
+    console.log('📅 Most active day calculated:', mostActiveDay, 'from data:', dayTotals);
+    
+    // Calculate average session length from real data
     const avgSessionLength = stats.totalSessions > 0 
       ? Math.round(stats.totalTime / stats.totalSessions) 
       : 0;
-    document.getElementById('avg-session-length').textContent = `${avgSessionLength} min`;
     
-    // Calculate overall accuracy
-    const totalQualities = Object.values(stats.qualityDistribution);
+    const avgSessionDisplay = avgSessionLength > 0 
+      ? `${avgSessionLength} min`
+      : 'No sessions yet';
+    
+    document.getElementById('avg-session-length').textContent = avgSessionDisplay;
+    console.log('⚡ Average session length calculated:', avgSessionDisplay);
+    
+    // Calculate overall accuracy from real quality distribution
+    const totalQualities = Object.values(stats.qualityDistribution || {});
     const totalReviews = totalQualities.reduce((sum, count) => sum + count, 0);
-    const weightedScore = Object.entries(stats.qualityDistribution)
+    const weightedScore = Object.entries(stats.qualityDistribution || {})
       .reduce((sum, [quality, count]) => sum + (parseInt(quality) * count), 0);
     
     const overallAccuracy = totalReviews > 0 
       ? Math.round((weightedScore / (totalReviews * 5)) * 100)
       : 0;
-    document.getElementById('overall-accuracy').textContent = `${overallAccuracy}%`;
+    
+    const accuracyDisplay = totalReviews > 0 
+      ? `${overallAccuracy}%`
+      : 'No reviews yet';
+    
+    document.getElementById('overall-accuracy').textContent = accuracyDisplay;
+    console.log('🎯 Overall accuracy calculated:', accuracyDisplay, 'from', totalReviews, 'reviews');
+    
+    // Log final learning patterns
+    console.log('📊 Final learning patterns:', {
+      bestStudyTime,
+      mostActiveDay,
+      avgSession: avgSessionDisplay,
+      overallAccuracy: accuracyDisplay,
+      dataSource: hasWeeklyActivity ? 'real' : 'empty'
+    });
+  }
+  
+  calculateBestStudyTime(stats) {
+    // Try to determine best study time from actual session timestamps
+    try {
+      if (!stats || !stats.studyTimes || stats.studyTimes.length === 0) {
+        return { bestTime: null, confidence: 0 };
+      }
+      
+      const studyTimes = stats.studyTimes || [];
+      const hourCounts = {};
+      
+      studyTimes.forEach(timestamp => {
+        const hour = new Date(timestamp).getHours();
+        hourCounts[hour] = (hourCounts[hour] || 0) + 1;
+      });
+      
+      if (Object.keys(hourCounts).length === 0) {
+        return { bestTime: null, confidence: 0 };
+      }
+      
+      const mostActiveHour = Object.entries(hourCounts)
+        .sort(([,a], [,b]) => b - a)[0][0];
+      
+      const hour = parseInt(mostActiveHour);
+      let timeOfDay;
+      
+      if (hour >= 6 && hour < 12) {
+        timeOfDay = 'Morning';
+      } else if (hour >= 12 && hour < 17) {
+        timeOfDay = 'Afternoon';
+      } else if (hour >= 17 && hour < 22) {
+        timeOfDay = 'Evening';
+      } else {
+        timeOfDay = 'Night';
+      }
+      
+      console.log('📊 Study time analysis:', { hourCounts, mostActiveHour, timeOfDay });
+      
+      return { 
+        bestTime: timeOfDay, 
+        confidence: studyTimes.length,
+        hourBreakdown: hourCounts
+      };
+      
+    } catch (error) {
+      console.error('Error calculating best study time:', error);
+      return { bestTime: null, confidence: 0 };
+    }
   }
   
   bindEvents() {
+    // Listen for analytics data updates
+    window.addEventListener('vocabAnalyticsUpdated', this.handleAnalyticsUpdate.bind(this));
+    console.log('📊 Analytics UI event listener added');
+    
     // Back to main button
-    document.getElementById('back-to-main').addEventListener('click', () => {
-      window.close();
-    });
+    const backBtn = document.getElementById('back-to-main');
+    if (backBtn) {
+      backBtn.addEventListener('click', () => {
+        try {
+          window.close();
+        } catch (error) {
+          // Fallback for when window.close() fails
+          history.back();
+        }
+      });
+    }
     
     // Refresh button
-    document.getElementById('refresh-analytics').addEventListener('click', () => {
-      this.loadDashboard();
-    });
+    const refreshBtn = document.getElementById('refresh-analytics');
+    if (refreshBtn) {
+      refreshBtn.addEventListener('click', async () => {
+        try {
+          console.log('🔄 Refresh button clicked - forcing data reload');
+          refreshBtn.disabled = true;
+          refreshBtn.innerHTML = '<span class="btn-icon">⏳</span> Refreshing...';
+          
+          // Clear any cached data
+          if (window.VocabAnalytics) {
+            window.VocabAnalytics.initPromise = null; // Force re-initialization
+          }
+          
+          // Force reload from chrome storage
+          await this.forceDataReload();
+          
+          // Reload entire dashboard with fresh data
+          await this.loadDashboard();
+          
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = '<span class="btn-icon">✅</span> Refreshed!';
+          
+          // Reset button text after delay
+          setTimeout(() => {
+            refreshBtn.innerHTML = '<span class="btn-icon">🔄</span> Refresh';
+          }, 2000);
+          
+          console.log('✅ Analytics refresh completed successfully');
+        } catch (error) {
+          console.error('❌ Analytics refresh failed:', error);
+          refreshBtn.disabled = false;
+          refreshBtn.innerHTML = '<span class="btn-icon">❌</span> Refresh Failed';
+          
+          setTimeout(() => {
+            refreshBtn.innerHTML = '<span class="btn-icon">🔄</span> Refresh';
+          }, 3000);
+          
+          alert('Refresh failed: ' + error.message);
+        }
+      });
+    }
     
-    // Create sample data button
-    document.getElementById('create-sample-data').addEventListener('click', () => {
-      this.createSampleData();
-    });
+    // Remove Sample Data button from HTML and its event listener
+    const sampleDataBtn = document.getElementById('create-sample-data');
+    if (sampleDataBtn) {
+      sampleDataBtn.style.display = 'none'; // Hide instead of remove to avoid breaking layout
+    }
     
     // Error retry button
-    document.getElementById('retry-analytics').addEventListener('click', () => {
-      this.loadDashboard();
-    });
+    const retryBtn = document.getElementById('retry-analytics');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', async () => {
+        try {
+          console.log('🔄 Retry button clicked');
+          await this.loadDashboard();
+        } catch (error) {
+          console.error('❌ Retry failed:', error);
+          alert('Retry failed: ' + error.message);
+        }
+      });
+    }
     
     // Keyboard shortcuts
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') {
-        window.close();
+        try {
+          window.close();
+        } catch (error) {
+          history.back();
+        }
       }
       
       if (e.key === 'F5' || (e.ctrlKey && e.key === 'r')) {
         e.preventDefault();
-        this.loadDashboard();
+        const refreshBtn = document.getElementById('refresh-analytics');
+        if (refreshBtn && !refreshBtn.disabled) {
+          refreshBtn.click();
+        }
       }
     });
   }
@@ -812,95 +1277,47 @@ class AnalyticsDashboard {
     document.getElementById('error-message').textContent = message;
   }
   
-  async createSampleData() {
+  async forceDataReload() {
+    console.log('🔄 Forcing complete data reload from storage...');
+    
     try {
-      console.log('Creating sample analytics data...');
-      
-      if (!window.VocabAnalytics) {
-        alert('Analytics system not available');
-        return;
+      // Clear any cached analytics instance
+      if (window.VocabAnalytics) {
+        delete window.VocabAnalytics;
       }
       
-      // Get word count
-      let wordCount = 0;
-      if (window.VocabUtils && window.VocabUtils.VocabStorage) {
-        const allWords = await window.VocabUtils.VocabStorage.getAllWords();
-        wordCount = allWords.length;
+      // Re-create VocabAnalytics instance
+      if (typeof VocabAnalytics !== 'undefined') {
+        window.VocabAnalytics = new VocabAnalytics();
+        await window.VocabAnalytics.ensureInitialized();
       }
       
-      if (wordCount === 0) {
-        alert('Please add some vocabulary words first');
-        return;
-      }
-      
-      const sampleData = {
-        initialized: true,
-        version: '1.0.0',
-        createdAt: new Date().toISOString(),
-        totalWordsLearned: wordCount * 2, // Simulate reviews
-        totalReviewSessions: Math.max(5, Math.floor(wordCount / 2)),
-        totalTimeSpent: Math.max(30, wordCount * 3), // 3 mins per word
-        currentStreak: Math.floor(Math.random() * 10) + 3,
-        longestStreak: Math.floor(Math.random() * 20) + 10,
-        lastStudyDate: new Date().toISOString().split('T')[0],
+      // Get current storage data for debugging
+      if (typeof chrome !== 'undefined' && chrome.storage) {
+        const storageData = await new Promise((resolve) => {
+          chrome.storage.local.get(null, (data) => {
+            resolve(data);
+          });
+        });
         
-        dailyStats: {},
-        wordDifficulty: {},
-        studyTimes: [],
-        qualityDistribution: { 0: 2, 1: 5, 2: 8, 3: 15, 4: 12, 5: 8 },
-        achievements: [
-          {
-            id: 'first_word',
-            name: 'First Step', 
-            description: 'Added your first word',
-            icon: '📝',
-            xp: 50,
-            unlockedAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-          },
-          {
-            id: 'streak_7',
-            name: 'Week Warrior',
-            description: '7-day learning streak', 
-            icon: '🔥',
-            xp: 200,
-            unlockedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-          }
-        ],
-        totalXP: 450
-      };
-      
-      // Create weekly data
-      for (let i = 6; i >= 0; i--) {
-        const date = new Date(Date.now() - i * 24 * 60 * 60 * 1000);
-        const dateStr = date.toISOString().split('T')[0];
-        sampleData.dailyStats[dateStr] = {
-          wordsReviewed: Math.floor(Math.random() * 15) + 5,
-          timeSpent: Math.floor(Math.random() * 20) + 10,
-          sessions: Math.floor(Math.random() * 3) + 1,
-          accuracy: Math.floor(Math.random() * 30) + 70
-        };
+        console.log('📦 Current storage keys:', Object.keys(storageData));
+        console.log('📊 Analytics data exists:', !!storageData.vocabAnalytics);
+        console.log('📚 Vocab words count:', storageData.vocabWords?.length || 0);
+        
+        if (storageData.vocabAnalytics) {
+          console.log('📈 Analytics summary:', {
+            totalWords: storageData.vocabAnalytics.totalWordsLearned,
+            currentStreak: storageData.vocabAnalytics.currentStreak,
+            totalSessions: storageData.vocabAnalytics.totalReviewSessions,
+            totalXP: storageData.vocabAnalytics.totalXP
+          });
+        }
       }
       
-      // Create word difficulty data (sample)
-      for (let i = 0; i < Math.min(wordCount, 5); i++) {
-        const wordId = `sample-word-${i}`;
-        sampleData.wordDifficulty[wordId] = {
-          attempts: Math.floor(Math.random() * 10) + 3,
-          successes: Math.floor(Math.random() * 5) + 1,
-          totalQuality: Math.floor(Math.random() * 20) + 10,
-          avgQuality: 2.5 + (Math.random() * 1.5),
-          lastReview: new Date().toISOString()
-        };
-      }
-      
-      await window.VocabAnalytics.saveAnalyticsData(sampleData);
-      
-      alert('Sample analytics data created! Click Refresh to see the results.');
-      this.loadDashboard();
-      
+      console.log('✅ Force data reload completed');
     } catch (error) {
-      console.error('Error creating sample data:', error);
-      alert('Failed to create sample data: ' + error.message);
+      console.error('❌ Force data reload failed:', error);
+      throw error;
     }
   }
   
@@ -963,6 +1380,18 @@ class AnalyticsDashboard {
       
     } catch (error) {
       console.error('Failed to add debug info:', error);
+    }
+  }
+  
+  // Handle analytics data updates and refresh UI
+  async handleAnalyticsUpdate(event) {
+    console.log('📊 Analytics UI received data update notification', event.detail);
+    
+    // Auto-refresh the dashboard if it's visible
+    const analyticsContainer = document.querySelector('.analytics-container, .dashboard');
+    if (analyticsContainer && analyticsContainer.style.display !== 'none') {
+      console.log('📊 Auto-refreshing analytics dashboard');
+      await this.refreshStatsFromStorage();
     }
   }
 }

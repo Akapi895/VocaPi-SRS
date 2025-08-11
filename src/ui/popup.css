@@ -123,6 +123,89 @@ body {
   letter-spacing: 0.5px;
 }
 
+/* Mini Gamification Widget */
+.gamification-mini-widget {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  padding: 16px 20px;
+  border-radius: 16px;
+  margin: 16px 20px;
+  color: white;
+  box-shadow: 0 4px 20px rgba(102, 126, 234, 0.25);
+  transition: opacity 0.3s ease, transform 0.2s ease;
+  transform-origin: center;
+}
+
+.gamification-mini-widget:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 25px rgba(102, 126, 234, 0.3);
+}
+
+.mini-gamification-widget {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.mini-level-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+}
+
+.mini-level {
+  font-size: 0.85em;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  backdrop-filter: blur(10px);
+}
+
+.mini-xp-bar {
+  flex: 1;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+  overflow: hidden;
+  min-width: 60px;
+}
+
+.mini-xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #ffd700, #ffed4e);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+  box-shadow: 0 1px 3px rgba(255, 215, 0, 0.5);
+}
+
+.mini-xp {
+  font-size: 0.75em;
+  font-weight: 500;
+  white-space: nowrap;
+  opacity: 0.9;
+}
+
+.mini-challenge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  font-size: 0.75em;
+  backdrop-filter: blur(10px);
+}
+
+.mini-challenge-icon {
+  font-size: 1.1em;
+}
+
+.mini-challenge-progress {
+  font-weight: 500;
+}
+
 /* Main Content */
 .main-content {
   padding: 28px 24px;

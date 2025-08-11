@@ -9,14 +9,70 @@ class VocabSRSPopup {
     this.isAnswerRevealed = false;
     this.wasHintUsed = false;
     this.wasSkipped = false;
+    this.gamificationUI = null;
     
     this.init();
   }
   
   async init() {
-    console.log('Initializing Vocab SRS Popup');
+    console.log('🚀 Initializing Vocab SRS Popup');
+    
+    // Load gamification widget immediately (non-blocking)
+    this.loadGamificationWidget();
+    
     await this.loadStats();
     this.bindEvents();
+  }
+
+  async loadGamificationWidget() {
+    const container = document.getElementById('gamification-widget');
+    if (!container) {
+      console.error('❌ Gamification widget container not found');
+      return;
+    }
+
+    try {
+      // Use Fast Gamification Widget for instant loading
+      if (typeof FastGamificationWidget !== 'undefined') {
+        console.log('⚡ Using Fast Gamification Widget');
+        const fastWidget = new FastGamificationWidget();
+        fastWidget.render(container);
+        return;
+      }
+
+      // Fallback to original GamificationUI
+      if (!this.gamificationUI && typeof GamificationUI !== 'undefined') {
+        console.log('📦 Initializing GamificationUI as fallback...');
+        this.gamificationUI = new GamificationUI();
+        await this.gamificationUI.init();
+      }
+
+      if (this.gamificationUI) {
+        console.log('📦 Rendering with GamificationUI');
+        await this.gamificationUI.renderMiniWidget(container);
+        console.log('✅ Gamification mini widget loaded');
+      } else {
+        throw new Error('No gamification widget available');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error loading gamification widget:', error);
+      
+      // Show minimal error state
+      container.innerHTML = `
+        <div style="
+          background: rgba(255,255,255,0.05); 
+          padding: 12px 16px; 
+          border-radius: 12px; 
+          margin: 16px 20px;
+          color: rgba(255,255,255,0.7);
+          text-align: center;
+          font-size: 12px;
+        ">
+          🎮 Gamification temporarily unavailable
+        </div>
+      `;
+    }
   }
   
   async loadStats() {
@@ -453,6 +509,10 @@ class VocabSRSPopup {
         throw new Error('Invalid SRS data structure');
       }
       
+      // Check if this is a new word (for gamification)
+      const isNewWord = this.currentWordData.srs.repetitions === 0;
+      const difficulty = this.getDifficultyFromInterval(this.currentWordData.srs.interval);
+      
       // Update SRS data with fallback to basic algorithm
       let updatedSRS;
       try {
@@ -485,6 +545,19 @@ class VocabSRSPopup {
         this.reviewStats.correct++;
       }
       
+      // Handle gamification
+      if (this.gamificationUI) {
+        try {
+          const result = await this.gamificationUI.onWordReviewed(quality, isNewWord, difficulty);
+          if (result && result.xpGained > 0) {
+            // Update the mini widget to show new XP
+            await this.loadGamificationWidget();
+          }
+        } catch (gamError) {
+          console.error('❌ Error updating gamification:', gamError);
+        }
+      }
+      
       // Move to next card
       this.currentWordIndex++;
       this.loadCurrentCard();
@@ -500,6 +573,15 @@ class VocabSRSPopup {
       });
       this.showError(`Failed to save review result: ${error.message}`);
     }
+  }
+
+  getDifficultyFromInterval(interval) {
+    // Convert SRS interval to difficulty level for gamification
+    if (interval <= 1) return 'beginner';
+    if (interval <= 7) return 'easy';
+    if (interval <= 30) return 'medium';
+    if (interval <= 180) return 'hard';
+    return 'master';
   }
   
   // Fallback SRS update method
@@ -892,5 +974,6 @@ class VocabSRSPopup {
 
 // Initialize popup when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
+  console.log('📄 DOM loaded, creating VocabSRSPopup...');
   new VocabSRSPopup();
 });

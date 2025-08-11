@@ -124,24 +124,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
   
-  if (request.action === 'openDebugWindow') {
-    // Open debug analytics window
-    chrome.windows.create({
-      url: chrome.runtime.getURL('src/ui/debug-analytics.html'),
-      type: 'popup',
-      width: 800,
-      height: 600,
-      focused: true
-    }).then((window) => {
-      sendResponse({ success: true, windowId: window.id });
-    }).catch((error) => {
-      console.error('Error opening debug window:', error);
-      sendResponse({ success: false, error: error.message });
-    });
-    
-    return true;
-  }
-  
   // Handle any other background tasks if needed
   return false;
 });

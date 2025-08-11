@@ -35,6 +35,8 @@
         "src/api.js",
         "src/advanced-srs.js",
         "src/performance-optimizer.js",
+        "src/analytics.js",
+        "src/gamification.js",
         "src/integration-manager.js",
         "src/keyboard-shortcuts.js",
         "src/ui/addModal.js",
