@@ -52,7 +52,10 @@
             <!-- Input section -->
             <div class="input-section" id="input-section">
                 <div class="input-prompt">What is the English word?</div>
-                <input type="text" id="answer-input" placeholder="Type your answer..." class="answer-input">
+                <input type="text" id="answer-input" placeholder="Type your answer..." class="answer-input"
+                       autocomplete="off" spellcheck="false" 
+                       onpaste="return false;" ondrop="return false;" 
+                       oncontextmenu="return false;">
                 <div class="input-buttons">
                     <button id="submit-answer-btn" class="btn btn-primary">
                         <span class="btn-icon">✓</span> Check Answer
@@ -122,7 +125,10 @@
                 <!-- Retype section for wrong/skipped answers -->
                 <div class="retype-section" id="retype-section" style="display: none;">
                     <div class="retype-prompt">Please type the correct word to continue:</div>
-                    <input type="text" id="retype-input" placeholder="Type the correct word..." class="answer-input">
+                    <input type="text" id="retype-input" placeholder="Type the correct word..." class="answer-input" 
+                           autocomplete="off" spellcheck="false" 
+                           onpaste="return false;" ondrop="return false;" 
+                           oncontextmenu="return false;">
                     <button id="retype-submit-btn" class="btn btn-primary">
                         <span class="btn-icon">✓</span> Continue
                     </button>
