@@ -26,7 +26,7 @@ const VocabAddModal = {
       
       <div class="vocab-modal-body">
         <div class="vocab-form-group">
-          <label for="vocab-word">Word:</label>
+          <label for="vocab-word">Word/Phrase:</label>
           <input type="text" id="vocab-word" readonly class="vocab-input-readonly">
         </div>
         
@@ -37,13 +37,13 @@ const VocabAddModal = {
         
         <div class="vocab-form-group">
           <label for="vocab-example">Example sentence:</label>
-          <input type="text" id="vocab-example" placeholder="Optional example sentence...">
+          <input type="text" id="vocab-example" placeholder="Optional example sentence or usage context...">
         </div>
         
         <div class="vocab-form-group">
           <label for="vocab-phonetic">Phonetic:</label>
           <div class="vocab-phonetic-group">
-            <input type="text" id="vocab-phonetic" placeholder="Will be fetched automatically..." readonly>
+            <input type="text" id="vocab-phonetic" placeholder="Will be fetched for single words..." readonly>
             <button type="button" id="vocab-fetch-pronunciation" class="vocab-btn vocab-btn-secondary">
               Fetch Pronunciation
             </button>
@@ -64,7 +64,7 @@ const VocabAddModal = {
       </div>
       
       <div class="vocab-modal-footer">
-        <button type="button" id="vocab-save-word" class="vocab-btn vocab-btn-primary">Save Word</button>
+        <button type="button" id="vocab-save-word" class="vocab-btn vocab-btn-primary">Save to Dictionary</button>
         <button type="button" id="vocab-cancel" class="vocab-btn vocab-btn-secondary">Cancel</button>
       </div>
     `;
@@ -357,7 +357,7 @@ const VocabFloatingButton = {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     
-    if (!selectedText || !window.VocabUtils.TextUtils.isValidSingleWord(selectedText)) {
+    if (!selectedText || !window.VocabUtils.TextUtils.isValidWord(selectedText)) {
       this.hideButton();
       return;
     }

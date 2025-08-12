@@ -2,34 +2,74 @@
 const DictionaryAPI = {
   BASE_URL: 'https://api.dictionaryapi.dev/api/v2/entries/en/',
   
-  async fetchWordData(word) {
+  async fetchWordData(text) {
     try {
-      const cleanWord = word.trim().toLowerCase();
-      const response = await fetch(`${this.BASE_URL}${encodeURIComponent(cleanWord)}`);
+      const cleanText = text.trim().toLowerCase();
       
-      if (!response.ok) {
-        if (response.status === 404) {
-          throw new Error('Word not found in dictionary');
-        }
-        throw new Error(`API request failed: ${response.status}`);
+      // For phrases, try to get data for individual words
+      const words = cleanText.split(/\s+/);
+      
+      if (words.length === 1) {
+        // Single word - use existing logic
+        return await this.fetchSingleWordData(cleanText);
+      } else {
+        // Phrase - get data for the first significant word
+        return await this.fetchPhraseData(words, cleanText);
       }
-      
-      const data = await response.json();
-      return this.parseAPIResponse(data);
     } catch (error) {
       console.error('Dictionary API error:', error);
       throw error;
     }
   },
   
-  parseAPIResponse(data) {
+  async fetchSingleWordData(word) {
+    const response = await fetch(`${this.BASE_URL}${encodeURIComponent(word)}`);
+    
+    if (!response.ok) {
+      if (response.status === 404) {
+        throw new Error('Word not found in dictionary');
+      }
+      throw new Error(`API request failed: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return this.parseAPIResponse(data, word);
+  },
+  
+  async fetchPhraseData(words, originalPhrase) {
+    // Try to find dictionary data for the most significant word
+    const significantWords = words.filter(word => 
+      word.length > 2 && !['the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by'].includes(word)
+    );
+    
+    const targetWord = significantWords[0] || words[0];
+    
+    try {
+      const data = await this.fetchSingleWordData(targetWord);
+      // Override the word field with the original phrase
+      data.word = originalPhrase;
+      data.isPhrase = true;
+      return data;
+    } catch (error) {
+      // If no dictionary data found, return basic structure for phrase
+      return {
+        word: originalPhrase,
+        phonetic: '',
+        audioUrl: '',
+        definitions: [],
+        isPhrase: true
+      };
+    }
+  },
+  
+  parseAPIResponse(data, originalText) {
     if (!data || !Array.isArray(data) || data.length === 0) {
       throw new Error('Invalid API response format');
     }
     
     const entry = data[0]; // Take the first entry
     const result = {
-      word: entry.word || '',
+      word: originalText || entry.word || '',
       phonetic: '',
       audioUrl: '',
       definitions: []
@@ -114,9 +154,9 @@ const DictionaryAPI = {
 const AudioPlayer = {
   currentAudio: null,
   
-  async playAudio(word, audioUrl) {
+  async playAudio(text, audioUrl) {
     try {
-      // First try to play audio URL if available
+      // First try to play audio URL if available (typically for single words)
       if (audioUrl) {
         const success = await this.playAudioUrl(audioUrl);
         if (success) {
@@ -124,15 +164,15 @@ const AudioPlayer = {
         }
       }
       
-      // Fallback to Text-to-Speech
-      return await this.playTextToSpeech(word);
+      // Fallback to Text-to-Speech (works for both words and phrases)
+      return await this.playTextToSpeech(text);
       
     } catch (error) {
       console.error('Audio playback error:', error);
       
       // Try TTS as final fallback
       try {
-        return await this.playTextToSpeech(word);
+        return await this.playTextToSpeech(text);
       } catch (ttsError) {
         throw new Error('Both audio playback and text-to-speech failed');
       }
@@ -161,7 +201,7 @@ const AudioPlayer = {
     }
   },
   
-  async playTextToSpeech(word) {
+  async playTextToSpeech(text) {
     return new Promise((resolve, reject) => {
       // Check if Speech Synthesis is supported
       if (!window.speechSynthesis) {
@@ -174,9 +214,12 @@ const AudioPlayer = {
         window.speechSynthesis.cancel();
         
         // Create utterance
-        const utterance = new SpeechSynthesisUtterance(word);
+        const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'en-US';
-        utterance.rate = 0.8; // Slightly slower for learning
+        
+        // Adjust rate based on text length (slower for phrases)
+        const wordCount = text.trim().split(/\s+/).length;
+        utterance.rate = wordCount > 1 ? 0.7 : 0.8; // Slower for phrases
         utterance.pitch = 1;
         utterance.volume = 0.8;
         
@@ -184,16 +227,17 @@ const AudioPlayer = {
         utterance.onend = () => resolve({ method: 'tts', success: true });
         utterance.onerror = (event) => reject(new Error(`TTS error: ${event.error}`));
         
-        // Speak the word
+        // Speak the text
         window.speechSynthesis.speak(utterance);
         
-        // Timeout fallback (some browsers don't fire onend consistently)
+        // Timeout fallback (adjust timeout for phrases)
+        const timeout = Math.max(3000, wordCount * 1000); // 1 second per word minimum
         setTimeout(() => {
           if (window.speechSynthesis.speaking) {
             window.speechSynthesis.cancel();
           }
           resolve({ method: 'tts', success: true });
-        }, 3000);
+        }, timeout);
         
       } catch (error) {
         reject(new Error(`TTS setup failed: ${error.message}`));

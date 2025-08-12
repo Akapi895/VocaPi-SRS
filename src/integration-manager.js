@@ -80,14 +80,16 @@ class IntegrationManager {
   }
 
   cleanSelectedText(text) {
-    // Remove special characters and extra spaces
-    const cleaned = text.replace(/[^\w\s-]/g, '').trim().toLowerCase();
+    // Enhanced cleaning for both words and phrases
+    const cleaned = text.replace(/[^\w\s''\-,.\(\)!?]/g, '').trim();
     
-    // Validate it's a single word
+    // Validate reasonable length and word count
     const words = cleaned.split(/\s+/);
-    if (words.length > 3) return null; // Too many words
+    if (words.length > 10) return null; // Max 10 words for phrases
+    if (cleaned.length > 200) return null; // Max 200 characters
     
-    return words.join(' ');
+    // Normalize whitespace
+    return words.join(' ').toLowerCase();
   }
 
   /**

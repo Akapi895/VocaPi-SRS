@@ -182,20 +182,29 @@ const VocabStorage = {
     try {
       const words = await this.getAllWords();
       
-      // Check for duplicates
-      const existingWord = words.find(w => w.word.toLowerCase() === wordData.word.toLowerCase());
+      // Enhanced duplicate checking for both words and phrases
+      const normalizedInput = window.VocabUtils.TextUtils.sanitizeText(wordData.word.toLowerCase());
+      const existingWord = words.find(w => {
+        const existingNormalized = window.VocabUtils.TextUtils.sanitizeText(w.word.toLowerCase());
+        return existingNormalized === normalizedInput;
+      });
+      
       if (existingWord) {
-        throw new Error('Word already exists in your dictionary');
+        throw new Error(`"${wordData.word}" already exists in your dictionary`);
       }
       
       // Create word object preserving all provided data
       const newWord = {
         id: wordData.id || generateUUID(),
-        word: wordData.word,
+        word: window.VocabUtils.TextUtils.formatDisplayText(wordData.word), // Format for display
         meaning: wordData.meaning || '',
         example: wordData.example || '',
         phonetic: wordData.phonetic || '',
         audioUrl: wordData.audioUrl || null,
+        
+        // Enhanced metadata
+        wordType: window.VocabUtils.TextUtils.isPhrase(wordData.word) ? 'phrase' : 'word',
+        wordCount: window.VocabUtils.TextUtils.countWords(wordData.word),
         
         // Preserve or create SRS data
         srs: wordData.srs && typeof wordData.srs === 'object' ? {
@@ -416,6 +425,21 @@ const SRSAlgorithm = {
 
 // Text validation utilities
 const TextUtils = {
+  isValidWord(text) {
+    if (!text || text.length === 0) return false;
+    
+    // Support both single words and phrases
+    const trimmedText = text.trim();
+    
+    // Basic validation: not empty, reasonable length, contains letters
+    if (trimmedText.length > 200) return false; // Max phrase length
+    if (!/[a-zA-Z]/.test(trimmedText)) return false; // Must contain letters
+    
+    // Allow letters, numbers, spaces, hyphens, apostrophes, commas, periods
+    const phrasePattern = /^[a-zA-Z0-9\s''\-,.\(\)!?]+$/;
+    return phrasePattern.test(trimmedText);
+  },
+  
   isValidSingleWord(text) {
     if (!text || text.length === 0) return false;
     
@@ -426,12 +450,42 @@ const TextUtils = {
     return words.length === 1 && wordPattern.test(words[0]);
   },
   
+  isPhrase(text) {
+    if (!text) return false;
+    const words = text.trim().split(/\s+/);
+    return words.length > 1;
+  },
+  
+  countWords(text) {
+    if (!text) return 0;
+    return text.trim().split(/\s+/).length;
+  },
+  
+  sanitizeText(text) {
+    return text.trim().replace(/\s+/g, ' '); // Normalize whitespace
+  },
+  
   sanitizeWord(word) {
     return word.trim().toLowerCase();
   },
   
   capitalizeFirst(str) {
     return str.charAt(0).toUpperCase() + str.slice(1);
+  },
+  
+  formatDisplayText(text) {
+    // For display purposes - capitalize appropriately
+    if (!text) return '';
+    
+    const trimmed = this.sanitizeText(text);
+    
+    // If it's a single word, just capitalize first letter
+    if (!this.isPhrase(trimmed)) {
+      return this.capitalizeFirst(trimmed.toLowerCase());
+    }
+    
+    // For phrases, capitalize first letter of each sentence
+    return trimmed.replace(/^\w|\.\s+\w/g, letter => letter.toUpperCase());
   }
 };
 
