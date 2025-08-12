@@ -739,20 +739,36 @@ class VocabSRSPopup {
       return;
     }
     
-    // Sort words: due words first, then by creation date
+    // Sort words: due words first, then by next review time
     const sortedWords = words.sort((a, b) => {
-      const aDue = window.VocabUtils.DateUtils.isPastDue(a.srs.nextReview);
-      const bDue = window.VocabUtils.DateUtils.isPastDue(b.srs.nextReview);
+      const aDue = window.VocabUtils.TimeUtils.isCardDue(a);
+      const bDue = window.VocabUtils.TimeUtils.isCardDue(b);
       
       if (aDue && !bDue) return -1;
       if (!aDue && bDue) return 1;
+      
+      // If both due or both not due, sort by next review time
+      if (aDue === bDue) {
+        const aTime = a.srs?.nextReview ? 
+          (typeof a.srs.nextReview === 'string' ? new Date(a.srs.nextReview).getTime() : a.srs.nextReview) : 0;
+        const bTime = b.srs?.nextReview ? 
+          (typeof b.srs.nextReview === 'string' ? new Date(b.srs.nextReview).getTime() : b.srs.nextReview) : 0;
+        return aTime - bTime;
+      }
       
       return new Date(b.createdAt) - new Date(a.createdAt);
     });
     
     wordList.innerHTML = sortedWords.map(word => {
-      const isDue = window.VocabUtils.DateUtils.isPastDue(word.srs.nextReview);
-      const nextReview = window.VocabUtils.DateUtils.formatDate(word.srs.nextReview);
+      const isDue = window.VocabUtils.TimeUtils.isCardDue(word);
+      const nextReviewText = isDue 
+        ? 'Due now' 
+        : window.VocabUtils.TimeUtils.formatTimeUntilReview(word.srs.nextReview);
+      
+      // Show interval info for debugging
+      const intervalInfo = word.srs?.interval 
+        ? `(${word.srs.intervalUnit === 'minutes' ? word.srs.interval + 'min' : word.srs.interval + 'd'})` 
+        : '';
       
       return `
         <div class="word-item ${isDue ? 'word-due' : ''}">
@@ -766,7 +782,7 @@ class VocabSRSPopup {
           </div>
           <div class="word-meta">
             <span class="next-review ${isDue ? 'due-now' : ''}">
-              ${isDue ? 'Due now' : `Next: ${nextReview}`}
+              ${isDue ? 'Due now' : `Next: ${nextReviewText}`} ${intervalInfo}
             </span>
             <button class="delete-word-btn" data-word-id="${word.id}" title="Delete word">🗑️</button>
           </div>

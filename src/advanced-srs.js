@@ -3,26 +3,29 @@ class AdvancedSRSAlgorithm {
   constructor() {
     this.DEFAULT_PARAMETERS = {
       requestRetention: 0.9, // Target retention rate
-      maximumInterval: 36500, // 100 years in days
+      maximumInterval: 525600, // 1 year in minutes (365 * 24 * 60)
+      minimumInterval: 10, // Minimum 10 minutes for failed cards
+      intervalUnit: 'minutes', // Support both 'minutes' and 'days'
       w: [0.4, 0.6, 2.4, 5.8, 4.93, 0.94, 0.86, 0.01, 1.49, 0.14, 0.94, 2.18, 0.05, 0.34, 1.26, 0.29, 2.61]
     };
   }
 
   /**
-   * Enhanced SM-2+ algorithm with adaptive parameters
+   * Enhanced SM-2+ algorithm with adaptive parameters and minute-level precision
    */
   calculateNextReview(card, quality, responseTime = null, userStats = {}) {
     const now = Date.now();
-    const timeSinceLastReview = card.srs.lastReviewedAt 
-      ? (now - card.srs.lastReviewedAt) / (1000 * 60 * 60 * 24) // days
+    const timeSinceLastReviewMs = card.srs.lastReviewedAt 
+      ? (now - card.srs.lastReviewedAt)
       : 0;
+    const timeSinceLastReviewMinutes = timeSinceLastReviewMs / (1000 * 60); // minutes
 
     // Adaptive difficulty factor based on user performance
     const adaptiveFactor = this.calculateAdaptiveFactor(userStats, card.category);
     
     // Time-based forgetting curve adjustment
     const forgettingCurveAdjustment = this.calculateForgettingCurve(
-      timeSinceLastReview, 
+      timeSinceLastReviewMinutes, 
       card.srs.interval, 
       card.srs.easeFactor
     );
@@ -32,22 +35,33 @@ class AdvancedSRSAlgorithm {
 
     let { interval, easeFactor, repetitions } = card.srs;
 
-    // Quality-based adjustments
+    // Quality-based adjustments with minute-level precision
     if (quality < 3) {
-      // Failed recall - apply forgetting curve and reset
+      // Failed recall - progressive intervals starting from minutes
       repetitions = 0;
-      interval = Math.max(1, Math.floor(interval * forgettingCurveAdjustment * 0.5));
+      
+      if (quality <= 1) {
+        interval = this.DEFAULT_PARAMETERS.minimumInterval; // 10 minutes for complete failure
+      } else if (quality === 2) {
+        interval = Math.max(30, Math.floor(interval * forgettingCurveAdjustment * 0.3)); // 30 min minimum
+      }
+      
       easeFactor = Math.max(1.3, easeFactor - 0.2);
     } else {
-      // Successful recall
+      // Successful recall with progressive minute-based intervals
       repetitions += 1;
       
       if (repetitions === 1) {
-        interval = Math.ceil(1 * adaptiveFactor);
+        // First success: 1-4 hours based on difficulty
+        interval = Math.ceil(60 * adaptiveFactor * (quality === 5 ? 4 : quality === 4 ? 2 : 1));
       } else if (repetitions === 2) {
-        interval = Math.ceil(6 * adaptiveFactor);
+        // Second success: 6-24 hours
+        interval = Math.ceil(360 * adaptiveFactor * (quality === 5 ? 2 : 1)); // 6-12 hours
+      } else if (repetitions === 3) {
+        // Third success: 1-3 days  
+        interval = Math.ceil(1440 * adaptiveFactor * quality / 3); // 1-3 days in minutes
       } else {
-        // Enhanced ease factor calculation
+        // Long-term retention: Enhanced ease factor calculation
         const qualityBonus = this.calculateQualityBonus(quality);
         const consistencyBonus = this.calculateConsistencyBonus(card.reviewHistory || []);
         
@@ -56,19 +70,27 @@ class AdvancedSRSAlgorithm {
       }
     }
 
-    // Apply maximum interval limit
+    // Apply interval limits
+    interval = Math.max(this.DEFAULT_PARAMETERS.minimumInterval, interval);
     interval = Math.min(interval, this.DEFAULT_PARAMETERS.maximumInterval);
 
-    // Calculate optimal review time based on circadian rhythm
-    const optimalReviewTime = this.calculateOptimalReviewTime(userStats.preferredTimes);
-    const nextReviewDate = new Date(now + interval * 24 * 60 * 60 * 1000);
+    // Calculate next review time with minute precision
+    const nextReviewDate = new Date(now + interval * 60 * 1000);
     
-    // Adjust to optimal time
-    if (optimalReviewTime) {
-      nextReviewDate.setHours(optimalReviewTime.hour, optimalReviewTime.minute, 0, 0);
+    // For short intervals (< 2 hours), don't adjust time
+    // For longer intervals, adjust to optimal review time
+    if (interval >= 120) { // 2+ hours
+      const optimalReviewTime = this.calculateOptimalReviewTime(userStats.preferredTimes);
+      if (optimalReviewTime) {
+        nextReviewDate.setHours(optimalReviewTime.hour, optimalReviewTime.minute, 0, 0);
+        // If the adjusted time is in the past, add one day
+        if (nextReviewDate.getTime() <= now) {
+          nextReviewDate.setDate(nextReviewDate.getDate() + 1);
+        }
+      }
     }
 
-    // Update review history
+    // Update review history with minute-level data
     const reviewEntry = {
       date: now,
       quality,
@@ -76,7 +98,8 @@ class AdvancedSRSAlgorithm {
       interval: card.srs.interval,
       newInterval: interval,
       easeFactor,
-      timeSinceLastReview
+      timeSinceLastReview: timeSinceLastReviewMinutes,
+      intervalUnit: 'minutes'
     };
 
     return {
@@ -87,13 +110,68 @@ class AdvancedSRSAlgorithm {
       lastReviewedAt: now,
       reviewHistory: [...(card.srs.reviewHistory || []), reviewEntry].slice(-20), // Keep last 20 reviews
       totalReviews: (card.srs.totalReviews || 0) + 1,
+      intervalUnit: 'minutes', // Mark this as minute-based
       metadata: {
         adaptiveFactor,
         forgettingCurveAdjustment,
         responseTimeBonus,
-        optimalReviewTime
+        intervalInMinutes: interval,
+        intervalInHours: Math.round((interval / 60) * 100) / 100,
+        intervalInDays: Math.round((interval / 1440) * 100) / 100,
+        nextReviewHuman: this.formatInterval(interval)
       }
     };
+  }
+
+  /**
+   * Format interval for human reading
+   */
+  formatInterval(minutes) {
+    if (minutes < 60) {
+      return `${minutes} minutes`;
+    } else if (minutes < 1440) { // Less than 1 day
+      const hours = Math.round((minutes / 60) * 10) / 10;
+      return `${hours} hours`;
+    } else if (minutes < 10080) { // Less than 1 week
+      const days = Math.round((minutes / 1440) * 10) / 10;
+      return `${days} days`;
+    } else if (minutes < 43200) { // Less than 1 month
+      const weeks = Math.round((minutes / 10080) * 10) / 10;
+      return `${weeks} weeks`;
+    } else {
+      const months = Math.round((minutes / 43200) * 10) / 10;
+      return `${months} months`;
+    }
+  }
+
+  /**
+   * Check if a card is due for review (minute precision)
+   */
+  isCardDue(card) {
+    if (!card.srs || !card.srs.nextReview) {
+      return true; // New cards are always due
+    }
+    
+    return Date.now() >= card.srs.nextReview;
+  }
+
+  /**
+   * Get time until next review with human format
+   */
+  getTimeUntilNextReview(card) {
+    if (!card.srs || !card.srs.nextReview) {
+      return 'Ready now';
+    }
+    
+    const now = Date.now();
+    const nextReview = card.srs.nextReview;
+    
+    if (nextReview <= now) {
+      return 'Ready now';
+    }
+    
+    const minutesUntil = Math.ceil((nextReview - now) / (1000 * 60));
+    return this.formatInterval(minutesUntil);
   }
 
   /**

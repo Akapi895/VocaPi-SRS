@@ -12,7 +12,66 @@ function generateUUID() {
 // Date utilities
 const DateUtils = {
   now() {
-    return new Date().toISOString();
+    return new Date().to// Time formatting utilities for SRS
+const TimeUtils = {
+  formatTimeUntilReview(nextReview) {
+    if (!nextReview) return 'Ready now';
+    
+    const now = Date.now();
+    const nextReviewTime = typeof nextReview === 'string' 
+      ? new Date(nextReview).getTime() 
+      : nextReview;
+    
+    if (nextReviewTime <= now) return 'Ready now';
+    
+    const diffMs = nextReviewTime - now;
+    const minutes = Math.ceil(diffMs / (1000 * 60));
+    
+    return this.formatInterval(minutes);
+  },
+  
+  formatInterval(minutes) {
+    if (minutes < 60) {
+      return `${minutes} minutes`;
+    } else if (minutes < 1440) { // Less than 1 day
+      const hours = Math.round((minutes / 60) * 10) / 10;
+      return `${hours} hours`;
+    } else if (minutes < 10080) { // Less than 1 week  
+      const days = Math.round((minutes / 1440) * 10) / 10;
+      return `${days} days`;
+    } else if (minutes < 43200) { // Less than 1 month
+      const weeks = Math.round((minutes / 10080) * 10) / 10;
+      return `${weeks} weeks`;
+    } else {
+      const months = Math.round((minutes / 43200) * 10) / 10;
+      return `${months} months`;
+    }
+  },
+  
+  isCardDue(card) {
+    if (!card.srs || !card.srs.nextReview) return true;
+    
+    const now = Date.now();
+    const nextReviewTime = typeof card.srs.nextReview === 'string'
+      ? new Date(card.srs.nextReview).getTime()
+      : card.srs.nextReview;
+      
+    return now >= nextReviewTime;
+  }
+};
+
+// Export for use in other modules
+if (typeof window !== 'undefined') {
+  window.VocabUtils = {
+    generateUUID,
+    DateUtils,
+    StorageManager,
+    VocabStorage,
+    SRSAlgorithm,
+    TextUtils,
+    TimeUtils
+  };
+};
   },
   
   today() {
@@ -205,9 +264,27 @@ const VocabStorage = {
   async getDueWords() {
     try {
       const words = await this.getAllWords();
-      const now = DateUtils.now();
-      return words.filter(word => DateUtils.isPastDue(word.srs.nextReview))
-                 .sort((a, b) => new Date(a.srs.nextReview) - new Date(b.srs.nextReview));
+      const now = Date.now(); // Use millisecond timestamp for precision
+      
+      return words.filter(word => {
+        if (!word.srs || !word.srs.nextReview) {
+          return true; // New words are always due
+        }
+        
+        // Support both ISO string and timestamp
+        const nextReviewTime = typeof word.srs.nextReview === 'string' 
+          ? new Date(word.srs.nextReview).getTime()
+          : word.srs.nextReview;
+          
+        return now >= nextReviewTime;
+      }).sort((a, b) => {
+        // Sort by next review time (earliest first)
+        const aTime = a.srs?.nextReview ? 
+          (typeof a.srs.nextReview === 'string' ? new Date(a.srs.nextReview).getTime() : a.srs.nextReview) : 0;
+        const bTime = b.srs?.nextReview ? 
+          (typeof b.srs.nextReview === 'string' ? new Date(b.srs.nextReview).getTime() : b.srs.nextReview) : 0;
+        return aTime - bTime;
+      });
     } catch (error) {
       console.error('Error getting due words:', error);
       return [];
@@ -263,17 +340,24 @@ const SRSAlgorithm = {
     
     // Ensure required fields exist
     updatedSRS.repetitions = updatedSRS.repetitions || 0;
-    updatedSRS.interval = updatedSRS.interval || 1;
+    updatedSRS.interval = updatedSRS.interval || 10; // Start with 10 minutes
     updatedSRS.easiness = updatedSRS.easiness || 2.5;
+    updatedSRS.intervalUnit = updatedSRS.intervalUnit || 'minutes'; // Support minute-level precision
     
-    // SM-2 Algorithm implementation
+    // Enhanced SM-2 Algorithm with minute-level intervals
     if (quality >= 3) {
       // Successful review
       if (updatedSRS.repetitions === 0) {
-        updatedSRS.interval = 1;
+        // First success: 1 hour based on quality
+        updatedSRS.interval = quality === 5 ? 120 : quality === 4 ? 60 : 30; // 30min-2hrs
       } else if (updatedSRS.repetitions === 1) {
-        updatedSRS.interval = 6;
+        // Second success: 6-12 hours based on quality  
+        updatedSRS.interval = quality === 5 ? 720 : quality === 4 ? 480 : 360; // 6-12hrs
+      } else if (updatedSRS.repetitions === 2) {
+        // Third success: 1-2 days
+        updatedSRS.interval = quality === 5 ? 2880 : quality === 4 ? 2160 : 1440; // 1-2 days in minutes
       } else {
+        // Long-term: Use ease factor with minute precision
         updatedSRS.interval = Math.round(updatedSRS.interval * updatedSRS.easiness);
       }
       
@@ -284,13 +368,23 @@ const SRSAlgorithm = {
         updatedSRS.easiness = 1.3;
       }
     } else {
-      // Failed review
+      // Failed review - progressive minute-based recovery
       updatedSRS.repetitions = 0;
-      updatedSRS.interval = 1;
+      if (quality <= 1) {
+        updatedSRS.interval = 10; // 10 minutes for complete failure
+      } else if (quality === 2) {
+        updatedSRS.interval = 30; // 30 minutes for partial failure  
+      }
+      updatedSRS.easiness = Math.max(1.3, updatedSRS.easiness - 0.2);
     }
     
-    // Set next review date as ISO string
-    updatedSRS.nextReview = DateUtils.addDays(DateUtils.today(), updatedSRS.interval);
+    // Apply reasonable limits
+    updatedSRS.interval = Math.max(10, updatedSRS.interval); // Minimum 10 minutes
+    updatedSRS.interval = Math.min(525600, updatedSRS.interval); // Maximum 1 year in minutes
+    
+    // Set next review with minute precision
+    const nextReviewTime = new Date(Date.now() + updatedSRS.interval * 60 * 1000);
+    updatedSRS.nextReview = nextReviewTime.toISOString();
     
     return updatedSRS;
   },
