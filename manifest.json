@@ -30,6 +30,7 @@
     {
       "matches": ["<all_urls>"],
       "js": [
+        "src/production-logger.js",
         "src/logger.js",
         "src/utils.js",
         "src/api.js",
@@ -54,7 +55,7 @@
     "default_title": "Vocab SRS"
   },
   
-  "options_page": "src/options.html",
+  "options_page": "src/ui/options.html",
   
   "icons": {
     "48": "assets/icon48.png",
@@ -70,7 +71,11 @@
         "src/ui/review.js",
         "src/ui/analytics.html",
         "src/ui/analytics.css",
-        "src/ui/analytics.js"
+        "src/ui/analytics.js",
+        "src/ui/cloud-sync-ui.js",
+        "src/production-logger.js",
+        "src/env-config.js",
+        "src/cloud-sync.js"
       ],
       "matches": ["<all_urls>"]
     }

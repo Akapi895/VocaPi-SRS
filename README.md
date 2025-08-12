@@ -15,6 +15,7 @@
 - **Quality Ratings**: 6-level difficulty assessment (0-5)
 - **Progress Tracking**: Real-time statistics and learning insights
 - **🎮 Gamification**: XP system, achievements, daily challenges, and level progression
+- **☁️ Cloud Sync**: Secure backup and multi-device synchronization
 
 ### 🚀 **Seamless Integration**
 
@@ -35,8 +36,9 @@
 
 - **Smart Caching**: LRU cache with TTL for instant lookups
 - **Lazy Loading**: Efficient memory usage for large vocabularies
-- **Background Sync**: Auto-backup with exponential backoff
+- **Background Sync**: Auto-backup with exponential backoff retry
 - **Performance Dashboard**: Real-time metrics monitoring
+- **Cloud Sync**: Automatic data backup and conflict resolution
 
 ---
 
@@ -116,12 +118,30 @@ This project has been actively developed with the following features **completed
 - ✅ **Modern UI/UX** - Glassmorphism design with responsive layout
 - ✅ **Audio Integration** - TTS and pronunciation with fallback systems
 - ✅ **Context Menu Integration** - Right-click to add words from any webpage
+- ✅ **Cloud Sync & Backup** - Firebase-based data synchronization with encryption
 
 **Future roadmap** (planned features):
 
-- 🌐 **Cloud Sync** - Multi-device synchronization via Google Drive
 - 🤖 **AI Integration** - GPT-powered personalized learning suggestions
 - 📱 **Mobile PWA** - Progressive web app for mobile devices
 - 🔗 **Platform Integrations** - Netflix, YouTube, and social media platforms
 
-[⭐ Star this repo](https://github.com/Akapi895/vocab-srs) | [🍴 Fork](https://github.com/Akapi895/vocab-srs/fork) | [📥 Download](https://github.com/Akapi895/vocab-srs/archive/main.zip)
+---
+
+## ☁️ Cloud Sync Setup
+
+To enable cloud synchronization, you'll need to set up Firebase:
+
+1. **Follow the setup guide**: See [FIREBASE_SETUP.md](FIREBASE_SETUP.md) for detailed instructions
+2. **Update configuration**: Replace Firebase config in `src/cloud-sync.js`
+3. **Enable auto-sync**: Use the Cloud Sync widget in the extension popup
+
+### Cloud Sync Features:
+
+- **Automatic Backup**: Your vocabulary is safely stored in the cloud
+- **Multi-device Sync**: Access your words from any device
+- **Conflict Resolution**: Smart merging when data conflicts occur
+- **Encryption**: All data is encrypted before upload
+- **Offline Support**: Works offline, syncs when connection returns
+
+---

@@ -10,15 +10,19 @@ class VocabSRSPopup {
     this.wasHintUsed = false;
     this.wasSkipped = false;
     this.gamificationUI = null;
+    this.cloudSyncUI = null;
     
     this.init();
   }
   
   async init() {
-    console.log('🚀 Initializing Vocab SRS Popup');
+    window.Logger?.log('🚀 Initializing Vocab SRS Popup');
     
     // Load gamification widget immediately (non-blocking)
     this.loadGamificationWidget();
+    
+    // Initialize Cloud Sync UI (non-blocking)
+    this.initializeCloudSync();
     
     await this.loadStats();
     this.bindEvents();
@@ -75,6 +79,62 @@ class VocabSRSPopup {
     }
   }
   
+  async initializeCloudSync() {
+    console.log('☁️ Initializing Cloud Sync UI...');
+    
+    try {
+      if (typeof window.CloudSyncUI !== 'undefined') {
+        this.cloudSyncUI = new window.CloudSyncUI();
+        console.log('✅ Cloud Sync UI initialized');
+      } else {
+        console.warn('⚠️ CloudSyncUI not available');
+        this.showCloudSyncUnavailable();
+      }
+    } catch (error) {
+      console.error('❌ Error initializing Cloud Sync UI:', error);
+      this.showCloudSyncError(error.message);
+    }
+  }
+  
+  showCloudSyncUnavailable() {
+    const container = document.getElementById('cloud-sync-container');
+    if (!container) return;
+    
+    container.innerHTML = `
+      <div style="
+        background: rgba(255,255,255,0.05); 
+        padding: 12px 16px; 
+        border-radius: 12px; 
+        margin: 12px 0;
+        color: rgba(255,255,255,0.7);
+        text-align: center;
+        font-size: 12px;
+      ">
+        ☁️ Cloud Sync temporarily unavailable
+      </div>
+    `;
+  }
+  
+  showCloudSyncError(error) {
+    const container = document.getElementById('cloud-sync-container');
+    if (!container) return;
+    
+    container.innerHTML = `
+      <div style="
+        background: rgba(239, 68, 68, 0.1); 
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        padding: 12px 16px; 
+        border-radius: 12px; 
+        margin: 12px 0;
+        color: #ff6b6b;
+        text-align: center;
+        font-size: 12px;
+      ">
+        ⚠️ Cloud Sync Error: ${error}
+      </div>
+    `;
+  }
+  
   async loadStats() {
     try {
       const allWords = await window.VocabUtils.VocabStorage.getAllWords();
@@ -104,6 +164,7 @@ class VocabSRSPopup {
     document.getElementById('start-review-btn').addEventListener('click', () => this.startReview());
     document.getElementById('view-all-words-btn').addEventListener('click', () => this.showWordList());
     document.getElementById('view-analytics-btn').addEventListener('click', () => this.openAnalytics());
+    document.getElementById('settings-btn').addEventListener('click', () => this.openSettings());
     document.getElementById('export-btn').addEventListener('click', () => this.exportVocab());
     document.getElementById('import-btn').addEventListener('click', () => this.importVocab());
     document.getElementById('import-file').addEventListener('change', (e) => this.handleFileImport(e));
@@ -198,6 +259,22 @@ class VocabSRSPopup {
     } catch (error) {
       console.error('Error opening analytics:', error);
       this.showError('Failed to open analytics');
+    }
+  }
+  
+  async openSettings() {
+    try {
+      // Open settings page in a new tab
+      chrome.tabs.create({
+        url: chrome.runtime.getURL('src/ui/options.html')
+      });
+      
+      // Close the extension popup
+      window.close();
+      
+    } catch (error) {
+      console.error('Error opening settings:', error);
+      this.showError('Failed to open settings');
     }
   }
   

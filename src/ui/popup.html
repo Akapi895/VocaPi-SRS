@@ -36,6 +36,11 @@
             <!-- Gamification content will be rendered here -->
         </div>
         
+        <!-- Cloud Sync Widget -->
+        <div id="cloud-sync-container" class="cloud-sync-container">
+            <!-- Cloud Sync UI will be rendered here -->
+        </div>
+        
         <!-- Main Content -->
         <div class="main-content" id="main-screen">
             <div class="action-buttons">
@@ -53,15 +58,19 @@
             <div class="quick-actions">
                 <button id="view-analytics-btn" class="btn btn-outline" title="View learning analytics">
                     <span class="btn-icon">📊</span>
-                    Analytics
+                    <!-- Analytics -->
+                </button>
+                <button id="settings-btn" class="btn btn-outline" title="Settings & Cloud Sync">
+                    <span class="btn-icon">⚙️</span>
+                    <!-- Settings -->
                 </button>
                 <button id="export-btn" class="btn btn-outline" title="Export vocabulary">
                     <span class="btn-icon">📤</span>
-                    Export
+                    <!-- Export -->
                 </button>
                 <button id="import-btn" class="btn btn-outline" title="Import vocabulary">
                     <span class="btn-icon">📥</span>
-                    Import
+                    <!-- Import -->
                 </button>
                 <input type="file" id="import-file" accept=".json" style="display: none;">
             </div>
@@ -254,7 +263,7 @@
         </style>
     </div>
     
-    <script src="../utils.js"></script>
+    <!-- Mock Chrome API for browser testing -->
     <script>
         // Mock Chrome storage for testing in browser
         if (typeof chrome === 'undefined') {
@@ -307,13 +316,19 @@
             console.log('📦 Mock Chrome storage initialized');
         }
     </script>
+    
+    <!-- Core Dependencies -->
+    <script src="../production-logger.js"></script>
+    <script src="../utils.js"></script>
+    <script src="../env-config.js"></script>
+    <script src="../cloud-sync.js"></script>
+    <script src="cloud-sync-ui.js"></script>
     <script src="../api.js"></script>
     <script src="../advanced-srs.js"></script>
     <script src="../performance-optimizer.js"></script>
     <script src="../integration-manager.js"></script>
     <script src="../analytics.js"></script>
     <script src="../gamification.js"></script>
-    <script src="../debug-gamification.js"></script>
     <script src="fast-gamification.js"></script>
     <script src="gamificationUI.js"></script>
     <script src="../keyboard-shortcuts.js"></script>

@@ -21,6 +21,19 @@
 .analytics-title {
   font: 700 32px inherit;
   margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.analytics-title .title-icon {
+  font-size: 32px;
+  color: #10b981;
+  display: inline-block;
+  text-shadow: 0 2px 4px rgba(16, 185, 129, 0.3);
+}
+
+.analytics-title .title-text {
   background: linear-gradient(135deg, #10b981 0%, #34d399 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -559,6 +572,10 @@
   }
   
   .analytics-title {
+    font-size: 24px;
+  }
+  
+  .analytics-title .title-icon {
     font-size: 24px;
   }
   
