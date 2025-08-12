@@ -1031,11 +1031,10 @@ class AnalyticsDashboard {
   loadLearningPatterns(stats, weeklyData) {
     console.log('📊 Loading learning patterns with real data:', { stats, weeklyData });
     
-    // Calculate best study time from actual session data
-    const studyTimePreferences = this.calculateBestStudyTime(stats);
-    const bestStudyTime = studyTimePreferences.bestTime || 'No data yet';
+    // Use Best Study Time from Analytics API if available
+    const bestStudyTime = stats.bestStudyTime || 'No data yet';
     document.getElementById('best-study-time').textContent = bestStudyTime;
-    console.log('⏰ Best study time calculated:', bestStudyTime);
+    console.log('⏰ Best study time from API:', bestStudyTime);
     
     // Find most active day from actual weekly data
     const dayTotals = weeklyData.reduce((acc, day) => {
@@ -1052,17 +1051,10 @@ class AnalyticsDashboard {
     document.getElementById('most-active-day').textContent = mostActiveDay;
     console.log('📅 Most active day calculated:', mostActiveDay, 'from data:', dayTotals);
     
-    // Calculate average session length from real data
-    const avgSessionLength = stats.totalSessions > 0 
-      ? Math.round(stats.totalTime / stats.totalSessions) 
-      : 0;
-    
-    const avgSessionDisplay = avgSessionLength > 0 
-      ? `${avgSessionLength} min`
-      : 'No sessions yet';
-    
+    // Use Average Session Length from Analytics API if available
+    const avgSessionDisplay = stats.avgSessionLength || 'No sessions yet';
     document.getElementById('avg-session-length').textContent = avgSessionDisplay;
-    console.log('⚡ Average session length calculated:', avgSessionDisplay);
+    console.log('⚡ Average session length from API:', avgSessionDisplay);
     
     // Calculate overall accuracy from real quality distribution
     const totalQualities = Object.values(stats.qualityDistribution || {});

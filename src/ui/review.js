@@ -10,7 +10,16 @@ class VocabSRSReview {
     this.wasHintUsed = false;
     this.wasSkipped = false;
     
+    // Track window session timing for accurate Time Spent calculation
+    this.windowOpenTime = Date.now();
+    this.lastActivityTime = Date.now();
+    this.totalActiveTime = 0;
+    this.inactivityThreshold = 30000; // 30 seconds of inactivity = pause counting
+    this.activityTimer = null;
+    this.currentWordStartTime = null;
+    
     this.init();
+    this.setupWindowTracking();
   }
   
   async init() {
@@ -23,6 +32,135 @@ class VocabSRSReview {
     
     await this.loadReviewData();
     this.bindEvents();
+  }
+  
+  setupWindowTracking() {
+    console.log('🕒 Setting up window time tracking');
+    
+    // Track user activity to pause timer when inactive
+    const activityEvents = ['click', 'keydown', 'mousemove', 'scroll'];
+    
+    activityEvents.forEach(event => {
+      document.addEventListener(event, () => {
+        this.updateLastActivity();
+      });
+    });
+    
+    // Track window focus/blur for accurate timing
+    window.addEventListener('focus', () => {
+      console.log('🟢 Window focused - resuming time tracking');
+      this.lastActivityTime = Date.now();
+      this.startActivityTimer();
+    });
+    
+    window.addEventListener('blur', () => {
+      console.log('🔴 Window blurred - pausing time tracking');
+      this.pauseTimeTracking();
+    });
+    
+    // Track window close to save final time
+    window.addEventListener('beforeunload', () => {
+      this.finalizeTimeTracking();
+    });
+    
+    // Start the activity timer
+    this.startActivityTimer();
+    
+    // Update UI timer every 30 seconds
+    this.uiUpdateTimer = setInterval(() => {
+      this.updateActiveTimeDisplay();
+    }, 30000);
+    
+    console.log('⏱️ Window time tracking started at:', new Date().toLocaleTimeString());
+  }
+  
+  updateActiveTimeDisplay() {
+    const activeMinutes = this.getCurrentActiveTime();
+    const display = document.getElementById('active-time-display');
+    if (display) {
+      display.textContent = `${activeMinutes} min`;
+    }
+  }
+  
+  updateLastActivity() {
+    const now = Date.now();
+    
+    // If we were inactive, add the gap to total active time
+    if (this.lastActivityTime && (now - this.lastActivityTime) <= this.inactivityThreshold) {
+      this.totalActiveTime += (now - this.lastActivityTime);
+    }
+    
+    this.lastActivityTime = now;
+  }
+  
+  startActivityTimer() {
+    // Clear existing timer
+    if (this.activityTimer) {
+      clearInterval(this.activityTimer);
+    }
+    
+    // Update active time every second when user is active
+    this.activityTimer = setInterval(() => {
+      const now = Date.now();
+      const timeSinceActivity = now - this.lastActivityTime;
+      
+      if (timeSinceActivity <= this.inactivityThreshold) {
+        this.totalActiveTime += 1000; // Add 1 second
+      } else {
+        console.log('⏸️ User inactive for >30s - pausing time tracking');
+        clearInterval(this.activityTimer);
+      }
+    }, 1000);
+  }
+  
+  pauseTimeTracking() {
+    if (this.activityTimer) {
+      clearInterval(this.activityTimer);
+      this.activityTimer = null;
+    }
+    
+    if (this.uiUpdateTimer) {
+      clearInterval(this.uiUpdateTimer);
+      this.uiUpdateTimer = null;
+    }
+    
+    // Add final chunk of active time
+    const now = Date.now();
+    if (this.lastActivityTime && (now - this.lastActivityTime) <= this.inactivityThreshold) {
+      this.totalActiveTime += (now - this.lastActivityTime);
+    }
+  }
+  
+  finalizeTimeTracking() {
+    this.pauseTimeTracking();
+    
+    const totalWindowTime = Date.now() - this.windowOpenTime;
+    const activeTimeMinutes = Math.round(this.totalActiveTime / 60000);
+    const windowTimeMinutes = Math.round(totalWindowTime / 60000);
+    
+    console.log('📊 Final time tracking:', {
+      totalWindowTime: windowTimeMinutes + ' min',
+      totalActiveTime: activeTimeMinutes + ' min',
+      activePercentage: Math.round((this.totalActiveTime / totalWindowTime) * 100) + '%'
+    });
+    
+    return {
+      activeTime: this.totalActiveTime,
+      windowTime: totalWindowTime,
+      activeTimeMinutes
+    };
+  }
+  
+  getCurrentActiveTime() {
+    // Get current active time including ongoing activity
+    let currentActive = this.totalActiveTime;
+    const now = Date.now();
+    
+    if (this.lastActivityTime && (now - this.lastActivityTime) <= this.inactivityThreshold) {
+      currentActive += (now - this.lastActivityTime);
+    }
+    
+    return Math.round(currentActive / 60000); // Return in minutes
   }
   
   async loadReviewData() {
@@ -721,11 +859,17 @@ class VocabSRSReview {
       ? Math.round((this.reviewStats.correct / this.reviewStats.reviewed) * 100)
       : 0;
     document.getElementById('accuracy-display').textContent = `${accuracy}%`;
+    
+    // Update active time display
+    this.updateActiveTimeDisplay();
   }
   
   completeReview() {
     this.hideAllScreens();
     document.getElementById('review-complete').style.display = 'block';
+    
+    // Finalize time tracking for display
+    const timeData = this.finalizeTimeTracking();
     
     // Show final stats
     document.getElementById('final-reviewed-count').textContent = this.reviewStats.reviewed;
@@ -753,13 +897,39 @@ class VocabSRSReview {
       completeText.textContent = "Great job! You've finished today's review session.";
       continueBtn.style.display = 'none';
     }
+    
+    // End analytics session with enhanced time data
+    if (window.VocabAnalytics) {
+      const enhancedStats = {
+        ...this.reviewStats,
+        activeTimeSpent: timeData.activeTime, // milliseconds of active time
+        windowTimeSpent: timeData.windowTime, // total window open time
+        activeTimeMinutes: timeData.activeTimeMinutes // active time in minutes
+      };
+      
+      console.log('📊 Completing review with enhanced stats:', enhancedStats);
+      window.VocabAnalytics.endSession(enhancedStats);
+    }
+    
+    console.log(`✅ Review completed! Active time: ${timeData.activeTimeMinutes} minutes`);
   }
   
   closeWindow() {
     if (confirm('Are you sure you want to close the review session?')) {
-      // End analytics session
+      // Finalize time tracking
+      const timeData = this.finalizeTimeTracking();
+      
+      // End analytics session with accurate active time
       if (window.VocabAnalytics) {
-        window.VocabAnalytics.endSession(this.reviewStats);
+        const enhancedStats = {
+          ...this.reviewStats,
+          activeTimeSpent: timeData.activeTime, // milliseconds of active time
+          windowTimeSpent: timeData.windowTime, // total window open time
+          activeTimeMinutes: timeData.activeTimeMinutes // active time in minutes
+        };
+        
+        console.log('📊 Ending session with enhanced stats:', enhancedStats);
+        window.VocabAnalytics.endSession(enhancedStats);
       }
       
       window.close();

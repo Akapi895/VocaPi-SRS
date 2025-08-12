@@ -148,19 +148,24 @@ class VocabAnalytics {
       qualityRatings: []
     };
     
-    // Track study time for patterns analysis
+    // Initialize data arrays if they don't exist
     if (!data.studyTimes) {
       data.studyTimes = [];
     }
-    data.studyTimes.push(sessionStart);
-    
-    // Keep only last 50 study sessions for pattern analysis
-    if (data.studyTimes.length > 50) {
-      data.studyTimes = data.studyTimes.slice(-50);
+    if (!data.sessionLengths) {
+      data.sessionLengths = [];
     }
     
     await this.saveAnalyticsData(data);
-    console.log('Analytics: Study session started at', new Date(sessionStart).toLocaleString());
+    
+    const startHour = new Date(sessionStart).getHours();
+    const timeString = new Date(sessionStart).toLocaleTimeString('en-US', { 
+      hour: 'numeric', 
+      minute: '2-digit',
+      hour12: true 
+    });
+    
+    console.log(`📊 Analytics: Study session started at ${timeString} (Hour: ${startHour})`);
     return sessionStart;
   }
   
@@ -171,9 +176,71 @@ class VocabAnalytics {
       console.warn('No active session to end');
       return;
     }
-    
-    const sessionDuration = Math.round((Date.now() - data.currentSession.startTime) / 60000); // minutes
+
+    const sessionEndTime = Date.now();
+    const sessionDuration = sessionEndTime - data.currentSession.startTime; // milliseconds
+    const sessionDurationMinutes = Math.round(sessionDuration / 60000); // minutes
     const today = new Date().toISOString().split('T')[0];
+    
+    // Use active time if provided, otherwise fall back to session duration
+    const activeTime = sessionStats.activeTimeSpent || sessionDuration;
+    const activeTimeMinutes = sessionStats.activeTimeMinutes || sessionDurationMinutes;
+    
+    console.log('📊 Session timing:', {
+      sessionDuration: sessionDurationMinutes + 'min',
+      activeTime: Math.round(activeTime / 60000) + 'min',
+      usingActiveTime: !!sessionStats.activeTimeSpent
+    });
+    
+    // Initialize arrays if not exists
+    if (!data.sessionLengths) {
+      data.sessionLengths = [];
+    }
+    if (!data.studyTimes) {
+      data.studyTimes = [];
+    }
+    
+    // Store ACTIVE time length for average calculation (more accurate)
+    data.sessionLengths.push(activeTime);
+    
+    // Keep only last 50 sessions for performance
+    if (data.sessionLengths.length > 50) {
+      data.sessionLengths = data.sessionLengths.slice(-50);
+    }
+    
+    // Calculate session accuracy
+    const wordsReviewedThisSession = data.currentSession.wordsReviewed || 0;
+    const sessionAccuracy = wordsReviewedThisSession > 0 ? 
+      (data.currentSession.correctAnswers / wordsReviewedThisSession) * 100 : 0;
+    
+    // Store detailed study time data for Best Study Time analysis
+    const studyTimeEntry = {
+      timestamp: data.currentSession.startTime,
+      endTime: sessionEndTime,
+      duration: activeTime, // Use active time for analysis
+      sessionDuration: sessionDuration, // Keep original for reference
+      wordsReviewed: wordsReviewedThisSession,
+      accuracy: sessionAccuracy,
+      hour: new Date(data.currentSession.startTime).getHours(),
+      xpGained: sessionStats.xpGained || 0,
+      isActiveTime: !!sessionStats.activeTimeSpent
+    };
+    
+    // Update the studyTimes array with detailed session data
+    const sessionIndex = data.studyTimes.findIndex(time => 
+      typeof time === 'number' && time === data.currentSession.startTime
+    );
+    
+    if (sessionIndex !== -1) {
+      data.studyTimes[sessionIndex] = studyTimeEntry;
+    } else {
+      data.studyTimes.push(studyTimeEntry);
+    }
+    
+    // Keep only last 50 detailed study sessions
+    if (data.studyTimes.length > 50) {
+      data.studyTimes = data.studyTimes.slice(-50);
+    }
     
     // Update daily stats
     if (!data.dailyStats[today]) {
@@ -181,16 +248,12 @@ class VocabAnalytics {
     }
     
     const todayStats = data.dailyStats[today];
-    const wordsReviewedThisSession = data.currentSession.wordsReviewed || 0;
     todayStats.wordsReviewed += wordsReviewedThisSession;
-    todayStats.timeSpent += sessionDuration;
+    todayStats.timeSpent += activeTime; // Store ACTIVE time in daily stats
     todayStats.sessions += 1;
     
-    // Calculate accuracy for this session
+    // Calculate weighted average accuracy for today
     if (wordsReviewedThisSession > 0) {
-      const sessionAccuracy = (data.currentSession.correctAnswers / wordsReviewedThisSession) * 100;
-      
-      // Calculate weighted average accuracy for today
       const totalWordsToday = todayStats.wordsReviewed;
       const previousWords = totalWordsToday - wordsReviewedThisSession;
       
@@ -205,9 +268,15 @@ class VocabAnalytics {
       }
     }
     
-    // Update global stats
+    // Update global stats with ACTIVE time
     data.totalReviewSessions += 1;
-    data.totalTimeSpent += sessionDuration;
+    data.totalTimeSpent += activeTime; // Store ACTIVE time in global stats
+    
+    // Keep original session time for reference if needed
+    if (!data.totalWindowTime) {
+      data.totalWindowTime = 0;
+    }
+    data.totalWindowTime += sessionDuration;
     
     // Update streak (will only update if requirements are met)
     await this.updateStreak(data);
@@ -215,9 +284,9 @@ class VocabAnalytics {
     // Check achievements
     await this.checkAchievements(data);
     
-    // Update gamification challenges
+    // Update gamification challenges with active time
     if (this.gamification) {
-      await this.gamification.updateChallengeProgress('time_spent', sessionDuration);
+      await this.gamification.updateChallengeProgress('time_spent', activeTimeMinutes);
       if (todayStats.accuracy === 100) {
         await this.gamification.updateChallengeProgress('accuracy', 100);
       }
@@ -228,20 +297,24 @@ class VocabAnalytics {
       }
     }
     
-    // Session summary for logging
+    // Session summary for logging with enhanced time data
     const sessionSummary = {
       wordsReviewed: wordsReviewedThisSession,
-      duration: sessionDuration,
-      accuracy: wordsReviewedThisSession > 0 ? (data.currentSession.correctAnswers / wordsReviewedThisSession * 100) : 0,
+      duration: sessionDurationMinutes,
+      activeTime: activeTimeMinutes,
+      efficiency: sessionDurationMinutes > 0 ? Math.round((activeTimeMinutes / sessionDurationMinutes) * 100) + '%' : '100%',
+      accuracy: sessionAccuracy,
       todayTotal: todayStats.wordsReviewed,
-      currentStreak: data.currentStreak
+      currentStreak: data.currentStreak,
+      studyHour: new Date(data.currentSession.startTime).getHours(),
+      usingActiveTracking: !!sessionStats.activeTimeSpent
     };
     
     // Clean up session
     delete data.currentSession;
     
     await this.saveAnalyticsData(data);
-    console.log(`📊 Session ended:`, sessionSummary);
+    console.log(`📊 Session ended with active time tracking:`, sessionSummary);
     
     return sessionSummary;
   }
@@ -605,6 +678,10 @@ class VocabAnalytics {
     const totalReviews = Object.values(data.qualityDistribution || {}).reduce((sum, count) => sum + count, 0);
     const uniqueWordsReviewed = Object.keys(data.wordDifficulty || {}).length;
     
+    // Calculate Best Study Time and Average Session Length
+    const bestStudyTime = this.calculateBestStudyTime(data.studyTimes || []);
+    const avgSessionLength = this.calculateAverageSessionLength(data.sessionLengths || []);
+    
     const stats = {
       // Main metrics (only from actual reviews)
       totalWordsLearned: uniqueWordsReviewed, // Only count words that have been actually reviewed
@@ -630,7 +707,11 @@ class VocabAnalytics {
       
       // Additional real data metrics
       totalReviews: totalReviews,
-      isDataReal: totalReviews > 0 || uniqueWordsReviewed > 0 || (data?.totalReviewSessions || 0) > 0
+      isDataReal: totalReviews > 0 || uniqueWordsReviewed > 0 || (data?.totalReviewSessions || 0) > 0,
+      
+      // NEW: Enhanced time-based analytics
+      bestStudyTime: bestStudyTime,
+      avgSessionLength: avgSessionLength
     };
     
     if (window.VocabLogger) {
@@ -643,10 +724,91 @@ class VocabAnalytics {
       sessions: stats.totalSessions,
       streak: stats.currentStreak,
       xp: stats.totalXP,
-      isReal: stats.isDataReal
+      isReal: stats.isDataReal,
+      bestStudyTime: bestStudyTime,
+      avgSessionLength: avgSessionLength
     });
     
     return stats;
+  }
+  
+  // Calculate Best Study Time based on performance patterns
+  calculateBestStudyTime(studyTimes) {
+    if (!studyTimes || studyTimes.length === 0) {
+      return 'Not enough data';
+    }
+    
+    // Group by hour and calculate average accuracy/words per hour
+    const hourlyPerformance = {};
+    
+    studyTimes.forEach(session => {
+      const hour = new Date(session.timestamp).getHours();
+      
+      if (!hourlyPerformance[hour]) {
+        hourlyPerformance[hour] = {
+          totalWords: 0,
+          totalAccuracy: 0,
+          sessionCount: 0,
+          totalXP: 0
+        };
+      }
+      
+      hourlyPerformance[hour].totalWords += session.wordsReviewed || 0;
+      hourlyPerformance[hour].totalAccuracy += session.accuracy || 0;
+      hourlyPerformance[hour].sessionCount += 1;
+      hourlyPerformance[hour].totalXP += session.xpGained || 0;
+    });
+    
+    // Calculate performance score for each hour
+    let bestHour = -1;
+    let bestScore = 0;
+    
+    Object.entries(hourlyPerformance).forEach(([hour, perf]) => {
+      if (perf.sessionCount >= 2) { // Need at least 2 sessions for reliability
+        const avgAccuracy = perf.totalAccuracy / perf.sessionCount;
+        const avgWords = perf.totalWords / perf.sessionCount;
+        const avgXP = perf.totalXP / perf.sessionCount;
+        
+        // Combined performance score (weighted)
+        const score = (avgAccuracy * 0.4) + (avgWords * 0.3) + (avgXP * 0.001 * 0.3);
+        
+        if (score > bestScore) {
+          bestScore = score;
+          bestHour = parseInt(hour);
+        }
+      }
+    });
+    
+    if (bestHour === -1) {
+      return 'Not enough data';
+    }
+    
+    // Format hour to readable time
+    const formatHour = (hour) => {
+      if (hour === 0) return '12:00 AM';
+      if (hour < 12) return `${hour}:00 AM`;
+      if (hour === 12) return '12:00 PM';
+      return `${hour - 12}:00 PM`;
+    };
+    
+    return `${formatHour(bestHour)} - ${formatHour(bestHour + 1)}`;
+  }
+  
+  // Calculate Average Session Length
+  calculateAverageSessionLength(sessionLengths) {
+    if (!sessionLengths || sessionLengths.length === 0) {
+      return '0 min';
+    }
+    
+    const totalTime = sessionLengths.reduce((sum, length) => sum + length, 0);
+    const avgTimeMs = totalTime / sessionLengths.length;
+    const avgTimeMinutes = Math.round(avgTimeMs / 60000);
+    
+    if (avgTimeMinutes === 0) {
+      return '< 1 min';
+    }
+    
+    return `${avgTimeMinutes} min`;
   }
   
   async getWeeklyProgress() {
