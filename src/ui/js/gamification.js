@@ -950,6 +950,32 @@ class VocabGamification {
       console.error('❌ [Sync] Error syncing challenge with analytics:', error);
     }
   }
+
+  // Handle word review hook (called from analytics)
+  async handleWordReview(wordId, quality, isCorrect, timeSpent = 0) {
+    try {
+      // Update daily challenge for review count
+      await this.updateChallengeProgress('review_count', 1);
+
+      // Update time spent challenge (convert ms to minutes aggregate at end)
+      if (timeSpent > 0) {
+        const minutes = Math.max(1, Math.round(timeSpent / 60000));
+        await this.updateChallengeProgress('time_spent', minutes);
+      }
+
+      // Accuracy challenge: recompute from analytics
+      if (this.analytics) {
+        const today = new Date().toISOString().split('T')[0];
+        const data = await this.analytics.getAnalyticsData();
+        const todayStats = data.dailyStats?.[today];
+        if (todayStats) {
+          await this.updateChallengeProgress('accuracy', Math.round(todayStats.accuracy || 0));
+        }
+      }
+    } catch (e) {
+      console.warn('Gamification handleWordReview error:', e);
+    }
+  }
 }
 
 // Export for use

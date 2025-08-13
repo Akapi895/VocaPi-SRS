@@ -16,10 +16,10 @@ class AnalyticsDashboard {
     // Comprehensive check and fix
     console.log('🔍 Ensuring analytics availability...');
     
-    // Check 1: Chrome storage
-    if (typeof chrome === 'undefined' || !chrome.storage) {
-      console.error('❌ Chrome storage not available in analytics context');
-      this.showErrorMessage('Chrome extension context not available. Please refresh the page.');
+    // Check 1: StorageManager (works in both extension and mock context)
+    if (typeof StorageManager === 'undefined') {
+      console.error('❌ StorageManager not available in analytics context');
+      this.showErrorMessage('Storage system not available. Please refresh the page.');
       return false;
     }
     
@@ -907,44 +907,108 @@ class AnalyticsDashboard {
     
     const container = canvas.parentElement;
     
-    // Replace canvas with HTML chart
-    container.innerHTML = `
-      <div class="text-chart">
-        <div class="chart-title">📈 Weekly Progress (Text Version)</div>
-        <div class="weekly-bars">
-          ${weeklyData.map(day => {
-            const maxWords = Math.max(...weeklyData.map(d => d.words), 1);
-            const wordsPct = (day.words / maxWords) * 100;
-            const maxTime = Math.max(...weeklyData.map(d => d.time), 1);
-            const timePct = (day.time / maxTime) * 100;
-            
+    // Get or create wrapper for text chart
+    let textWrapper = container.querySelector('.text-chart-wrapper');
+    if (!textWrapper) {
+      textWrapper = document.createElement('div');
+      textWrapper.className = 'text-chart-wrapper';
+      container.appendChild(textWrapper);
+    }
+    
+    // Use provided data or fallback to default
+    const chartData = weeklyData && weeklyData.length > 0 ? weeklyData : this.getDefaultWeeklyProgress();
+    
+    // Calculate max values for proper scaling
+    const maxWords = Math.max(...chartData.map(d => d.words || 0), 1);
+    const maxTime = Math.max(...chartData.map(d => d.time || 0), 1);
+    
+    // Generate the text-based chart
+    textWrapper.innerHTML = `
+      <div class="text-chart" style="background: rgba(16, 24, 39, 0.8); border-radius: 12px; padding: 16px; margin: 8px 0;">
+        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">📈 Weekly Progress (Text Version)</div>
+        <div class="weekly-bars" style="display: flex; justify-content: space-between; align-items: end; height: 120px; margin: 16px 0;">
+          ${chartData.map(day => {
+            const wordsPct = maxWords > 0 ? Math.max(5, (day.words / maxWords) * 100) : 5;
+            const timePct = maxTime > 0 ? Math.max(5, (day.time / maxTime) * 100) : 5;
             return `
-              <div class="day-bar">
-                <div class="day-label">${day.day}</div>
-                <div class="bars">
-                  <div class="bar words-bar" style="height: ${wordsPct}%;" title="${day.words} words">
-                    <span class="bar-value">${day.words}</span>
+              <div class="day-bar" style="display: flex; flex-direction: column; align-items: center; flex: 1; margin: 0 2px;">
+                <div class="bars" style="display: flex; gap: 4px; align-items: end; height: 80px; margin-bottom: 8px;">
+                  <div class="bar words-bar" style="
+                    background: linear-gradient(180deg, #10b981, #065f46);
+                    height: ${wordsPct.toFixed(1)}%;
+                    width: 12px;
+                    border-radius: 2px;
+                    position: relative;
+                    min-height: 4px;
+                    display: flex;
+                    align-items: end;
+                    justify-content: center;
+                  " title="${day.words} words">
+                    <span class="bar-value" style="
+                      position: absolute;
+                      bottom: -18px;
+                      font-size: 10px;
+                      color: #10b981;
+                      font-weight: 600;
+                    ">${day.words}</span>
                   </div>
-                  <div class="bar time-bar" style="height: ${timePct}%;" title="${day.time} minutes">
-                    <span class="bar-value">${day.time}m</span>
+                  <div class="bar time-bar" style="
+                    background: linear-gradient(180deg, #f59e0b, #d97706);
+                    height: ${timePct.toFixed(1)}%;
+                    width: 12px;
+                    border-radius: 2px;
+                    position: relative;
+                    min-height: 4px;
+                    display: flex;
+                    align-items: end;
+                    justify-content: center;
+                  " title="${day.time} minutes">
+                    <span class="bar-value" style="
+                      position: absolute;
+                      bottom: -18px;
+                      font-size: 10px;
+                      color: #f59e0b;
+                      font-weight: 600;
+                    ">${day.time}m</span>
                   </div>
                 </div>
+                <div class="day-label" style="
+                  color: rgba(255, 255, 255, 0.8);
+                  font-size: 12px;
+                  font-weight: 500;
+                  margin-top: 8px;
+                ">${day.day}</div>
               </div>
             `;
           }).join('')}
         </div>
-        <div class="chart-legend">
-          <div class="legend-item">
-            <div class="legend-color words-color"></div>
-            <span>Words Reviewed</span>
+        <div class="chart-legend" style="display: flex; justify-content: center; gap: 20px; margin-top: 12px;">
+          <div class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+            <div class="legend-color words-color" style="
+              width: 12px;
+              height: 12px;
+              background: #10b981;
+              border-radius: 2px;
+            "></div>
+            <span style="color: rgba(255, 255, 255, 0.9); font-size: 13px;">Words Reviewed</span>
           </div>
-          <div class="legend-item">
-            <div class="legend-color time-color"></div>
-            <span>Time Spent (min)</span>
+          <div class="legend-item" style="display: flex; align-items: center; gap: 6px;">
+            <div class="legend-color time-color" style="
+              width: 12px;
+              height: 12px;
+              background: #f59e0b;
+              border-radius: 2px;
+            "></div>
+            <span style="color: rgba(255, 255, 255, 0.9); font-size: 13px;">Time Spent (min)</span>
           </div>
         </div>
       </div>
     `;
+    
+    // Hide the canvas since we're using text version
+    canvas.style.display = 'none';
+    
+    console.log('📊 Text-based weekly progress chart created/updated');
   }
   
   createTextBasedQualityChart(qualityData) {
@@ -956,34 +1020,100 @@ class AnalyticsDashboard {
     
     const container = canvas.parentElement;
     
+    // Get or create wrapper for text chart
+    let textWrapper = container.querySelector('.text-quality-wrapper');
+    if (!textWrapper) {
+      textWrapper = document.createElement('div');
+      textWrapper.className = 'text-quality-wrapper';
+      container.appendChild(textWrapper);
+    }
+    
     const labels = ['Blackout', 'Incorrect', 'Hard', 'Correct', 'Easy', 'Perfect'];
     const colors = ['#ef4444', '#f97316', '#f59e0b', '#10b981', '#06b6d4', '#8b5cf6'];
-    const total = Object.values(qualityData).reduce((sum, count) => sum + count, 0) || 1;
+    const data = qualityData || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const total = Object.values(data).reduce((sum, count) => sum + count, 0) || 1;
     
-    // Replace canvas with HTML chart
-    container.innerHTML = `
-      <div class="text-chart">
-        <div class="chart-title">🎯 Quality Distribution (Text Version)</div>
-        <div class="quality-bars">
+    // Generate the text-based quality chart
+    textWrapper.innerHTML = `
+      <div class="text-chart" style="background: rgba(16, 24, 39, 0.8); border-radius: 12px; padding: 16px; margin: 8px 0;">
+        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">🎯 Quality Distribution (Text Version)</div>
+        <div class="quality-bars" style="display: flex; flex-direction: column; gap: 8px;">
           ${labels.map((label, index) => {
-            const count = qualityData[index] || 0;
+            const count = data[index] || 0;
             const percentage = Math.round((count / total) * 100);
-            const displayText = `${percentage}%`;
-            // const displayText = count === 0 ? `${percentage}%` : `${count} - ${percentage}%`;
+            const hasData = count > 0;
+            
             return `
-              <div class="quality-item">
-                <div class="quality-label">${label}</div>
-                <div class="quality-bar-container">
-                  <div class="quality-bar" style="width: ${percentage}%; background: ${colors[index]};">
-                    <span class="quality-count">${displayText}</span>
+              <div class="quality-item" style="display: flex; align-items: center; gap: 12px;">
+                <div class="quality-label" style="
+                  color: rgba(255, 255, 255, 0.9);
+                  font-size: 13px;
+                  font-weight: 500;
+                  width: 80px;
+                  text-align: left;
+                ">${label}</div>
+                <div class="quality-bar-container" style="
+                  flex: 1;
+                  height: 20px;
+                  background: rgba(255, 255, 255, 0.1);
+                  border-radius: 10px;
+                  overflow: visible;
+                  position: relative;
+                ">
+                  <div class="quality-bar" style="
+                    width: ${percentage}%;
+                    height: 100%;
+                    background: ${colors[index]};
+                    border-radius: 10px;
+                    transition: width 0.3s ease;
+                    display: flex;
+                    align-items: center;
+                    ${percentage > 50 ? 'justify-content: center;' : ''}
+                  ">
+                    ${percentage > 50 ? `
+                      <span class="quality-count" style="
+                        color: white;
+                        font-size: 11px;
+                        font-weight: 600;
+                        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+                      ">${hasData ? `${count} (${percentage}%)` : '0%'}</span>
+                    ` : ''}
                   </div>
+                  ${percentage <= 50 ? `
+                    <span class="quality-count" style="
+                      position: absolute;
+                      right: 8px;
+                      top: 50%;
+                      transform: translateY(-50%);
+                      color: ${colors[index]};
+                      font-size: 11px;
+                      font-weight: 600;
+                    ">${hasData ? `${count} (${percentage}%)` : '0%'}</span>
+                  ` : ''}
                 </div>
               </div>
             `;
           }).join('')}
         </div>
+        ${total > 1 ? `
+          <div style="
+            color: rgba(255, 255, 255, 0.6);
+            font-size: 12px;
+            text-align: center;
+            margin-top: 12px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 8px;
+          ">
+            Total Reviews: ${total}
+          </div>
+        ` : ''}
       </div>
     `;
+    
+    // Hide the canvas since we're using text version
+    canvas.style.display = 'none';
+    
+    console.log('📊 Text-based quality distribution chart created/updated');
   }
   
   loadAchievements(achievements) {
@@ -1170,9 +1300,18 @@ class AnalyticsDashboard {
   }
   
   bindEvents() {
-    // Listen for analytics data updates
-    window.addEventListener('vocabAnalyticsUpdated', this.handleAnalyticsUpdate.bind(this));
-    console.log('📊 Analytics UI event listener added');
+    // Listen for analytics data updates (with debouncing)
+    let updateDebounce = null;
+    window.addEventListener('vocabAnalyticsUpdated', (event) => {
+      console.log('📊 Received vocabAnalyticsUpdated event', event.detail);
+      
+      // Debounce rapid updates
+      clearTimeout(updateDebounce);
+      updateDebounce = setTimeout(() => {
+        this.handleAnalyticsUpdate(event);
+      }, 250);
+    });
+    console.log('📊 Analytics UI event listener added (with debounce)');
     
     // Back to main button
     const backBtn = document.getElementById('back-to-main');
@@ -1420,11 +1559,66 @@ class AnalyticsDashboard {
   async handleAnalyticsUpdate(event) {
     console.log('📊 Analytics UI received data update notification', event.detail);
     
-    // Auto-refresh the dashboard if it's visible
-    const analyticsContainer = document.querySelector('.analytics-container, .dashboard');
-    if (analyticsContainer && analyticsContainer.style.display !== 'none') {
-      console.log('📊 Auto-refreshing analytics dashboard');
-      await this.refreshStatsFromStorage();
+    try {
+      // Get fresh data
+      const [dashboardStats, weeklyProgress] = await Promise.all([
+        window.VocabAnalytics.getDashboardStats().catch(err => {
+          console.warn('Dashboard stats failed during update:', err);
+          return this.getDefaultDashboardStats();
+        }),
+        window.VocabAnalytics.getWeeklyProgress().catch(err => {
+          console.warn('Weekly progress failed during update:', err);
+          return this.getDefaultWeeklyProgress();
+        })
+      ]);
+      
+      console.log('📊 Live update data:', { dashboardStats, weeklyProgress });
+      
+      // Update overview stats
+      this.updateOverviewStats(dashboardStats);
+      
+      // Update charts (both Chart.js and text fallbacks)
+      this.updateWeeklyChart(weeklyProgress);
+      this.updateQualityChart(dashboardStats.qualityDistribution || {});
+      
+      // Update learning patterns
+      this.loadLearningPatterns(dashboardStats, weeklyProgress);
+      
+      console.log('✅ Analytics dashboard updated successfully from live data');
+      
+    } catch (error) {
+      console.warn('⚠️ Failed to handle analytics update:', error);
+    }
+  }
+  
+  // Update weekly chart (works for both Chart.js and text fallback)
+  updateWeeklyChart(weeklyData) {
+    if (this.charts.weeklyProgress && typeof Chart !== 'undefined') {
+      // Update Chart.js version
+      this.charts.weeklyProgress.data.labels = weeklyData.map(d => d.day);
+      this.charts.weeklyProgress.data.datasets[0].data = weeklyData.map(d => d.words);
+      this.charts.weeklyProgress.data.datasets[1].data = weeklyData.map(d => d.time);
+      this.charts.weeklyProgress.update('none');
+      console.log('📊 Weekly progress Chart.js updated');
+    } else if (typeof Chart === 'undefined') {
+      // Update text-based version
+      this.createTextBasedWeeklyChart(weeklyData);
+      console.log('📊 Weekly progress text chart updated');
+    }
+  }
+  
+  // Update quality chart (works for both Chart.js and text fallback)
+  updateQualityChart(qualityData) {
+    if (this.charts.qualityDistribution && typeof Chart !== 'undefined') {
+      // Update Chart.js version
+      const newData = [0, 1, 2, 3, 4, 5].map(q => qualityData[q] || 0);
+      this.charts.qualityDistribution.data.datasets[0].data = newData;
+      this.charts.qualityDistribution.update('none');
+      console.log('📊 Quality distribution Chart.js updated');
+    } else if (typeof Chart === 'undefined') {
+      // Update text-based version
+      this.createTextBasedQualityChart(qualityData);
+      console.log('📊 Quality distribution text chart updated');
     }
   }
 }

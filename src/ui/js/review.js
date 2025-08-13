@@ -27,6 +27,15 @@ class VocabSRSReview {
     
     // Initialize analytics tracking with error handling
     try {
+      console.log('🔍 Checking VocabAnalytics availability...');
+      
+      if (typeof VocabAnalytics === 'undefined') {
+        console.error('❌ VocabAnalytics class not found - analytics.js may not be loaded');
+      } else if (!window.VocabAnalytics) {
+        console.log('📊 Creating VocabAnalytics instance...');
+        window.VocabAnalytics = new VocabAnalytics();
+      }
+      
       if (window.VocabAnalytics) {
         await window.VocabAnalytics.ensureInitialized();
         await window.VocabAnalytics.startSession();
@@ -823,6 +832,8 @@ class VocabSRSReview {
       if (window.VocabAnalytics) {
         try {
           const timeSpent = Date.now() - (this.currentWordStartTime || Date.now());
+          console.log(`📊 Recording analytics: wordId=${this.currentWordData.id}, userAnswer="${this.userAnswer}", correctAnswer="${this.currentWordData.word}", quality=${quality}, timeSpent=${timeSpent}`);
+          
           await window.VocabAnalytics.recordWordReview(
             this.currentWordData.id,
             this.userAnswer,
@@ -835,6 +846,8 @@ class VocabSRSReview {
           console.error('❌ Analytics update failed:', analyticsError);
           // Continue without failing the review process
         }
+      } else {
+        console.warn('⚠️ VocabAnalytics not available for recording review');
       }
       
       // Consider correct if user got it right AND rated quality >= 3

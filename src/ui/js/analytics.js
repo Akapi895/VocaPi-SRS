@@ -5,6 +5,9 @@ class VocabAnalytics {
     this.initPromise = null;
     this.gamification = null;
     
+    // Configuration constants
+    this.MINIMUM_REVIEWS_FOR_STREAK = 5; // Require at least 5 reviews per day to count as a study day
+    
     // Initialize gamification system
     this.initGamification();
   }
@@ -83,21 +86,22 @@ class VocabAnalytics {
         const vocabWords = await StorageManager.get('vocab_words') || [];
         console.log('📚 Found vocab words:', vocabWords.length);
         
-        // Calculate real statistics from vocab words
-        const stats = this.calculateRealStats(vocabWords);
-        
         // Get any stored analytics data for additional info
         const storedData = await StorageManager.get(this.storageKey) || {};
+        
+        // Calculate real statistics from vocab words
+        const stats = this.calculateRealStats(vocabWords, storedData);
         
         // Merge real stats with stored data
         const analyticsData = {
           ...this.getDefaultAnalyticsData(),
           ...storedData,
-          // Override with real calculated stats
+          // Override with real calculated stats (but preserve quality distribution from storage)
           totalWordsLearned: stats.totalWords,
           totalReviews: stats.totalReviews,
           correctAnswers: stats.correctAnswers,
-          qualityDistribution: stats.qualityDistribution,
+          // Keep quality distribution from stored data (review history), not calculated stats
+          qualityDistribution: storedData.qualityDistribution || this.getDefaultAnalyticsData().qualityDistribution,
           masteredWords: stats.masteredWords,
           studyStreak: stats.studyStreak,
           accuracyRate: stats.accuracyRate,
@@ -115,7 +119,7 @@ class VocabAnalytics {
     });
   }
 
-  calculateRealStats(vocabWords) {
+  calculateRealStats(vocabWords, storedData = {}) {
     const now = new Date();
     const today = now.toISOString().split('T')[0];
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
@@ -160,7 +164,7 @@ class VocabAnalytics {
     const accuracyRate = totalReviews > 0 ? ((correctAnswers / totalReviews) * 100).toFixed(1) : 0;
     
     // Calculate study streak (simplified - based on recent activity)
-    studyStreak = this.calculateStudyStreakFromWords(vocabWords);
+    studyStreak = this.calculateStudyStreak(storedData.dailyStats || {});
     
     const stats = {
       totalWords: vocabWords.length,
@@ -177,8 +181,11 @@ class VocabAnalytics {
     return stats;
   }
   
+  // DEPRECATED: Use calculateStudyStreak with dailyStats instead
+  // This method cannot accurately count reviews per day, only word existence
   calculateStudyStreakFromWords(vocabWords) {
     // Simple streak calculation based on consecutive days with activity
+    // NOTE: This doesn't account for minimum review requirements
     const today = new Date();
     let streak = 0;
     
@@ -209,7 +216,7 @@ class VocabAnalytics {
     
     while (true) {
       const dateKey = currentDate.toISOString().split('T')[0];
-      if (dailyStats[dateKey] && dailyStats[dateKey].wordsReviewed > 0) {
+      if (dailyStats[dateKey] && dailyStats[dateKey].wordsReviewed >= this.MINIMUM_REVIEWS_FOR_STREAK) {
         streak++;
         currentDate.setDate(currentDate.getDate() - 1);
       } else {
@@ -305,7 +312,32 @@ class VocabAnalytics {
       }
       
       chrome.storage.local.set({ [this.storageKey]: data }, () => {
-        console.log('💾 Analytics data saved');
+        console.log('💾 Analytics data saved successfully');
+        try {
+          // Broadcast update so dashboards/widgets can refresh
+          if (typeof window !== 'undefined') {
+            const today = new Date().toISOString().split('T')[0];
+            const todayStats = data.dailyStats?.[today] || {};
+            
+            window.dispatchEvent(new CustomEvent('vocabAnalyticsUpdated', { 
+              detail: { 
+                updatedAt: Date.now(), 
+                summary: {
+                  totalWordsLearned: data.totalWordsLearned,
+                  currentStreak: data.currentStreak,
+                  qualityDistribution: data.qualityDistribution,
+                  todayStats: {
+                    wordsReviewed: todayStats.wordsReviewed || 0,
+                    timeSpent: Math.floor((todayStats.timeSpent || 0) / 60000),
+                    accuracy: Math.round(todayStats.accuracy || 0)
+                  }
+                }
+              } 
+            }));
+          }
+        } catch (e) {
+          console.warn('Failed to dispatch vocabAnalyticsUpdated event:', e);
+        }
         resolve();
       });
     });
@@ -354,7 +386,7 @@ class VocabAnalytics {
   }
 
   async recordWordReview(wordId, userAnswer, correctAnswer, quality, timeSpent = 0) {
-    console.log(`🔍 [Analytics] recordWordReview called with:`, { wordId, quality, timeSpent });
+    console.log(`🔍 [Analytics] recordWordReview called with:`, { wordId, userAnswer, correctAnswer, quality, timeSpent });
     
     try {
       const data = await this.getAnalyticsData();
@@ -373,8 +405,18 @@ class VocabAnalytics {
       if (!data.qualityDistribution) data.qualityDistribution = { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
       
       const today = new Date().toISOString().split('T')[0];
-      const isCorrect = userAnswer?.toLowerCase().trim() === correctAnswer?.toLowerCase().trim();
-      const reviewQuality = quality !== undefined ? quality : (isCorrect ? 4 : 1);
+      
+      // IMPORTANT: Use the quality parameter directly from SRS system
+      // Quality should be 0-5 from the review interface
+      let reviewQuality = quality;
+      
+      console.log(`📊 Using quality value: ${reviewQuality} for word: ${correctAnswer}`);
+      
+      // Validate quality value
+      if (reviewQuality < 0 || reviewQuality > 5 || !Number.isInteger(reviewQuality)) {
+        console.warn(`⚠️ Invalid quality value: ${reviewQuality}, defaulting to 0`);
+        reviewQuality = 0;
+      }
       
       // Update word difficulty tracking
       if (!data.wordDifficulty[wordId]) {
@@ -414,9 +456,15 @@ class VocabAnalytics {
       dailyData.totalQuality += reviewQuality;
       dailyData.accuracy = ((dailyData.accuracy * (dailyData.wordsReviewed - 1) + (reviewQuality >= 3 ? 100 : 0)) / dailyData.wordsReviewed);
       
-      // Update quality distribution
+      // Update quality distribution - THIS IS THE KEY FIX
+      console.log(`📊 Before quality distribution update:`, data.qualityDistribution);
+      console.log(`📊 Adding quality ${reviewQuality} to distribution`);
+      
       if (reviewQuality >= 0 && reviewQuality <= 5) {
         data.qualityDistribution[reviewQuality] = (data.qualityDistribution[reviewQuality] || 0) + 1;
+        console.log(`📊 After quality distribution update:`, data.qualityDistribution);
+      } else {
+        console.error(`❌ Invalid quality for distribution: ${reviewQuality}`);
       }
       
       // Get actual vocab count from VocabStorage instead of counting wordDifficulty
@@ -438,7 +486,8 @@ class VocabAnalytics {
       // Trigger gamification if available
       if (this.gamification) {
         try {
-          await this.gamification.handleWordReview(wordId, reviewQuality, isCorrect);
+          const isCorrect = reviewQuality >= 3; // Consider quality >= 3 as correct
+          await this.gamification.handleWordReview(wordId, reviewQuality, isCorrect, timeSpent);
         } catch (error) {
           console.warn('⚠️ Gamification error:', error);
         }
@@ -450,7 +499,8 @@ class VocabAnalytics {
         wordId,
         quality: reviewQuality,
         totalWords: data.totalWordsLearned,
-        todayWords: dailyData.wordsReviewed
+        todayWords: dailyData.wordsReviewed,
+        qualityDistribution: data.qualityDistribution
       });
       
     } catch (error) {
@@ -463,20 +513,43 @@ class VocabAnalytics {
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayStr = yesterday.toISOString().split('T')[0];
     
-    // If today is first study or consecutive day
-    if (!data.lastStudyDate || data.lastStudyDate === yesterdayStr) {
-      if (data.lastStudyDate === yesterdayStr) {
-        data.currentStreak += 1;
-      } else {
-        data.currentStreak = 1;
-      }
-    } else {
-      // Streak broken
-      data.currentStreak = 1;
-    }
+    // Get today's review count to check if minimum requirement is met
+    const todayStats = data.dailyStats?.[today] || { wordsReviewed: 0 };
     
-    data.lastStudyDate = today;
-    data.longestStreak = Math.max(data.longestStreak, data.currentStreak);
+    // Only update streak if user has reviewed at least the minimum required words today
+    if (todayStats.wordsReviewed >= this.MINIMUM_REVIEWS_FOR_STREAK) {
+      // If today is first study or consecutive day
+      if (!data.lastStudyDate || data.lastStudyDate === yesterdayStr) {
+        if (data.lastStudyDate === yesterdayStr) {
+          data.currentStreak += 1;
+        } else {
+          data.currentStreak = 1;
+        }
+        data.lastStudyDate = today;
+      } else {
+        // Check if there was a gap - if so, reset streak
+        const daysSinceLastStudy = this.getDaysBetween(data.lastStudyDate, today);
+        if (daysSinceLastStudy > 1) {
+          data.currentStreak = 1; // Reset streak, today starts new streak
+        } else {
+          data.currentStreak += 1; // Continue streak
+        }
+        data.lastStudyDate = today;
+      }
+      
+      data.longestStreak = Math.max(data.longestStreak, data.currentStreak);
+      console.log(`✨ Streak updated: ${data.currentStreak} days (reviewed ${todayStats.wordsReviewed} words today)`);
+    } else {
+      console.log(`📚 Need ${this.MINIMUM_REVIEWS_FOR_STREAK - todayStats.wordsReviewed} more reviews today for streak (${todayStats.wordsReviewed}/${this.MINIMUM_REVIEWS_FOR_STREAK})`);
+    }
+  }
+
+  // Helper function to calculate days between two date strings
+  getDaysBetween(date1, date2) {
+    const d1 = new Date(date1);
+    const d2 = new Date(date2);
+    const timeDiff = d2.getTime() - d1.getTime();
+    return Math.ceil(timeDiff / (1000 * 3600 * 24));
   }
 
   calculateXP(quality, timeSpent) {
@@ -492,10 +565,18 @@ class VocabAnalytics {
     const vocabWords = await this.getVocabWords();
     const totalWords = Array.isArray(vocabWords) ? vocabWords.length : 0;
     
-    return {
+    const today = new Date().toISOString().split('T')[0];
+    const todayStats = data.dailyStats?.[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
+    
+    // Convert time from milliseconds to minutes
+    const totalTimeMinutes = Math.floor((data.totalTimeSpent || 0) / 60000);
+    const todayTimeMinutes = Math.floor((todayStats.timeSpent || 0) / 60000);
+    
+    const result = {
       totalWords: totalWords,
+      totalWordsLearned: data.totalWordsLearned || 0,
       totalSessions: data.totalReviewSessions,
-      totalTime: data.totalTimeSpent,
+      totalTime: totalTimeMinutes,
       currentStreak: data.currentStreak,
       longestStreak: data.longestStreak,
       level: data.level,
@@ -504,8 +585,15 @@ class VocabAnalytics {
       weeklyStats: data.weeklyStats,
       recentPerformance: data.recentPerformance,
       totalReviews: data.totalReviews,
-      correctAnswers: data.correctAnswers
+      correctAnswers: data.correctAnswers,
+      qualityDistribution: data.qualityDistribution || {0:0,1:0,2:0,3:0,4:0,5:0},
+      todayAccuracy: Math.round(todayStats.accuracy || 0),
+      todayTime: todayTimeMinutes,
+      todayWords: todayStats.wordsReviewed || 0,
+      totalXP: data.totalXP
     };
+    
+    return result;
   }
 
   async getVocabWords() {
@@ -527,13 +615,16 @@ class VocabAnalytics {
     
     return last7Days.map(date => {
       const dayData = data.dailyStats[date] || { wordsReviewed: 0, accuracy: 0, timeSpent: 0 };
+      const dateObj = new Date(date);
+      
       return {
+        day: dateObj.toLocaleDateString('en-US', { weekday: 'short' }),
         date,
-        words: dayData.wordsReviewed,
-        accuracy: dayData.accuracy,
-        time: dayData.timeSpent
+        words: dayData.wordsReviewed || 0,
+        accuracy: Math.round(dayData.accuracy || 0),
+        time: Math.floor((dayData.timeSpent || 0) / 60000) // Convert ms to minutes
       };
-    });
+    }).reverse(); // Show oldest to newest (Sunday to Saturday)
   }
 
   async getDifficultWords(limit = 10) {
@@ -557,12 +648,44 @@ class VocabAnalytics {
   }
 }
 
-// Export for use in extension
+// Export & backward compatibility layer
 if (typeof window !== 'undefined') {
+  // Preserve class reference
+  window.VocabAnalyticsClass = VocabAnalytics;
+  // If a global VocabAnalytics already exists and is NOT the class, keep it (instance). Otherwise create a shared instance.
+  if (!window.__vocabAnalyticsInstance) {
+    try {
+      window.__vocabAnalyticsInstance = new VocabAnalytics();
+    } catch (e) {
+      console.error('Failed creating VocabAnalytics instance:', e);
+    }
+  }
+  const _inst = window.__vocabAnalyticsInstance;
+
+  // Backward compatibility: some code (review.js) incorrectly calls window.VocabAnalytics.methodName()
+  // expecting VocabAnalytics to be an instance. We attach proxy methods onto the class object without
+  // overriding the ability to construct new instances (popup still does new VocabAnalytics()).
+  // Only add a proxy if that property does NOT already exist (to avoid masking future static methods).
+  const proxyMethods = [
+    'ensureInitialized', 'initializeAnalytics', 'getAnalyticsData', 'getDashboardStats',
+    'startSession', 'endSession', 'recordWordReview', 'getWeeklyProgress', 'getDifficultWords',
+    'getRecentAchievements'
+  ];
+
+  proxyMethods.forEach(m => {
+    if (typeof VocabAnalytics[m] === 'undefined' && _inst && typeof _inst[m] === 'function') {
+      VocabAnalytics[m] = (...args) => _inst[m](...args);
+    }
+  });
+
+  // Expose the instance explicitly for any new code
+  window.vocabAnalyticsInstance = _inst;
+
+  // Keep original global name pointing to the class for code doing `new VocabAnalytics()`
   window.VocabAnalytics = VocabAnalytics;
 }
 
-// Export for Node.js environments
+// Export for Node.js environments (tests / build tools)
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = VocabAnalytics;
 }

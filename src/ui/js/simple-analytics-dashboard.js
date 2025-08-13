@@ -29,9 +29,9 @@ class SimpleAnalyticsDashboard {
     }
 
     checkRequirements() {
-        // Check Chrome storage
-        if (typeof chrome === 'undefined' || !chrome.storage) {
-            this.showError('Chrome extension context not available');
+        // Check StorageManager (works in both extension and mock context)
+        if (typeof StorageManager === 'undefined') {
+            this.showError('Storage system not available');
             return false;
         }
 

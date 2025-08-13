@@ -45,14 +45,13 @@
                     <div class="stat-label">Total Words Learned</div>
                 </div>
             </div>
-            
-            <!-- <div class="stat-card success">
+            <div class="stat-card success">
                 <div class="stat-icon">🔥</div>
                 <div class="stat-content">
-                    <div class="stat-number" id="current-streak">0</div>
+                    <div class="stat-number" id="current-streak">0 days</div>
                     <div class="stat-label">Current Streak</div>
                 </div>
-            </div> -->
+            </div>
             
             <div class="stat-card warning">
                 <div class="stat-icon">⏱️</div>
@@ -169,11 +168,17 @@
         </div>
     </div>
 
-    <script src="../../utils.js"></script>
+    <!-- Core utilities (unified) -->
+    <script src="../../core/utils.js"></script>
+    <!-- Analytics system -->
     <script src="../js/analytics.js"></script>
+    <!-- Gamification dependencies -->
     <script src="../js/gamification.js"></script>
     <script src="../js/gamificationUI.js"></script>
-    <script src="../js/simple-analytics-dashboard.js"></script>
-    <script src="../js/storage-debug.js"></script>
+    <!-- Full dashboard controller (new) -->
+    <script src="../js/analytics-dashboard.js"></script>
+    <!-- Optional simple fallback (keep but load after main so it can early-exit if full dashboard present) -->
+    <script src="../js/simple-analytics-dashboard.js" defer></script>
+    <script src="../js/storage-debug.js" defer></script>
 </body>
 </html>

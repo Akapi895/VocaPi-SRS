@@ -999,7 +999,7 @@ html, body {
 }
 
 .bar:hover {
-  transform: scale(1.1);
+  filter: brightness(1.15);
   box-shadow: var(--shadow-md);
 }
 
@@ -1100,11 +1100,11 @@ html, body {
   border-radius: var(--radius-lg);
   display: flex;
   align-items: center;
-  padding: 0 var(--space-3);
   min-width: 24px;
   transition: all var(--transition-normal);
   position: relative;
   overflow: hidden;
+  /* Remove padding to ensure accurate percentage representation */
 }
 
 .quality-bar::before {
