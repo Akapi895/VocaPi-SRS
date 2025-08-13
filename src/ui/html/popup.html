@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vocab SRS</title>
+    <link rel="stylesheet" href="../css/popup.css">
+</head>
+<body>
+    <div class="popup-container">
+        <!-- Header -->
+        <div class="popup-header">
+            <div class="header-content">
+                <h1 class="popup-title">📚 Vocab SRS</h1>
+                <p class="popup-subtitle">Spaced Repetition Learning</p>
+            </div>
+            <button id="help-btn" class="help-button" title="Keyboard Shortcuts (Alt+H)">
+                <span class="btn-icon">⌨️</span>
+            </button>
+        </div>
+        
+        <!-- Stats Section -->
+        <div class="stats-section">
+            <div class="stat-card">
+                <div class="stat-number" id="total-words">0</div>
+                <div class="stat-label">Total Words</div>
+            </div>
+            <div class="stat-card stat-card-due">
+                <div class="stat-number" id="due-words">0</div>
+                <div class="stat-label">Due Now</div>
+            </div>
+        </div>
+        
+        <!-- Gamification Mini Widget -->
+        <div id="gamification-widget" class="gamification-mini-widget">
+            <div class="gamification-stats">
+                <div class="gamification-item">
+                    <span class="gamification-label">Level:</span>
+                    <span class="gamification-level">1</span>
+                </div>
+                <div class="gamification-item">
+                    <span class="gamification-label">XP:</span>
+                    <span class="gamification-xp">0</span>
+                </div>
+                <div class="gamification-item">
+                    <span class="gamification-label">Streak:</span>
+                    <span class="study-streak">0 days</span>
+                </div>
+                <div class="gamification-item">
+                    <span class="gamification-label">Accuracy:</span>
+                    <span class="accuracy-rate">0%</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Cloud Sync Widget -->
+        <div id="cloud-sync-container" class="cloud-sync-container">
+            <!-- Cloud Sync UI will be rendered here -->
+        </div>
+        
+        <!-- Main Content -->
+        <div class="main-content" id="main-screen">
+            <div class="action-buttons">
+                <button id="start-review-btn" class="btn btn-primary">
+                    <span class="btn-icon">🔄</span>
+                    Start Review
+                </button>
+                
+                <button id="view-all-words-btn" class="btn btn-secondary">
+                    <span class="btn-icon">📖</span>
+                    View All Words
+                </button>
+            </div>
+            
+            <div class="quick-actions">
+                <button id="view-analytics-btn" class="btn btn-outline" title="View learning analytics">
+                    <span class="btn-icon">📊</span>
+                    <!-- Analytics -->
+                </button>
+                <button id="settings-btn" class="btn btn-outline" title="Settings & Cloud Sync">
+                    <span class="btn-icon">⚙️</span>
+                    <!-- Settings -->
+                </button>
+                <button id="export-btn" class="btn btn-outline" title="Export vocabulary">
+                    <span class="btn-icon">📤</span>
+                    <!-- Export -->
+                </button>
+                <button id="import-btn" class="btn btn-outline" title="Import vocabulary">
+                    <span class="btn-icon">📥</span>
+                    <!-- Import -->
+                </button>
+                <input type="file" id="import-file" accept=".json" style="display: none;">
+            </div>
+        </div>
+        
+        <!-- Review Screen -->
+        <div class="review-screen" id="review-screen" style="display: none;">
+            <div class="review-header">
+                <button id="back-to-main" class="btn btn-text">
+                    <span class="btn-icon">←</span> Back
+                </button>
+                <div class="review-progress">
+                    <span id="current-card">1</span> / <span id="total-cards">10</span>
+                </div>
+            </div>
+            
+            <div class="flashcard" id="flashcard">
+                <!-- Vietnamese meaning shown first -->
+                <div class="meaning-card">
+                    <div class="meaning-display" id="meaning-display">ví dụ</div>
+                    <div class="example-display" id="example-display" style="display: none;">This is an example sentence.</div>
+                    
+                    <div class="hint-section">
+                        <button id="hint-btn" class="btn btn-hint">
+                            <span class="btn-icon">💡</span> Hint
+                        </button>
+                    </div>
+                    
+                    <div class="audio-section" style="display: none;">
+                        <button id="play-audio-btn" class="btn btn-audio">
+                            <span class="btn-icon">🔊</span> Pronunciation
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Input section -->
+                <div class="input-section" id="input-section">
+                    <div class="input-prompt">What is the English word?</div>
+                    <input type="text" id="answer-input" placeholder="Type your answer..." class="answer-input">
+                    <div class="input-buttons">
+                        <button id="submit-answer-btn" class="btn btn-primary">
+                            <span class="btn-icon">✓</span> Check Answer
+                        </button>
+                        <button id="skip-word-btn" class="btn btn-outline">
+                            <span class="btn-icon">⏭</span> Skip
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Result section (shown after answer check) -->
+                <div class="result-section" id="result-section" style="display: none;">
+                    <div class="answer-comparison">
+                        <div class="answer-row">
+                            <span class="answer-label">Your answer:</span>
+                            <span class="user-answer" id="user-answer">example</span>
+                        </div>
+                        <div class="answer-row">
+                            <span class="answer-label">Correct answer:</span>
+                            <span class="correct-answer" id="correct-answer">example</span>
+                        </div>
+                        <div class="phonetic-row">
+                            <span class="phonetic-display" id="phonetic-display">/ɪɡˈzæmpəl/</span>
+                        </div>
+                    </div>
+                    
+                    <div class="quality-buttons">
+                        <div class="quality-label">How difficult was this word?</div>
+                        <div class="quality-row">
+                            <button class="quality-btn quality-0" data-quality="0">0<br><small>Blackout</small></button>
+                            <button class="quality-btn quality-1" data-quality="1">1<br><small>Incorrect</small></button>
+                            <button class="quality-btn quality-2" data-quality="2">2<br><small>Hard</small></button>
+                        </div>
+                        <div class="quality-row">
+                            <button class="quality-btn quality-3" data-quality="3">3<br><small>Correct</small></button>
+                            <button class="quality-btn quality-4" data-quality="4">4<br><small>Easy</small></button>
+                            <button class="quality-btn quality-5" data-quality="5">5<br><small>Perfect</small></button>
+                        </div>
+                    </div>
+                    
+                    <!-- Retype section for wrong/skipped answers -->
+                    <div class="retype-section" id="retype-section" style="display: none;">
+                        <div class="retype-prompt">Please type the correct word to continue:</div>
+                        <input type="text" id="retype-input" placeholder="Type the correct word..." class="answer-input">
+                        <button id="retype-submit-btn" class="btn btn-primary">
+                            <span class="btn-icon">✓</span> Continue
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Word List Screen -->
+        <div class="word-list-screen" id="word-list-screen" style="display: none;">
+            <div class="list-header">
+                <button id="back-from-list" class="btn btn-text">
+                    <span class="btn-icon">←</span> Back
+                </button>
+                <h2>All Words</h2>
+            </div>
+            
+            <div class="search-bar">
+                <input type="text" id="search-input" placeholder="Search words...">
+            </div>
+            
+            <div class="word-list" id="word-list">
+                <!-- Word items will be populated here -->
+            </div>
+        </div>
+        
+        <!-- Review Complete Screen -->
+        <div class="review-complete" id="review-complete" style="display: none;">
+            <div class="complete-header">
+                <div class="complete-icon">🎉</div>
+                <h2>Review Complete!</h2>
+            </div>
+            
+            <div class="complete-stats">
+                <div class="complete-stat">
+                    <span class="stat-value" id="reviewed-count">0</span>
+                    <span class="stat-text">words reviewed</span>
+                </div>
+                <div class="complete-stat">
+                    <span class="stat-value" id="accuracy-rate">0%</span>
+                    <span class="stat-text">accuracy</span>
+                </div>
+            </div>
+            
+            <button id="finish-review-btn" class="btn btn-primary">
+                <span class="btn-icon">✓</span>
+                Finish
+            </button>
+        </div>
+        
+        <!-- Loading and Error States -->
+        <div class="loading-state" id="loading-state" style="display: none;">
+            <div class="spinner"></div>
+            <p>Loading...</p>
+        </div>
+        
+        <div class="error-state" id="error-state" style="display: none;">
+            <div class="error-icon">⚠️</div>
+            <p id="error-message">Something went wrong</p>
+            <button id="retry-btn" class="btn btn-secondary">Try Again</button>
+        </div>
+        
+    </div>
+    
+    <!-- Mock Chrome API for browser testing -->
+    <script>
+        // Mock Chrome storage for testing in browser
+        if (typeof chrome === 'undefined') {
+            window.chrome = {
+                storage: {
+                    local: {
+                        get: function(keys, callback) {
+                            setTimeout(() => {
+                                try {
+                                    if (typeof keys === 'string') {
+                                        const value = localStorage.getItem(keys);
+                                        callback({ [keys]: value ? JSON.parse(value) : null });
+                                    } else if (Array.isArray(keys)) {
+                                        const result = {};
+                                        keys.forEach(key => {
+                                            const value = localStorage.getItem(key);
+                                            result[key] = value ? JSON.parse(value) : null;
+                                        });
+                                        callback(result);
+                                    } else {
+                                        const result = {};
+                                        for (const key of Object.keys(keys)) {
+                                            const value = localStorage.getItem(key);
+                                            result[key] = value ? JSON.parse(value) : keys[key];
+                                        }
+                                        callback(result);
+                                    }
+                                } catch (error) {
+                                    console.error('Mock chrome storage error:', error);
+                                    callback({});
+                                }
+                            }, 10);
+                        },
+                        set: function(items, callback) {
+                            setTimeout(() => {
+                                try {
+                                    for (const [key, value] of Object.entries(items)) {
+                                        localStorage.setItem(key, JSON.stringify(value));
+                                    }
+                                    if (callback) callback();
+                                } catch (error) {
+                                    console.error('Mock chrome storage set error:', error);
+                                    if (callback) callback();
+                                }
+                            }, 10);
+                        }
+                    }
+                }
+            };
+            console.log('📦 Mock Chrome storage initialized');
+        }
+    </script>
+    
+    <!-- Core Dependencies -->
+    <script src="../../core/production-logger.js"></script>
+    <script src="../../core/utils.js"></script>
+    <script src="../../core/env-config.js"></script>
+    <script src="../../features/cloud-sync/cloud-sync.js"></script>
+    <script src="../js/cloud-sync-ui.js"></script>
+    <script src="../../core/api.js"></script>
+    <script src="../../features/srs/advanced-srs.js"></script>
+    <script src="../../managers/performance-optimizer.js"></script>
+    <script src="../../managers/integration-manager.js"></script>
+    <script src="../js/analytics.js"></script>
+    <script src="../js/gamification.js"></script>
+    <script src="../js/fast-gamification.js"></script>
+    <script src="../js/gamificationUI.js"></script>
+    <script src="../../managers/keyboard-shortcuts.js"></script>
+    <script src="../js/popup.js"></script>
+</body>
+</html>

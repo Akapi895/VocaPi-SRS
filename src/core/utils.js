@@ -11,33 +11,33 @@ function generateUUID() {
 
 // Date utilities
 const DateUtils = {
-  now: function() {
+  now() {
     return new Date().toISOString();
   },
   
-  today: function() {
+  today() {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
   },
   
-  addDays: function(dateStr, days) {
+  addDays(dateStr, days) {
     const date = new Date(dateStr);
     date.setDate(date.getDate() + days);
     return date.toISOString();
   },
   
-  isPastDue: function(dateStr) {
+  isPastDue(dateStr) {
     return new Date(dateStr) <= new Date();
   },
   
-  formatDate: function(dateStr) {
+  formatDate(dateStr) {
     return new Date(dateStr).toLocaleDateString();
   }
 };
 
 // Time formatting utilities for SRS
 const TimeUtils = {
-  formatTimeUntilReview: function(nextReview) {
+  formatTimeUntilReview(nextReview) {
     if (!nextReview) return 'Ready now';
     
     const now = Date.now();
@@ -53,7 +53,7 @@ const TimeUtils = {
     return this.formatInterval(minutes);
   },
   
-  formatInterval: function(minutes) {
+  formatInterval(minutes) {
     if (minutes < 60) {
       return `${minutes} minutes`;
     } else if (minutes < 1440) { // Less than 1 day
@@ -71,7 +71,7 @@ const TimeUtils = {
     }
   },
   
-  isCardDue: function(card) {
+  isCardDue(card) {
     if (!card.srs || !card.srs.nextReview) return true;
     
     const now = Date.now();
@@ -83,9 +83,9 @@ const TimeUtils = {
   }
 };
 
-// Storage wrapper - LOCAL STORAGE ONLY
+// Storage wrapper with sync/local fallback
 const StorageManager = {
-  get: async function(key) {
+  async get(key) {
     try {
       // Check if chrome.storage is available
       if (typeof chrome === 'undefined' || !chrome.storage) {
@@ -93,32 +93,58 @@ const StorageManager = {
         return undefined;
       }
       
-      // Always use local storage only
+      // Try sync storage first
+      const syncResult = await chrome.storage.sync.get(key);
+      if (syncResult[key] !== undefined) {
+        return syncResult[key];
+      }
+      
+      // Fallback to local storage
       const localResult = await chrome.storage.local.get(key);
       return localResult[key];
     } catch (error) {
       console.error('Storage get error:', error);
+      // Fallback to local storage
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          const localResult = await chrome.storage.local.get(key);
+          return localResult[key];
+        }
+      } catch (localError) {
+        console.error('Local storage also failed:', localError);
+      }
       return undefined;
     }
   },
   
-  set: async function(key, value) {
+  async set(key, value) {
     try {
       // Check if chrome.storage is available
       if (typeof chrome === 'undefined' || !chrome.storage) {
         throw new Error('Chrome storage not available');
       }
       
-      // Always use local storage only
-      await chrome.storage.local.set({ [key]: value });
+      // Try sync storage first (has quota limits)
+      await chrome.storage.sync.set({ [key]: value });
       return true;
     } catch (error) {
-      console.error('Storage set error:', error);
-      return false;
+      console.warn('Sync storage failed, using local storage:', error);
+      // Fallback to local storage
+      try {
+        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+          await chrome.storage.local.set({ [key]: value });
+          return true;
+        } else {
+          throw new Error('Local storage also not available');
+        }
+      } catch (localError) {
+        console.error('Local storage also failed:', localError);
+        throw localError;
+      }
     }
   },
   
-  remove: async function(key) {
+  async remove(key) {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage) {
         try {
@@ -142,7 +168,7 @@ const StorageManager = {
     }
   },
   
-  clear: async function() {
+  async clear() {
     try {
       if (typeof chrome !== 'undefined' && chrome.storage) {
         try {
@@ -171,7 +197,7 @@ const StorageManager = {
 const VocabStorage = {
   VOCAB_KEY: 'vocab_words',
   
-  getAllWords: async function() {
+  async getAllWords() {
     try {
       const words = await StorageManager.get(this.VOCAB_KEY);
       return Array.isArray(words) ? words : [];
@@ -181,7 +207,7 @@ const VocabStorage = {
     }
   },
   
-  addWord: async function(wordData) {
+  async addWord(wordData) {
     try {
       const words = await this.getAllWords();
       
@@ -235,24 +261,6 @@ const VocabStorage = {
       words.push(newWord);
       await StorageManager.set(this.VOCAB_KEY, words);
       
-      // Check for milestone streak update (every 5 words learned in a day)
-      const today = DateUtils.getToday();
-      const todayWords = words.filter(word => word.createdAt.startsWith(today));
-      
-      if (todayWords.length >= 5 && todayWords.length % 5 === 0) {
-        console.log(`🔥 Milestone reached! ${todayWords.length} words learned today`);
-        
-        // Notify analytics about milestone (if available)
-        if (typeof window !== 'undefined' && window.vocabAnalytics) {
-          try {
-            await window.vocabAnalytics.recordWordReview(newWord.id, 5, 100);
-            console.log('✅ Milestone streak updated');
-          } catch (error) {
-            console.warn('Could not update milestone streak:', error);
-          }
-        }
-      }
-      
       console.log('Word added successfully:', newWord.word);
       return newWord;
     } catch (error) {
@@ -261,7 +269,7 @@ const VocabStorage = {
     }
   },
   
-  updateWord: async function(wordId, updates) {
+  async updateWord(wordId, updates) {
     try {
       const words = await this.getAllWords();
       const wordIndex = words.findIndex(w => w.id === wordId);
@@ -279,7 +287,7 @@ const VocabStorage = {
     }
   },
   
-  removeWord: async function(wordId) {
+  async removeWord(wordId) {
     try {
       const words = await this.getAllWords();
       const filteredWords = words.filter(w => w.id !== wordId);
@@ -291,7 +299,7 @@ const VocabStorage = {
     }
   },
   
-  getWord: async function(wordId) {
+  async getWord(wordId) {
     try {
       const words = await this.getAllWords();
       return words.find(w => w.id === wordId) || null;
@@ -301,7 +309,7 @@ const VocabStorage = {
     }
   },
   
-  getDueWords: async function() {
+  async getDueWords() {
     try {
       const words = await this.getAllWords();
       const now = Date.now(); // Use millisecond timestamp for precision

@@ -1,83 +1,75 @@
 {
   "manifest_version": 3,
-  "name": "Vocab SRS - Spaced Repetition Vocabulary",
+  "name": "Vocab SRS - Test",
   "version": "1.0.0",
-  "description": "Learn English vocabulary with spaced repetition by highlighting words on any webpage",
+  "description": "Test extension",
   
   "permissions": [
     "storage",
-    "scripting", 
     "activeTab",
-    "contextMenus",
-    "notifications",
-    "background"
+    "scripting",
+    "contextMenus"
   ],
-  
-  "optional_permissions": [
-    "tabs",
-    "webNavigation"
-  ],
-  
-  "omnibox": {
-    "keyword": "vocab"
-  },
-  
-  "background": {
-    "service_worker": "src/serviceWorker.js"
-  },
   
   "content_scripts": [
     {
       "matches": ["<all_urls>"],
       "js": [
-        "src/production-logger.js",
-        "src/logger.js",
-        "src/utils.js",
-        "src/api.js",
-        "src/advanced-srs.js",
-        "src/performance-optimizer.js",
-        "src/analytics.js",
-        "src/gamification.js",
-        "src/integration-manager.js",
-        "src/keyboard-shortcuts.js",
-        "src/ui/addModal.js",
-        "src/contentScript.js"
+        "src/core/production-logger.js",
+        "src/core/logger.js",
+        "src/core/utils.js",
+        "src/core/api.js",
+        "src/ui/js/addModal.js",
+        "src/core/contentScript.js"
       ],
       "css": [
-        "src/ui/addModal.css"
+        "src/ui/css/addModal.css"
       ],
       "run_at": "document_idle"
     }
   ],
   
+  "background": {
+    "service_worker": "src/core/serviceWorker.js"
+  },
+  
   "action": {
-    "default_popup": "src/ui/popup.html",
+    "default_popup": "src/ui/html/popup.html",
     "default_title": "Vocab SRS"
   },
   
-  "options_page": "src/ui/options.html",
-  
-  "icons": {
-    "48": "assets/icon48.png",
-    "128": "assets/icon128.png"
-  },
+  "options_page": "src/ui/html/options.html",
   
   "web_accessible_resources": [
     {
       "resources": [
-        "src/ui/addModal.css",
-        "src/ui/review.html",
-        "src/ui/review.css",
-        "src/ui/review.js",
-        "src/ui/analytics.html",
-        "src/ui/analytics.css",
-        "src/ui/analytics.js",
-        "src/ui/cloud-sync-ui.js",
-        "src/production-logger.js",
+        "src/core/utils.js",
+        "src/core/api.js",
+        "src/core/production-logger.js",
         "src/env-config.js",
-        "src/cloud-sync.js"
+        "src/ui/js/analytics.js",
+        "src/advanced-srs.js",
+        "src/ui/js/gamification.js",
+        "src/cloud-sync.js",
+        "src/performance-optimizer.js",
+        "src/managers/integration-manager.js",
+        "src/keyboard-shortcuts.js",
+        "src/ui/html/review.html",
+        "src/ui/html/analytics.html",
+        "src/ui/css/review.css",
+        "src/ui/css/analytics.css",
+        "src/ui/css/addModal.css",
+        "src/ui/js/review.js",
+        "src/ui/js/analytics.js",
+        "src/ui/js/analytics-dashboard.js",
+        "src/ui/js/cloud-sync-ui.js"
       ],
       "matches": ["<all_urls>"]
     }
-  ]
+  ],
+  
+  "icons": {
+    "48": "assets/icon48.png",
+    "128": "assets/icon128.png"
+  }
 }
