@@ -16,18 +16,16 @@ class AnalyticsDashboard {
     // Comprehensive check and fix
     console.log('🔍 Ensuring analytics availability...');
     
-    // Check 1: StorageManager (works in both extension and mock context)
-    if (typeof StorageManager === 'undefined') {
-      console.error('❌ StorageManager not available in analytics context');
-      this.showErrorMessage('Storage system not available. Please refresh the page.');
-      return false;
-    }
-    
-    // Check 2: VocabAnalytics class
+    // Check 1: VocabAnalytics class (main requirement)
     if (typeof VocabAnalytics === 'undefined') {
       console.error('❌ VocabAnalytics class not found');
       this.showErrorMessage('Analytics system not loaded. Please check if scripts are loaded correctly.');
       return false;
+    }
+    
+    // Check 2: VocabGamification class (for XP and achievements)
+    if (typeof VocabGamification === 'undefined') {
+      console.warn('⚠️ VocabGamification class not found - XP and achievements may not work');
     }
     
     // Check 3: Global instance
@@ -40,6 +38,20 @@ class AnalyticsDashboard {
         console.error('❌ Failed to create VocabAnalytics instance:', error);
         this.showErrorMessage('Failed to initialize analytics system: ' + error.message);
         return false;
+      }
+    }
+    
+    // Check 4: Link VocabGamification if available
+    if (typeof VocabGamification !== 'undefined' && !window.VocabGamification) {
+      console.log('🎮 Creating VocabGamification instance...');
+      try {
+        window.VocabGamification = new VocabGamification();
+        // Link the systems
+        window.VocabAnalytics.gamification = window.VocabGamification;
+        window.VocabGamification.analytics = window.VocabAnalytics;
+        console.log('✅ VocabGamification instance created and linked');
+      } catch (error) {
+        console.warn('⚠️ Failed to create VocabGamification instance:', error);
       }
     }
     
@@ -65,17 +77,22 @@ class AnalyticsDashboard {
     console.log('🚀 Initializing Analytics Dashboard');
     
     try {
-      // Initialize gamification UI
+      // Initialize both analytics and gamification systems
+      if (window.VocabAnalytics && window.VocabAnalytics.ensureInitialized) {
+        await window.VocabAnalytics.ensureInitialized();
+        console.log('✅ Analytics system initialized');
+      }
+      
+      if (window.VocabGamification && window.VocabGamification.initializeGamification) {
+        await window.VocabGamification.initializeGamification();
+        console.log('✅ Gamification system initialized');
+      }
+      
+      // Initialize gamification UI if available
       if (typeof GamificationUI !== 'undefined') {
         this.gamificationUI = new GamificationUI();
         await this.gamificationUI.init();
         console.log('✅ Gamification UI initialized');
-      }
-      
-      // Initialize analytics system
-      if (window.VocabAnalytics && window.VocabAnalytics.ensureInitialized) {
-        await window.VocabAnalytics.ensureInitialized();
-        console.log('✅ Analytics system initialized');
       }
       
       await this.loadDashboard();
@@ -606,15 +623,51 @@ class AnalyticsDashboard {
       // Get fresh data directly from chrome storage
       if (typeof chrome !== 'undefined' && chrome.storage) {
         const result = await new Promise((resolve) => {
-          chrome.storage.local.get(['vocabAnalytics', 'vocabWords'], (data) => {
+          chrome.storage.local.get(['vocabAnalytics', 'vocabWords', 'vocabGamification'], (data) => {
             resolve(data);
           });
         });
         
         console.log('Fresh storage data:', result);
         
+        // Prepare gamification merge if available
+        let gamificationMerge = { totalXP: 0, achievements: [], achievementCount: 0, level: 1 };
+        if (result.vocabGamification) {
+          const gam = result.vocabGamification;
+
+          // Map unlocked achievements to definitions if VocabGamification class available
+          let fullAchievements = [];
+          const unlockedIds = gam.unlockedAchievements || [];
+          if (typeof VocabGamification !== 'undefined' && VocabGamification.ACHIEVEMENTS) {
+            fullAchievements = unlockedIds.map(id => {
+              const def = VocabGamification.ACHIEVEMENTS[id];
+              if (!def) return null;
+              return {
+                ...def,
+                unlockedAt: gam.achievementTimestamps?.[id] || new Date().toISOString()
+              };
+            }).filter(Boolean);
+          } else {
+            // Fallback simple objects
+            fullAchievements = unlockedIds.map(id => ({
+              id,
+              name: id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+              icon: '🏆',
+              xp: 50,
+              unlockedAt: gam.achievementTimestamps?.[id] || new Date().toISOString()
+            }));
+          }
+          gamificationMerge = {
+            totalXP: gam.xp || 0,
+            achievements: fullAchievements,
+            achievementCount: fullAchievements.length,
+            level: gam.level || 1,
+            perfectSessions: gam.perfectSessions || 0
+          };
+        }
+
         if (result.vocabAnalytics) {
-          const analyticsData = result.vocabAnalytics;
+          const analyticsData = result.vocabAnalytics;          
           const today = new Date().toISOString().split('T')[0];
           const todayStats = analyticsData.dailyStats?.[today] || { wordsReviewed: 0, timeSpent: 0, accuracy: 0 };
           
@@ -636,10 +689,15 @@ class AnalyticsDashboard {
             todayAccuracy: Math.round(todayStats.accuracy || 0),
             currentStreak: analyticsData.currentStreak || 0,
             longestStreak: analyticsData.longestStreak || 0,
-            totalXP: analyticsData.totalXP || 0,
-            achievementCount: analyticsData.achievements?.length || 0,
+            // Prefer gamification storage XP/achievements if available
+            totalXP: gamificationMerge.totalXP || analyticsData.totalXP || 0,
+            achievementCount: gamificationMerge.achievementCount || analyticsData.achievements?.length || 0,
             qualityDistribution: analyticsData.qualityDistribution || { 0: 0, 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
-            totalReviews: totalReviews
+            totalReviews: totalReviews,
+            // Provide achievements array & level so UI/gamification UI can access without re-calling
+            achievements: gamificationMerge.achievements || analyticsData.achievements || [],
+            level: gamificationMerge.level || analyticsData.level || 1,
+            perfectSessions: gamificationMerge.perfectSessions || analyticsData.perfectSessions || 0
           };
         }
         
@@ -1068,18 +1126,18 @@ class AnalyticsDashboard {
                     transition: width 0.3s ease;
                     display: flex;
                     align-items: center;
-                    ${percentage > 50 ? 'justify-content: center;' : ''}
+                    ${percentage > 40 ? 'justify-content: center;' : ''}
                   ">
-                    ${percentage > 50 ? `
+                    ${percentage > 40 ? `
                       <span class="quality-count" style="
                         color: white;
                         font-size: 11px;
                         font-weight: 600;
                         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
-                      ">${hasData ? `${count} (${percentage}%)` : '0%'}</span>
+                      ">${hasData ? `${percentage}%` : '0%'}</span>
                     ` : ''}
                   </div>
-                  ${percentage <= 50 ? `
+                  ${percentage <= 40 ? `
                     <span class="quality-count" style="
                       position: absolute;
                       right: 8px;
@@ -1088,7 +1146,7 @@ class AnalyticsDashboard {
                       color: ${colors[index]};
                       font-size: 11px;
                       font-weight: 600;
-                    ">${hasData ? `${count} (${percentage}%)` : '0%'}</span>
+                    ">${hasData ? `${percentage}%` : '0%'}</span>
                   ` : ''}
                 </div>
               </div>

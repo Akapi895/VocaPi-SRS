@@ -15,12 +15,13 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "src/core/production-logger.js",
         "src/core/logger.js",
         "src/core/utils.js",
         "src/core/api.js",
-        "src/ui/js/addModal.js",
-        "src/core/contentScript.js"
+        "src/core/contentScript.js",
+        "src/core/date.js",
+        "src/core/storage.js",
+        "src/ui/js/addModal.js"
       ],
       "css": [
         "src/ui/css/addModal.css"
@@ -30,7 +31,8 @@
   ],
   
   "background": {
-    "service_worker": "src/core/serviceWorker.js"
+    "service_worker": "src/core/serviceWorker.js",
+    "type": "module"
   },
   
   "action": {
@@ -45,7 +47,6 @@
       "resources": [
         "src/core/utils.js",
         "src/core/api.js",
-        "src/core/production-logger.js",
         "src/env-config.js",
         "src/ui/js/analytics.js",
         "src/advanced-srs.js",

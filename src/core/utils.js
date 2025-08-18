@@ -1,4 +1,16 @@
 // Utility functions for Vocab SRS Extension
+const {
+  AdvancedSRSAlgorithm,
+  scheduleNextReview,
+  TimeUtils: SRSTimeUtils,
+  calculateForgettingCurve,
+  analyzeResponseTime,
+  calculateQualityBonus,
+  calculateConsistencyBonus
+} = window.SRS || {};
+
+const { StorageManager, VocabStorage } = window;
+const { DateUtils } = window;
 
 // Generate UUID v4
 function generateUUID() {
@@ -9,456 +21,70 @@ function generateUUID() {
   });
 }
 
-// Date utilities
-const DateUtils = {
-  now() {
-    return new Date().toISOString();
-  },
-  
-  today() {
-    const now = new Date();
-    return new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString();
-  },
-  
-  addDays(dateStr, days) {
-    const date = new Date(dateStr);
-    date.setDate(date.getDate() + days);
-    return date.toISOString();
-  },
-  
-  isPastDue(dateStr) {
-    return new Date(dateStr) <= new Date();
-  },
-  
-  formatDate(dateStr) {
-    return new Date(dateStr).toLocaleDateString();
-  }
-};
-
-// Time formatting utilities for SRS
-const TimeUtils = {
-  formatTimeUntilReview(nextReview) {
-    if (!nextReview) return 'Ready now';
-    
-    const now = Date.now();
-    const nextReviewTime = typeof nextReview === 'string' 
-      ? new Date(nextReview).getTime() 
-      : nextReview;
-    
-    if (nextReviewTime <= now) return 'Ready now';
-    
-    const diffMs = nextReviewTime - now;
-    const minutes = Math.ceil(diffMs / (1000 * 60));
-    
-    return this.formatInterval(minutes);
-  },
-  
-  formatInterval(minutes) {
-    if (minutes < 60) {
-      return `${minutes} minutes`;
-    } else if (minutes < 1440) { // Less than 1 day
-      const hours = Math.round((minutes / 60) * 10) / 10;
-      return `${hours} hours`;
-    } else if (minutes < 10080) { // Less than 1 week  
-      const days = Math.round((minutes / 1440) * 10) / 10;
-      return `${days} days`;
-    } else if (minutes < 43200) { // Less than 1 month
-      const weeks = Math.round((minutes / 10080) * 10) / 10;
-      return `${weeks} weeks`;
-    } else {
-      const months = Math.round((minutes / 43200) * 10) / 10;
-      return `${months} months`;
-    }
-  },
-  
-  isCardDue(card) {
-    if (!card.srs || !card.srs.nextReview) return true;
-    
-    const now = Date.now();
-    const nextReviewTime = typeof card.srs.nextReview === 'string'
-      ? new Date(card.srs.nextReview).getTime()
-      : card.srs.nextReview;
-      
-    return now >= nextReviewTime;
-  }
-};
-
-// Storage wrapper with sync/local fallback
-const StorageManager = {
-  async get(key) {
-    try {
-      // Check if chrome.storage is available
-      if (typeof chrome === 'undefined' || !chrome.storage) {
-        console.warn('Chrome storage not available');
-        return undefined;
-      }
-      
-      // Try sync storage first
-      const syncResult = await chrome.storage.sync.get(key);
-      if (syncResult[key] !== undefined) {
-        return syncResult[key];
-      }
-      
-      // Fallback to local storage
-      const localResult = await chrome.storage.local.get(key);
-      return localResult[key];
-    } catch (error) {
-      console.error('Storage get error:', error);
-      // Fallback to local storage
-      try {
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          const localResult = await chrome.storage.local.get(key);
-          return localResult[key];
-        }
-      } catch (localError) {
-        console.error('Local storage also failed:', localError);
-      }
-      return undefined;
-    }
-  },
-  
-  async set(key, value) {
-    try {
-      // Check if chrome.storage is available
-      if (typeof chrome === 'undefined' || !chrome.storage) {
-        throw new Error('Chrome storage not available');
-      }
-      
-      // Try sync storage first (has quota limits)
-      await chrome.storage.sync.set({ [key]: value });
-      return true;
-    } catch (error) {
-      console.warn('Sync storage failed, using local storage:', error);
-      // Fallback to local storage
-      try {
-        if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
-          await chrome.storage.local.set({ [key]: value });
-          return true;
-        } else {
-          throw new Error('Local storage also not available');
-        }
-      } catch (localError) {
-        console.error('Local storage also failed:', localError);
-        throw localError;
-      }
-    }
-  },
-  
-  async remove(key) {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        try {
-          await chrome.storage.sync.remove(key);
-        } catch (error) {
-          console.warn('Sync storage remove failed:', error);
-        }
-        
-        try {
-          await chrome.storage.local.remove(key);
-        } catch (error) {
-          console.error('Local storage remove failed:', error);
-          throw error;
-        }
-      } else {
-        throw new Error('Chrome storage not available');
-      }
-    } catch (error) {
-      console.error('Storage remove failed:', error);
-      throw error;
-    }
-  },
-  
-  async clear() {
-    try {
-      if (typeof chrome !== 'undefined' && chrome.storage) {
-        try {
-          await chrome.storage.sync.clear();
-        } catch (error) {
-          console.warn('Sync storage clear failed:', error);
-        }
-        
-        try {
-          await chrome.storage.local.clear();
-        } catch (error) {
-          console.error('Local storage clear failed:', error);
-          throw error;
-        }
-      } else {
-        throw new Error('Chrome storage not available');
-      }
-    } catch (error) {
-      console.error('Storage clear failed:', error);
-      throw error;
-    }
-  }
-};
-
-// Vocabulary storage operations
-const VocabStorage = {
-  VOCAB_KEY: 'vocab_words',
-  
-  async getAllWords() {
-    try {
-      const words = await StorageManager.get(this.VOCAB_KEY);
-      return Array.isArray(words) ? words : [];
-    } catch (error) {
-      console.error('Error getting all words:', error);
-      return [];
-    }
-  },
-  
-  async addWord(wordData) {
-    try {
-      const words = await this.getAllWords();
-      
-      // Enhanced duplicate checking for both words and phrases
-      const normalizedInput = TextUtils.sanitizeText(wordData.word.toLowerCase());
-      const existingWord = words.find(w => {
-        const existingNormalized = TextUtils.sanitizeText(w.word.toLowerCase());
-        return existingNormalized === normalizedInput;
-      });
-      
-      if (existingWord) {
-        throw new Error(`"${wordData.word}" already exists in your dictionary`);
-      }
-      
-      // Create word object preserving all provided data
-      const newWord = {
-        id: wordData.id || generateUUID(),
-        word: TextUtils.formatDisplayText(wordData.word), // Format for display
-        meaning: wordData.meaning || '',
-        example: wordData.example || '',
-        phonetic: wordData.phonetic || '',
-        audioUrl: wordData.audioUrl || null,
-        
-        // Enhanced metadata
-        wordType: TextUtils.isPhrase(wordData.word) ? 'phrase' : 'word',
-        wordCount: TextUtils.countWords(wordData.word),
-        
-        // Preserve or create SRS data
-        srs: wordData.srs && typeof wordData.srs === 'object' ? {
-          easiness: wordData.srs.easiness || 2.5,
-          interval: wordData.srs.interval || 0,
-          repetitions: wordData.srs.repetitions || 0,
-          nextReview: wordData.srs.nextReview || DateUtils.now()
-        } : {
-          easiness: 2.5,
-          interval: 0,
-          repetitions: 0,
-          nextReview: DateUtils.now()
-        },
-        
-        // Preserve metadata
-        createdAt: wordData.createdAt || DateUtils.now(),
-        lastModified: DateUtils.now(),
-        tags: wordData.tags || [],
-        difficulty: wordData.difficulty || 'medium',
-        source: wordData.source || 'manual'
-      };
-      
-      console.log('Adding word to storage:', newWord);
-      
-      words.push(newWord);
-      await StorageManager.set(this.VOCAB_KEY, words);
-      
-      console.log('Word added successfully:', newWord.word);
-      return newWord;
-    } catch (error) {
-      console.error('Error adding word:', error);
-      throw error;
-    }
-  },
-  
-  async updateWord(wordId, updates) {
-    try {
-      const words = await this.getAllWords();
-      const wordIndex = words.findIndex(w => w.id === wordId);
-      
-      if (wordIndex === -1) {
-        throw new Error('Word not found');
-      }
-      
-      words[wordIndex] = { ...words[wordIndex], ...updates, lastModified: DateUtils.now() };
-      await StorageManager.set(this.VOCAB_KEY, words);
-      return words[wordIndex];
-    } catch (error) {
-      console.error('Error updating word:', error);
-      throw error;
-    }
-  },
-  
-  async removeWord(wordId) {
-    try {
-      const words = await this.getAllWords();
-      const filteredWords = words.filter(w => w.id !== wordId);
-      await StorageManager.set(this.VOCAB_KEY, filteredWords);
-      return true;
-    } catch (error) {
-      console.error('Error removing word:', error);
-      throw error;
-    }
-  },
-  
-  async getWord(wordId) {
-    try {
-      const words = await this.getAllWords();
-      return words.find(w => w.id === wordId) || null;
-    } catch (error) {
-      console.error('Error getting word:', error);
-      return null;
-    }
-  },
-  
-  async getDueWords() {
-    try {
-      const words = await this.getAllWords();
-      const now = Date.now(); // Use millisecond timestamp for precision
-      
-      return words.filter(word => {
-        if (!word.srs || !word.srs.nextReview) {
-          return true; // New words are always due
-        }
-        
-        // Support both ISO string and timestamp
-        const nextReviewTime = typeof word.srs.nextReview === 'string' 
-          ? new Date(word.srs.nextReview).getTime()
-          : word.srs.nextReview;
-          
-        return now >= nextReviewTime;
-      }).sort((a, b) => {
-        // Sort by next review time (earliest first)
-        const aTime = a.srs?.nextReview ? 
-          (typeof a.srs.nextReview === 'string' ? new Date(a.srs.nextReview).getTime() : a.srs.nextReview) : 0;
-        const bTime = b.srs?.nextReview ? 
-          (typeof b.srs.nextReview === 'string' ? new Date(b.srs.nextReview).getTime() : b.srs.nextReview) : 0;
-        return aTime - bTime;
-      });
-    } catch (error) {
-      console.error('Error getting due words:', error);
-      return [];
-    }
-  }
-};
-
 // Enhanced SRS (Spaced Repetition System) Algorithm
 const SRSAlgorithm = {
   updateCard(srsData, quality, options = {}) {
     try {
-      let updatedSRS;
-      
-      // Use advanced SRS algorithm if available and explicitly requested
-      if (typeof window !== 'undefined' && window.AdvancedSRSAlgorithm && options.useAdvanced === true) {
-        const advancedSRS = new window.AdvancedSRSAlgorithm();
-        const cardData = { 
-          srs: srsData, 
+      if (options.useAdvanced) {
+        const advanced = new AdvancedSRSAlgorithm();
+        const card = {
+          srs: srsData,
           category: options.category,
           difficulty: options.difficulty,
           reviewHistory: options.reviewHistory || []
         };
-        
-        updatedSRS = advancedSRS.calculateNextReview(
-          cardData, 
-          quality, 
-          options.responseTime, 
+        let updated = advanced.calculateNextReview(
+          card,
+          quality,
+          options.responseTime,
           options.userStats || {}
         );
-        
-        // Convert nextReview from timestamp to ISO string if needed
-        if (typeof updatedSRS.nextReview === 'number') {
-          updatedSRS.nextReview = new Date(updatedSRS.nextReview).toISOString();
+        if (typeof updated.nextReview === "number") {
+          updated.nextReview = new Date(updated.nextReview).toISOString();
         }
-      } else {
-        // Use fallback SM-2 algorithm
-        updatedSRS = this.fallbackSM2Algorithm(srsData, quality);
+        return this.normalizeSRSData(updated);
       }
-      
-      // Ensure all required fields exist with proper types
-      return this.normalizeSRSData(updatedSRS);
-      
-    } catch (error) {
-      console.error('SRS algorithm error:', error);
-      // Fallback to basic SM-2 if advanced fails
+      return this.fallbackSM2Algorithm(srsData, quality);
+    } catch (err) {
+      console.error("SRSAlgorithm error:", err);
       return this.fallbackSM2Algorithm(srsData, quality);
     }
   },
-  
+
   fallbackSM2Algorithm(srsData, quality) {
-    // Clone the SRS data to avoid mutation
-    const updatedSRS = { ...srsData };
-    
-    // Ensure required fields exist
-    updatedSRS.repetitions = updatedSRS.repetitions || 0;
-    updatedSRS.interval = updatedSRS.interval || 10; // Start with 10 minutes
-    updatedSRS.easiness = updatedSRS.easiness || 2.5;
-    updatedSRS.intervalUnit = updatedSRS.intervalUnit || 'minutes'; // Support minute-level precision
-    
-    // Enhanced SM-2 Algorithm with minute-level intervals
+    let updated = { ...srsData };
+    updated.repetitions = updated.repetitions || 0;
+    updated.interval = updated.interval || 10;
+    updated.easeFactor = updated.easeFactor || 2.5;
+
     if (quality >= 3) {
-      // Successful review
-      if (updatedSRS.repetitions === 0) {
-        // First success: 1 hour based on quality
-        updatedSRS.interval = quality === 5 ? 120 : quality === 4 ? 60 : 30; // 30min-2hrs
-      } else if (updatedSRS.repetitions === 1) {
-        // Second success: 6-12 hours based on quality  
-        updatedSRS.interval = quality === 5 ? 720 : quality === 4 ? 480 : 360; // 6-12hrs
-      } else if (updatedSRS.repetitions === 2) {
-        // Third success: 1-2 days
-        updatedSRS.interval = quality === 5 ? 2880 : quality === 4 ? 2160 : 1440; // 1-2 days in minutes
-      } else {
-        // Long-term: Use ease factor with minute precision
-        updatedSRS.interval = Math.round(updatedSRS.interval * updatedSRS.easiness);
-      }
-      
-      updatedSRS.repetitions += 1;
-      updatedSRS.easiness = updatedSRS.easiness + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02));
-      
-      if (updatedSRS.easiness < 1.3) {
-        updatedSRS.easiness = 1.3;
-      }
+      updated.repetitions += 1;
+      updated.interval = Math.round(updated.interval * updated.easeFactor);
+      updated.easeFactor += 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
+      if (updated.easeFactor < 1.3) updated.easeFactor = 1.3;
     } else {
-      // Failed review - progressive minute-based recovery
-      updatedSRS.repetitions = 0;
-      if (quality <= 1) {
-        updatedSRS.interval = 10; // 10 minutes for complete failure
-      } else if (quality === 2) {
-        updatedSRS.interval = 30; // 30 minutes for partial failure  
-      }
-      updatedSRS.easiness = Math.max(1.3, updatedSRS.easiness - 0.2);
+      updated.repetitions = 0;
+      updated.interval = quality <= 1 ? 10 : 30;
+      updated.easeFactor = Math.max(1.3, updated.easeFactor - 0.2);
     }
-    
-    // Apply reasonable limits
-    updatedSRS.interval = Math.max(10, updatedSRS.interval); // Minimum 10 minutes
-    updatedSRS.interval = Math.min(525600, updatedSRS.interval); // Maximum 1 year in minutes
-    
-    // Set next review with minute precision
-    const nextReviewTime = new Date(Date.now() + updatedSRS.interval * 60 * 1000);
-    updatedSRS.nextReview = nextReviewTime.toISOString();
-    
-    return updatedSRS;
+
+    updated.interval = Math.max(10, Math.min(525600, updated.interval));
+    updated.nextReview = new Date(Date.now() + updated.interval * 60000).toISOString();
+    return updated;
   },
-  
-  normalizeSRSData(srsData) {
-    const normalized = {
-      repetitions: Math.max(0, Math.floor(srsData.repetitions || 0)),
-      interval: Math.max(1, Math.floor(srsData.interval || 1)),
-      easiness: Math.max(1.3, Math.min(2.5, parseFloat(srsData.easiness || 2.5))),
-      nextReview: srsData.nextReview || DateUtils.addDays(DateUtils.today(), 1),
-      lastReviewedAt: srsData.lastReviewedAt || Date.now(),
-      totalReviews: Math.max(0, Math.floor(srsData.totalReviews || 0)),
-      reviewHistory: Array.isArray(srsData.reviewHistory) ? srsData.reviewHistory : []
+
+  normalizeSRSData(srs) {
+    return {
+      repetitions: Math.max(0, srs.repetitions || 0),
+      interval: Math.max(1, srs.interval || 1),
+      easeFactor: Math.max(1.3, Math.min(2.5, srs.easeFactor || 2.5)),
+      nextReview: typeof srs.nextReview === "number"
+        ? new Date(srs.nextReview).toISOString()
+        : srs.nextReview,
+      lastReviewedAt: srs.lastReviewedAt || Date.now(),
+      totalReviews: Math.max(0, srs.totalReviews || 0),
+      reviewHistory: Array.isArray(srs.reviewHistory) ? srs.reviewHistory : []
     };
-    
-    // Ensure nextReview is ISO string format
-    if (typeof normalized.nextReview === 'number') {
-      normalized.nextReview = new Date(normalized.nextReview).toISOString();
-    }
-    
-    // Ensure lastReviewedAt is a timestamp
-    if (typeof normalized.lastReviewedAt === 'string') {
-      normalized.lastReviewedAt = new Date(normalized.lastReviewedAt).getTime();
-    }
-    
-    return normalized;
   }
 };
 
@@ -537,7 +163,7 @@ if (typeof window !== 'undefined') {
     VocabStorage,
     SRSAlgorithm,
     TextUtils,
-    TimeUtils
+    SRSTimeUtils
   };
 }
 
@@ -549,5 +175,5 @@ if (typeof window !== 'undefined') {
   window.VocabStorage = VocabStorage;
   window.SRSAlgorithm = SRSAlgorithm;
   window.TextUtils = TextUtils;
-  window.TimeUtils = TimeUtils;
+  window.TimeUtils = SRSTimeUtils;
 }

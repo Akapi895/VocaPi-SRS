@@ -1,80 +1,74 @@
-// Production Logger Utility
-// Centralized logging system with production optimization
+// Unified Logger Utility
+// Supports Development & Production with configurable log levels
 
-const VocabLogger = {
-  // Production mode flag - set to true for production
-  PRODUCTION_MODE: false,
-  
-  // Log levels
-  LEVELS: {
+class VocabLogger {
+  constructor() {
+    const manifest = (typeof chrome !== 'undefined' && chrome.runtime?.getManifest?.()) || {};
+    this.isProduction = !!manifest.key; // Chrome store builds have key
+    this.currentLevel = this.isProduction ? this.LEVELS.WARN : this.LEVELS.DEBUG;
+  }
+
+  LEVELS = {
     DEBUG: 0,
     INFO: 1,
     WARN: 2,
     ERROR: 3
-  },
-  
-  // Current log level (only logs at this level or higher will be shown)
-  currentLevel: 0, // DEBUG level for development
-  
-  // Log with level checking
+  };
+
   log(level, message, ...args) {
-    if (this.PRODUCTION_MODE && level < this.LEVELS.WARN) {
-      return; // Skip debug and info logs in production
-    }
-    
-    if (level >= this.currentLevel) {
-      const prefix = this.getPrefix(level);
-      console.log(prefix + message, ...args);
-    }
-  },
-  
-  // Convenience methods
-  debug(message, ...args) {
-    this.log(this.LEVELS.DEBUG, message, ...args);
-  },
-  
-  info(message, ...args) {
-    this.log(this.LEVELS.INFO, message, ...args);
-  },
-  
-  warn(message, ...args) {
-    this.log(this.LEVELS.WARN, message, ...args);
-  },
-  
-  error(message, ...args) {
-    this.log(this.LEVELS.ERROR, message, ...args);
-  },
-  
-  // Get prefix for log level
-  getPrefix(level) {
-    const now = new Date().toLocaleTimeString();
+    if (level < this.currentLevel) return;
+    const prefix = this.getPrefix(level);
     switch (level) {
       case this.LEVELS.DEBUG:
-        return `[${now}] 🔧 DEBUG: `;
+        console.debug(prefix + message, ...args);
+        break;
       case this.LEVELS.INFO:
-        return `[${now}] ℹ️ INFO: `;
+        console.info(prefix + message, ...args);
+        break;
       case this.LEVELS.WARN:
-        return `[${now}] ⚠️ WARN: `;
+        console.warn(prefix + message, ...args);
+        break;
       case this.LEVELS.ERROR:
-        return `[${now}] ❌ ERROR: `;
+        console.error(prefix + message, ...args);
+        break;
       default:
-        return `[${now}] `;
+        console.log(prefix + message, ...args);
     }
-  },
-  
-  // Set production mode
-  setProductionMode(enabled) {
-    this.PRODUCTION_MODE = enabled;
-    this.currentLevel = enabled ? this.LEVELS.WARN : this.LEVELS.DEBUG;
   }
-};
 
-// Export for use in other modules
-if (typeof window !== 'undefined') {
-  window.VocabLogger = VocabLogger;
+  debug(message, ...args) {
+    this.log(this.LEVELS.DEBUG, message, ...args);
+  }
+
+  info(message, ...args) {
+    this.log(this.LEVELS.INFO, message, ...args);
+  }
+
+  warn(message, ...args) {
+    this.log(this.LEVELS.WARN, message, ...args);
+  }
+
+  error(message, ...args) {
+    this.log(this.LEVELS.ERROR, message, ...args);
+  }
+
+  getPrefix(level) {
+    const now = new Date().toLocaleTimeString();
+    const emojiMap = {
+      [this.LEVELS.DEBUG]: "🔧 DEBUG",
+      [this.LEVELS.INFO]: "ℹ️ INFO",
+      [this.LEVELS.WARN]: "⚠️ WARN",
+      [this.LEVELS.ERROR]: "❌ ERROR"
+    };
+    return `[${now}] ${emojiMap[level] || "LOG"}: `;
+  }
+
+  setLevel(level) {
+    this.currentLevel = level;
+  }
 }
 
-// Export for Node.js modules
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = VocabLogger;
-}
+// Global export
+const logger = new VocabLogger();
+if (typeof window !== "undefined") window.Logger = logger;
+if (typeof module !== "undefined" && module.exports) module.exports = logger;

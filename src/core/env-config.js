@@ -1,286 +1,76 @@
-// Environment Configuration Manager for Vocab SRS Extension
 class EnvConfig {
-  constructor() {
-    this.config = {};
-    this.isLoaded = false;
-  }
-  
-  // Load configuration from environment or Chrome storage
-  async loadConfig() {
+  constructor(){ this.config={}; this.isLoaded=false; }
+
+  async loadConfig(){
     if (this.isLoaded) return this.config;
-    
     try {
-      // For development: try to load from .env file (if available)
-      if (typeof process !== 'undefined' && process.env) {
-        this.config = this.loadFromProcessEnv();
-        console.log('🔧 Config loaded from process.env');
-      } 
-      // For extension: load from Chrome storage or hardcoded values
-      else {
-        this.config = await this.loadFromChromeStorage();
-        console.log('🔧 Config loaded from Chrome storage');
-      }
-      
-      this.isLoaded = true;
-      return this.config;
-      
-    } catch (error) {
-      console.error('❌ Failed to load config:', error);
-      // Fallback to empty config
-      this.config = this.getDefaultConfig();
-      this.isLoaded = true;
-      return this.config;
+      this.config = (typeof process!=='undefined' && process.env)
+        ? this.loadFromProcessEnv()
+        : await this.loadFromChromeStorage();
+      this.isLoaded=true;
+    } catch {
+      this.config=this.getDefaultConfig(); this.isLoaded=true;
     }
+    return this.config;
   }
-  
-  // Load from Node.js process environment
-  loadFromProcessEnv() {
-    return {
-      firebase: {
-        apiKey: process.env.VITE_FIREBASE_API_KEY,
-        authDomain: process.env.VITE_FIREBASE_AUTH_DOMAIN,
-        projectId: process.env.VITE_FIREBASE_PROJECT_ID,
-        storageBucket: process.env.VITE_FIREBASE_STORAGE_BUCKET,
-        messagingSenderId: process.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
-        appId: process.env.VITE_FIREBASE_APP_ID,
-      },
-      environment: process.env.NODE_ENV || 'development'
-    };
+
+  loadFromProcessEnv(){
+    const e=process.env;
+    return { firebase:{ apiKey:e.VITE_FIREBASE_API_KEY, authDomain:e.VITE_FIREBASE_AUTH_DOMAIN,
+      projectId:e.VITE_FIREBASE_PROJECT_ID, storageBucket:e.VITE_FIREBASE_STORAGE_BUCKET,
+      messagingSenderId:e.VITE_FIREBASE_MESSAGING_SENDER_ID, appId:e.VITE_FIREBASE_APP_ID },
+      environment:e.NODE_ENV||'development' };
   }
-  
-  // Load from Chrome extension storage
-  async loadFromChromeStorage() {
-    return new Promise((resolve) => {
-      // Check if we're in a Chrome extension context
-      if (typeof chrome === 'undefined' || !chrome.storage) {
-        resolve(this.getDefaultConfig());
-        return;
-      }
-      
-      chrome.storage.local.get(['firebaseConfig'], (result) => {
-        if (chrome.runtime.lastError) {
-          console.error('Chrome storage error:', chrome.runtime.lastError);
-          resolve(this.getDefaultConfig());
-          return;
-        }
-        
-        // Check if firebaseConfig exists and has the right structure
-        const firebaseConfig = result.firebaseConfig;
-        if (firebaseConfig) {
-          // If it's already in the correct format { firebase: {...} }
-          if (firebaseConfig.firebase) {
-            resolve(firebaseConfig);
-          } 
-          // If it's just the firebase config object directly (from options.js save)
-          else if (firebaseConfig.apiKey || firebaseConfig.projectId) {
-            resolve({ firebase: firebaseConfig });
-          }
-          // Otherwise, use default
-          else {
-            resolve(this.getDefaultConfig());
-          }
-        } else {
-          resolve(this.getDefaultConfig());
-        }
+
+  loadFromChromeStorage(){
+    return new Promise(res=>{
+      if (!chrome?.storage) return res(this.getDefaultConfig());
+      chrome.storage.local.get(['firebaseConfig'],r=>{
+        const c=r.firebaseConfig;
+        res(c?.firebase?c : (c?.apiKey?{firebase:c}:this.getDefaultConfig()));
       });
     });
   }
-  
-  // Save configuration to Chrome storage
-  async saveConfig(config) {
-    return new Promise((resolve, reject) => {
-      if (typeof chrome === 'undefined' || !chrome.storage) {
-        resolve(); // Skip if not in extension context
-        return;
-      }
-      
-      chrome.storage.local.set({ firebaseConfig: config }, () => {
-        if (chrome.runtime.lastError) {
-          reject(new Error(chrome.runtime.lastError.message));
-        } else {
-          this.config = config;
-          console.log('✅ Config saved to Chrome storage');
-          resolve();
-        }
+
+  saveConfig(cfg){
+    return new Promise((res,rej)=>{
+      if (!chrome?.storage) return res();
+      chrome.storage.local.set({firebaseConfig:cfg},()=>{
+        if (chrome.runtime.lastError) rej(new Error(chrome.runtime.lastError.message));
+        else { this.config=cfg; res(); }
       });
     });
   }
-  
-  // Get default configuration (for fallback)
-  getDefaultConfig() {
-    return {
-      firebase: {
-        apiKey: "",
-        authDomain: "",
-        projectId: "vocab-srs-demo", // Default demo project
-        storageBucket: "",
-        messagingSenderId: "",
-        appId: "",
-      },
-      environment: 'development',
-      cloudSync: {
-        enabled: false, // Disable by default until configured
-        autoSync: false,
-        encryptionEnabled: true,
-        compressionEnabled: true
-      }
-    };
-  }
-  
-  // Get Firebase configuration
-  getFirebaseConfig() {
-    if (!this.isLoaded) {
-      console.warn('⚠️ Config not loaded yet, using default');
-      return this.getDefaultConfig().firebase;
-    }
-    return this.config.firebase;
-  }
-  
-  // Check if Firebase is properly configured
-  isFirebaseConfigured() {
-    const firebaseConfig = this.getFirebaseConfig();
-    return firebaseConfig.apiKey && 
-           firebaseConfig.projectId && 
-           firebaseConfig.apiKey !== "" && 
-           firebaseConfig.projectId !== "";
-  }
-  
-  // Get environment
-  getEnvironment() {
-    return this.config.environment || 'development';
-  }
-  
-  // Check if development mode
-  isDevelopment() {
-    return this.getEnvironment() === 'development';
-  }
-  
-  // Check if production mode
-  isProduction() {
-    return this.getEnvironment() === 'production';
-  }
-  
-  // Setup wizard for first-time configuration
-  async setupWizard() {
-    console.log('🧙‍♂️ Firebase Setup Wizard');
-    
-    // Check if already configured
-    if (this.isFirebaseConfigured()) {
-      console.log('✅ Firebase already configured');
-      return true;
-    }
-    
-    // For extension context, show setup instructions
-    if (typeof chrome !== 'undefined' && chrome.storage) {
-      this.showSetupInstructions();
-      return false;
-    }
-    
-    // For development context, show .env instructions
-    console.log(`
-🔧 Firebase Setup Required:
 
-1. Create .env file in your project root
-2. Copy .env.example to .env
-3. Replace placeholder values with your actual Firebase config
-4. Restart your development server
-
-Example:
-VITE_FIREBASE_API_KEY=AIzaSyC...
-VITE_FIREBASE_PROJECT_ID=vocab-srs-sync
-...
-    `);
-    
-    return false;
-  }
+  getDefaultConfig(){ return { firebase:{apiKey:'',authDomain:'',projectId:'vocab-srs-demo',
+    storageBucket:'',messagingSenderId:'',appId:''}, environment:'development',
+    cloudSync:{enabled:false,autoSync:false,encryptionEnabled:true,compressionEnabled:true} }; }
   
-  showSetupInstructions() {
-    // This could be enhanced to show a modal in the extension
-    console.log(`
-☁️ Cloud Sync Setup Required:
+  getFirebaseConfig(){ return this.isLoaded?this.config.firebase:this.getDefaultConfig().firebase; }
+  isFirebaseConfigured(){ const f=this.getFirebaseConfig(); return f.apiKey && f.projectId; }
+  getEnvironment(){ return this.config.environment||'development'; }
+  isDevelopment(){ return this.getEnvironment()==='development'; }
+  isProduction(){ return this.getEnvironment()==='production'; }
 
-To enable cloud synchronization:
-
-1. Follow the Firebase setup guide: chrome-extension://[extension-id]/FIREBASE_SETUP.md
-2. Get your Firebase configuration from Firebase Console
-3. Open extension options page to enter your Firebase config
-4. Enable cloud sync in the popup
-
-For now, the extension will work in offline mode only.
-    `);
-  }
-  
-  // Validate Firebase configuration
-  validateFirebaseConfig(config) {
-    const required = ['apiKey', 'authDomain', 'projectId', 'storageBucket', 'messagingSenderId', 'appId'];
-    const missing = required.filter(key => !config[key] || config[key] === '');
-    
-    if (missing.length > 0) {
-      throw new Error(`Missing required Firebase config: ${missing.join(', ')}`);
-    }
-    
-    // Validate format
-    if (!config.apiKey.startsWith('AIza')) {
-      throw new Error('Invalid API key format');
-    }
-    
-    if (!config.authDomain.includes('.firebaseapp.com')) {
-      throw new Error('Invalid auth domain format');
-    }
-    
-    if (!config.appId.startsWith('1:')) {
-      throw new Error('Invalid app ID format');
-    }
-    
+  validateFirebaseConfig(c){
+    const required=['apiKey','authDomain','projectId','storageBucket','messagingSenderId','appId'];
+    const missing=required.filter(k=>!c[k]); if (missing.length) throw new Error('Missing:'+missing.join(','));
+    if (!c.apiKey.startsWith('AIza')) throw new Error('Invalid API key');
+    if (!c.authDomain.includes('.firebaseapp.com')) throw new Error('Invalid auth domain');
+    if (!c.appId.startsWith('1:')) throw new Error('Invalid app ID');
     return true;
   }
-  
-  // Update specific configuration
-  async updateFirebaseConfig(newConfig) {
-    try {
-      // Validate new config
-      this.validateFirebaseConfig(newConfig);
-      
-      // Merge with existing config
-      const updatedConfig = {
-        ...this.config,
-        firebase: { ...this.config.firebase, ...newConfig }
-      };
-      
-      // Save to storage
-      await this.saveConfig(updatedConfig);
-      
-      console.log('✅ Firebase configuration updated');
-      return true;
-      
-    } catch (error) {
-      console.error('❌ Failed to update Firebase config:', error);
-      throw error;
-    }
+
+  async updateFirebaseConfig(newCfg){
+    this.validateFirebaseConfig(newCfg);
+    const updated={...this.config, firebase:{...this.config.firebase,...newCfg}};
+    await this.saveConfig(updated); return true;
   }
 }
 
-// Create global instance
-const envConfig = new EnvConfig();
-
-// Auto-load configuration
-envConfig.loadConfig().then(() => {
-  console.log('🔧 Environment configuration loaded');
-  
-  // Run setup wizard if not configured
-  if (!envConfig.isFirebaseConfigured()) {
-    envConfig.setupWizard();
-  }
-}).catch(error => {
-  console.error('Failed to load environment configuration:', error);
+const envConfig=new EnvConfig();
+envConfig.loadConfig().then(()=>{
+  if (!envConfig.isFirebaseConfigured()) console.log('⚠️ Firebase not configured. Run setup wizard.');
 });
-
-// Export for use
-if (typeof window !== 'undefined') {
-  window.EnvConfig = EnvConfig;
-  window.envConfig = envConfig;
-}
-
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = EnvConfig;
-}
+if (typeof window!=='undefined'){ window.EnvConfig=EnvConfig; window.envConfig=envConfig; }
+if (typeof module!=='undefined') module.exports=EnvConfig;
