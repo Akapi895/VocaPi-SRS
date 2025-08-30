@@ -1,6 +1,10 @@
 // src/ui/js/popup.js - Simplified without modules
 class VocabSRSPopup {
   constructor() {
+    console.log('🏗️ VocabSRSPopup constructor called');
+    console.log('🏗️ DOM ready state:', document.readyState);
+    console.log('🏗️ Document body:', !!document.body);
+    
     this.currentReviewWords = [];
     this.currentWordIndex = 0;
     this.reviewStats = { reviewed: 0, correct: 0 };
@@ -11,7 +15,14 @@ class VocabSRSPopup {
     this.wasSkipped = false;
     this.gamificationUI = null;
 
-    this.init();
+    // Wait for DOM to be ready before initializing
+    if (document.readyState === 'loading') {
+      console.log('🏗️ DOM still loading, waiting...');
+      document.addEventListener('DOMContentLoaded', () => this.init());
+    } else {
+      console.log('🏗️ DOM ready, initializing immediately');
+      this.init();
+    }
   }
 
   // ---------------------------
@@ -23,6 +34,7 @@ class VocabSRSPopup {
     // Load stats and bind events
     await this.loadStats();
     this.bindEvents();
+    console.log('✅ Vocab SRS Popup initialization complete');
   }
 
   // ---------------------------
@@ -30,34 +42,92 @@ class VocabSRSPopup {
   // ---------------------------
   async loadStats() {
     try {
-      // Get words from storage
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const allWords = result.vocabWords || [];
+      console.log('🔍 Attempting to load stats from service worker...');
+      console.log('🔍 Chrome object available:', typeof chrome !== 'undefined');
+      console.log('🔍 Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
+      console.log('🔍 Chrome runtime.sendMessage available:', typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage);
       
-      // Calculate due words (simplified)
-      const dueWords = allWords.filter(word => {
-        if (!word.srs || !word.srs.nextReview) return true;
-        const nextReview = new Date(word.srs.nextReview);
-        return nextReview <= new Date();
-      });
+      // Check if we're in a real extension environment
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        console.log('📡 Sending message to service worker...');
+        // Get words from IndexedDB via background script
+        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+        
+        console.log('📡 Service worker response:', response);
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to get words');
+        }
+        
+        const allWords = response.words || [];
+        console.log('📚 Words received from service worker:', allWords);
+        
+        this.updateStatsDisplay(allWords);
+        console.log('✅ Stats loaded from service worker:', { total: allWords.length });
+      } else {
+        throw new Error('Service worker not available');
+      }
+    } catch (error) {
+      console.error('❌ Error loading stats from service worker:', error);
+      console.log('🔄 Falling back to direct Chrome Storage access...');
+      
+      // Fallback: try to read directly from Chrome Storage
+      try {
+        const result = await chrome.storage.local.get(['vocabWords']);
+        const allWords = result.vocabWords || [];
+        console.log('📚 Words read directly from Chrome Storage:', allWords);
+        
+        this.updateStatsDisplay(allWords);
+        console.log('✅ Stats loaded from fallback:', { total: allWords.length });
+      } catch (fallbackError) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        this.showError('Failed to load vocabulary stats');
+      }
+    }
+  }
 
-      document.getElementById('total-words').textContent = allWords.length;
-      document.getElementById('due-words').textContent = dueWords.length;
+  updateStatsDisplay(allWords) {
+    console.log('🔧 updateStatsDisplay called with:', allWords);
+    console.log('🔧 allWords length:', allWords.length);
+    
+    // Calculate due words (simplified)
+    const dueWords = allWords.filter(word => {
+      if (!word.srs || !word.srs.nextReview) return true;
+      const nextReview = new Date(word.srs.nextReview);
+      return nextReview <= new Date();
+    });
+    
+    console.log('🔧 dueWords calculated:', dueWords.length);
 
-      // Enable/disable review button
-      const reviewBtn = document.getElementById('start-review-btn');
+    const totalWordsEl = document.getElementById('total-words');
+    const dueWordsEl = document.getElementById('due-words');
+    
+    console.log('🔧 totalWordsEl found:', !!totalWordsEl);
+    console.log('🔧 dueWordsEl found:', !!dueWordsEl);
+    
+    if (totalWordsEl) {
+      totalWordsEl.textContent = allWords.length;
+      console.log('🔧 Updated total-words to:', allWords.length);
+    }
+    if (dueWordsEl) {
+      dueWordsEl.textContent = dueWords.length;
+      console.log('🔧 Updated due-words to:', dueWords.length);
+    }
+
+    // Enable/disable review button
+    const reviewBtn = document.getElementById('start-review-btn');
+    console.log('🔧 reviewBtn found:', !!reviewBtn);
+    
+    if (reviewBtn) {
       if (dueWords.length === 0) {
         reviewBtn.disabled = true;
         reviewBtn.innerHTML = '<span class="btn-icon">✓</span>No words due';
+        console.log('🔧 Review button disabled');
       } else {
         reviewBtn.disabled = false;
         reviewBtn.innerHTML = '<span class="btn-icon">🔄</span>Start Review';
+        console.log('🔧 Review button enabled');
       }
-
-      console.log('✅ Stats loaded:', { total: allWords.length, due: dueWords.length });
-    } catch (error) {
-      console.error('Error loading stats:', error);
-      this.showError('Failed to load vocabulary stats');
     }
   }
 
@@ -65,8 +135,11 @@ class VocabSRSPopup {
   // Event bindings
   // ---------------------------
   bindEvents() {
+    console.log('🔧 bindEvents called');
+    
     const bindIf = (id, ev, handler) => {
       const el = document.getElementById(id);
+      console.log(`🔧 Binding ${ev} event for ${id}:`, !!el);
       if (el) el.addEventListener(ev, handler);
     };
 
@@ -82,9 +155,13 @@ class VocabSRSPopup {
     
     // Add debug button if it exists
     const debugBtn = document.getElementById('debug-storage');
+    console.log('🔧 debug-storage button found:', !!debugBtn);
     if (debugBtn) {
       debugBtn.addEventListener('click', () => this.debugStorage());
+      console.log('🔧 Debug button event bound');
     }
+    
+    console.log('🔧 All events bound');
   }
 
   // Debug storage function
@@ -92,25 +169,32 @@ class VocabSRSPopup {
     try {
       console.log('🔍 Debugging storage...');
       
-      // Get all storage data
-      const result = await chrome.storage.sync.get(null);
-      console.log('📦 All storage data:', result);
-      
-      // Check specific vocabWords
-      const vocabResult = await chrome.storage.sync.get(['vocabWords']);
-      console.log('📚 VocabWords data:', vocabResult);
-      
-      // Check storage usage
-      const usage = await chrome.storage.sync.getBytesInUse();
-      console.log('💾 Storage usage:', usage, 'bytes');
-      
-      // Show alert with info
-      const vocabWords = vocabResult.vocabWords || [];
-      alert(`Storage Debug Info:\n\n` +
-            `Total storage keys: ${Object.keys(result).length}\n` +
-            `VocabWords count: ${vocabWords.length}\n` +
-            `Storage usage: ${usage} bytes\n\n` +
-            `VocabWords: ${vocabWords.map(w => w.word).join(', ') || 'None'}`);
+      // Try service worker first
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to get words');
+        }
+        
+        const allWords = response.words || [];
+        
+        // Show alert with info
+        alert(`Storage Debug Info:\n\n` +
+              `VocabWords count: ${allWords.length}\n\n` +
+              `VocabWords: ${allWords.map(w => w.word).join(', ') || 'None'}`);
+        
+      } catch (serviceWorkerError) {
+        console.log('🔄 Service worker failed, trying direct Chrome Storage...');
+        
+        // Fallback to direct Chrome Storage
+        const result = await chrome.storage.local.get(['vocabWords']);
+        const allWords = result.vocabWords || [];
+        
+        alert(`Storage Debug Info (Direct Access):\n\n` +
+              `VocabWords count: ${allWords.length}\n\n` +
+              `VocabWords: ${allWords.map(w => w.word).join(', ') || 'None'}`);
+      }
       
     } catch (error) {
       console.error('❌ Debug storage error:', error);
@@ -124,8 +208,13 @@ class VocabSRSPopup {
   async startReview() {
     try {
       this.showLoading();
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const allWords = result.vocabWords || [];
+      const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to get words');
+      }
+      
+      const allWords = response.words || [];
       
       if (allWords.length === 0) {
         this.showError('No words in your dictionary yet');
@@ -143,8 +232,23 @@ class VocabSRSPopup {
   async showWordList() {
     try {
       this.showLoading();
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const allWords = result.vocabWords || [];
+      
+      let allWords = [];
+      
+      // Try service worker first
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+        
+        if (!response.success) {
+          throw new Error(response.error || 'Failed to get words');
+        }
+        
+        allWords = response.words || [];
+      } else {
+        // Fallback to direct storage
+        const result = await chrome.storage.local.get(['vocabWords']);
+        allWords = result.vocabWords || [];
+      }
       
       this.hideAllScreens();
       this.getEl('word-list-screen').style.display = 'block';
@@ -192,69 +296,56 @@ class VocabSRSPopup {
   }
 
   async deleteWord(wordId) {
-    if (!confirm('Are you sure you want to delete this word?')) return;
-    
     try {
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const allWords = result.vocabWords || [];
-      const updatedWords = allWords.filter(w => w.id !== wordId);
+      const response = await chrome.runtime.sendMessage({ action: 'deleteWord', wordId });
       
-      await chrome.storage.sync.set({ vocabWords: updatedWords });
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to delete word');
+      }
       
-      // Refresh display
-      this.renderWordList(updatedWords);
-      this.loadStats();
-      
-      console.log('✅ Word deleted successfully');
+      // Refresh the word list and stats
+      await this.loadStats();
+      if (this.getEl('word-list-screen')?.style.display === 'block') {
+        await this.showWordList();
+      }
     } catch (error) {
       console.error('Error deleting word:', error);
       this.showError('Failed to delete word');
     }
   }
 
-  async openAnalytics() {
-    try {
-      chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/html/analytics.html') });
-      window.close();
-    } catch (error) {
-      console.error('Error opening analytics:', error);
-      this.showError('Failed to open analytics');
-    }
+  // Placeholder functions for other actions
+  openAnalytics() {
+    chrome.runtime.sendMessage({ action: 'openAnalyticsWindow' });
   }
 
-  async openSettings() {
-    try {
-      chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/html/options.html') });
-      window.close();
-    } catch (error) {
-      console.error('Error opening settings:', error);
-      this.showError('Failed to open settings');
-    }
+  openSettings() {
+    chrome.tabs.create({ url: chrome.runtime.getURL('src/ui/html/options.html') });
   }
 
   async exportVocab() {
     try {
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const allWords = result.vocabWords || [];
+      const response = await chrome.runtime.sendMessage({ action: 'getWords' });
       
-      const exportData = { 
-        version: '1.0.0', 
-        exportedAt: new Date().toISOString(), 
-        words: allWords 
-      };
+      if (!response.success) {
+        throw new Error(response.error || 'Failed to get words');
+      }
       
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const blob = new Blob([dataStr], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `vocab-srs-export-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
+      const allWords = response.words || [];
       
-      console.log('✅ Vocabulary exported successfully');
+      if (allWords.length === 0) {
+        alert('No words to export');
+        return;
+      }
+      
+      const dataStr = JSON.stringify(allWords, null, 2);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(dataBlob);
+      link.download = `vocab-export-${new Date().toISOString().split('T')[0]}.json`;
+      link.click();
+      
     } catch (error) {
       console.error('Export error:', error);
       this.showError('Failed to export vocabulary');
@@ -262,51 +353,34 @@ class VocabSRSPopup {
   }
 
   importVocab() {
-    this.getEl('import-file').click();
+    document.getElementById('import-file').click();
   }
 
   async handleFileImport(event) {
-    const file = event.target.files[0];
-    if (!file) return;
-    
     try {
-      this.showLoading('Importing vocabulary...');
-      const text = await file.text();
-      const importData = JSON.parse(text);
+      const file = event.target.files[0];
+      if (!file) return;
       
-      let wordsArray;
-      if (importData.words && Array.isArray(importData.words)) {
-        wordsArray = importData.words;
-      } else if (Array.isArray(importData)) {
-        wordsArray = importData;
-      } else {
-        throw new Error('Invalid file format');
+      const text = await file.text();
+      const wordsArray = JSON.parse(text);
+      
+      if (!Array.isArray(wordsArray)) {
+        throw new Error('Invalid file format: expected array of words');
       }
-
-      if (wordsArray.length === 0) {
-        throw new Error('No words found in the file');
-      }
-
-      // Get existing words
-      const result = await chrome.storage.sync.get(['vocabWords']);
-      const existingWords = result.vocabWords || [];
-      const existingWordsSet = new Set(existingWords.map(w => w.word.toLowerCase()));
-
+      
+      this.showLoading('Importing words...');
+      
       let importedCount = 0;
       let skippedCount = 0;
-
+      const existingWords = [];
+      
       for (const wordData of wordsArray) {
         try {
-          if (!wordData.word || typeof wordData.word !== 'string') {
+          if (!wordData.word || !wordData.meaning) {
             skippedCount++;
             continue;
           }
-
-          if (existingWordsSet.has(wordData.word.toLowerCase())) {
-            skippedCount++;
-            continue;
-          }
-
+          
           const completeWord = {
             id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
             word: wordData.word.trim(),
@@ -331,8 +405,15 @@ class VocabSRSPopup {
         }
       }
 
-      // Save all words
-      await chrome.storage.sync.set({ vocabWords: existingWords });
+      // Save all words via background script
+      const saveResponse = await chrome.runtime.sendMessage({ 
+        action: 'saveAllWords', 
+        words: existingWords 
+      });
+      
+      if (!saveResponse.success) {
+        throw new Error(saveResponse.error || 'Failed to save imported words');
+      }
 
       this.hideLoading();
       alert([
@@ -393,8 +474,4 @@ class VocabSRSPopup {
   }
 }
 
-// Initialize popup when DOM is loaded
-document.addEventListener('DOMContentLoaded', () => {
-  console.log('📄 DOM loaded, creating VocabSRSPopup...');
-  new VocabSRSPopup();
-});
+// VocabSRSPopup class is now initialized by popup.entry.js after all scripts are loaded

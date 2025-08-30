@@ -35,14 +35,23 @@
   "web_accessible_resources": [
     {
       "resources": [
+        "src/core/indexeddb.js",
         "src/core/utils.js",
+        "src/core/storage.js",
+        "src/core/migration.js",
         "src/core/api.js",
         "src/core/env-config.js",
+        "src/core/date.js",
+        "src/core/id.js",
+        "src/core/text.js",
+        "src/core/logger.js",
         "src/features/analytics/core/stats.js",
         "src/features/srs/advanced-srs.js",
         "src/features/gamification/gamification.js",
         "src/ui/js/analytics.js",
         "src/ui/js/analytics-dashboard.js",
+        "src/ui/js/popup.js",
+        "src/ui/js/mock-chrome.js",
         "src/ui/html/review.html",
         "src/ui/html/analytics.html",
         "src/ui/css/review.css",

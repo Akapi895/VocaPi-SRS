@@ -1,113 +1,110 @@
-import { DateUtils } from "./date.js";
+// Vocabulary storage operations using IndexedDB
+// This file should be loaded after indexeddb.js
 
-// Vocabulary storage operations
-import { DateUtils } from "./date.js";
-import { generateUUID } from "./id.js";
-import { TextUtils } from "./text.js";
-
-export const StorageManager = {
-  async get(key) {
-    if (typeof chrome === "undefined" || !chrome.storage) return undefined;
-    try {
-      const sync = await chrome.storage.sync.get(key);
-      if (sync[key] !== undefined) return sync[key];
-      const local = await chrome.storage.local.get(key);
-      return local[key];
-    } catch {
-      try {
-        const local = await chrome.storage.local.get(key);
-        return local[key];
-      } catch {
-        return undefined;
-      }
+// Wait for IndexedDB to be available
+function waitForIndexedDB() {
+  return new Promise((resolve) => {
+    if (window.indexedDBManager && window.indexedDBManager.isInitialized) {
+      resolve();
+    } else {
+      const checkInterval = setInterval(() => {
+        if (window.indexedDBManager && window.indexedDBManager.isInitialized) {
+          clearInterval(checkInterval);
+          resolve();
+        }
+      }, 100);
     }
-  },
-  async set(key, value) {
-    if (typeof chrome === "undefined" || !chrome.storage) throw new Error("chrome.storage unavailable");
-    try {
-      await chrome.storage.sync.set({ [key]: value });
-      return true;
-    } catch {
-      await chrome.storage.local.set({ [key]: value });
-      return true;
-    }
-  },
-  async remove(key) {
-    if (!chrome?.storage) throw new Error("chrome.storage unavailable");
-    try { await chrome.storage.sync.remove(key); } catch {}
-    await chrome.storage.local.remove(key);
-  },
-  async clear() {
-    if (!chrome?.storage) throw new Error("chrome.storage unavailable");
-    try { await chrome.storage.sync.clear(); } catch {}
-    await chrome.storage.local.clear();
-  }
-};
+  });
+}
 
-export const VocabStorage = {
+const VocabStorage = {
   VOCAB_KEY: "vocab_words",
 
   async getAllWords() {
-    const words = await StorageManager.get(this.VOCAB_KEY);
-    return Array.isArray(words) ? words : [];
+    await waitForIndexedDB();
+    try {
+      const words = await window.indexedDBManager.getAll('vocabWords');
+      return Array.isArray(words) ? words : [];
+    } catch (error) {
+      console.error('Error getting all words:', error);
+      return [];
+    }
   },
 
   async addWord(wordData) {
+    await waitForIndexedDB();
     const words = await this.getAllWords();
-    const normalizedInput = TextUtils.sanitizeText(wordData.word.toLowerCase());
-    const exists = words.some(w => TextUtils.sanitizeText(w.word.toLowerCase()) === normalizedInput);
+    const normalizedInput = window.TextUtils.sanitizeText(wordData.word.toLowerCase());
+    const exists = words.some(w => window.TextUtils.sanitizeText(w.word.toLowerCase()) === normalizedInput);
     if (exists) throw new Error(`"${wordData.word}" already exists in your dictionary`);
 
     const newWord = {
-      id: wordData.id || generateUUID(),
-      word: TextUtils.formatDisplayText(wordData.word),
+      id: wordData.id || window.IDUtils.generateUUID(),
+      word: window.TextUtils.formatDisplayText(wordData.word),
       meaning: wordData.meaning || "",
       example: wordData.example || "",
       phonetic: wordData.phonetic || "",
       audioUrl: wordData.audioUrl || null,
-      wordType: TextUtils.isPhrase(wordData.word) ? "phrase" : "word",
-      wordCount: TextUtils.countWords(wordData.word),
+      wordType: window.TextUtils.isPhrase(wordData.word) ? "phrase" : "word",
+      wordCount: window.TextUtils.countWords(wordData.word),
       srs: wordData.srs && typeof wordData.srs === "object"
         ? {
             easeFactor: wordData.srs.easeFactor || 2.5,
             interval: wordData.srs.interval || 0,
             repetitions: wordData.srs.repetitions || 0,
-            nextReview: wordData.srs.nextReview || DateUtils.now()
+            nextReview: wordData.srs.nextReview || window.DateUtils.now()
           }
-        : { easeFactor: 2.5, interval: 0, repetitions: 0, nextReview: DateUtils.now() },
-      createdAt: wordData.createdAt || DateUtils.now(),
-      lastModified: DateUtils.now(),
+        : { easeFactor: 2.5, interval: 0, repetitions: 0, nextReview: window.DateUtils.now() },
+      createdAt: wordData.createdAt || window.DateUtils.now(),
+      lastModified: window.DateUtils.now(),
       tags: wordData.tags || [],
       difficulty: wordData.difficulty || "medium",
       source: wordData.source || "manual"
     };
 
-    words.push(newWord);
-    await StorageManager.set(this.VOCAB_KEY, words);
-    return newWord;
+    try {
+      await window.indexedDBManager.add('vocabWords', newWord);
+      return newWord;
+    } catch (error) {
+      console.error('Error adding word to IndexedDB:', error);
+      throw error;
+    }
   },
 
   async updateWord(id, updates) {
+    await waitForIndexedDB();
     const words = await this.getAllWords();
     const idx = words.findIndex(w => w.id === id);
     if (idx === -1) throw new Error("Word not found");
-    words[idx] = { ...words[idx], ...updates, lastModified: DateUtils.now() };
-    await StorageManager.set(this.VOCAB_KEY, words);
-    return words[idx];
+    
+    const updatedWord = { ...words[idx], ...updates, lastModified: window.DateUtils.now() };
+    await window.indexedDBManager.set('vocabWords', updatedWord);
+    return updatedWord;
   },
 
   async removeWord(id) {
-    const words = await this.getAllWords();
-    await StorageManager.set(this.VOCAB_KEY, words.filter(w => w.id !== id));
-    return true;
+    await waitForIndexedDB();
+    try {
+      await window.indexedDBManager.remove('vocabWords', id);
+      return true;
+    } catch (error) {
+      console.error('Error removing word:', error);
+      throw error;
+    }
   },
 
   async getWord(id) {
-    const words = await this.getAllWords();
-    return words.find(w => w.id === id) || null;
+    await waitForIndexedDB();
+    try {
+      return await window.indexedDBManager.get('vocabWords', id);
+    } catch (error) {
+      console.error('Error getting word:', error);
+      return null;
+    }
   },
 
   async getDueWords() {
+    await waitForIndexedDB();
     const words = await this.getAllWords();
     const now = Date.now();
     return words
@@ -125,37 +122,80 @@ export const VocabStorage = {
   }
 };
 
-export const GamificationStorage = {
+const GamificationStorage = {
   KEY: "vocabGamification",
 
   async getData() {
-    return (await StorageManager.get(this.KEY)) || null;
+    await waitForIndexedDB();
+    try {
+      const data = await window.indexedDBManager.getAll('gamification');
+      return data.length > 0 ? data[0] : null;
+    } catch (error) {
+      console.error('Error getting gamification data:', error);
+      return null;
+    }
   },
 
   async saveData(data) {
-    await StorageManager.set(this.KEY, data);
-    return true;
+    await waitForIndexedDB();
+    try {
+      await window.indexedDBManager.set('gamification', data);
+      return true;
+    } catch (error) {
+      console.error('Error saving gamification data:', error);
+      throw error;
+    }
   },
 
   async clear() {
-    await StorageManager.remove(this.KEY);
+    await waitForIndexedDB();
+    try {
+      await window.indexedDBManager.clear('gamification');
+    } catch (error) {
+      console.error('Error clearing gamification data:', error);
+    }
   }
 };
 
-export const AnalyticsStorage = {
+const AnalyticsStorage = {
   KEY: "vocabAnalytics",
 
   async getData() {
-    return (await StorageManager.get(this.KEY)) || null;
+    await waitForIndexedDB();
+    try {
+      const data = await window.indexedDBManager.getAll('analytics');
+      return data.length > 0 ? data[0] : null;
+    } catch (error) {
+      console.error('Error getting analytics data:', error);
+      return null;
+    }
   },
 
   async saveData(data) {
-    await StorageManager.set(this.KEY, data);
-    return true;
+    await waitForIndexedDB();
+    try {
+      await window.indexedDBManager.set('analytics', data);
+      return true;
+    } catch (error) {
+      console.error('Error saving analytics data:', error);
+      throw error;
+    }
   },
 
   async clear() {
-    await StorageManager.remove(this.KEY);
+    await waitForIndexedDB();
+    try {
+      await window.indexedDBManager.clear('analytics');
+    } catch (error) {
+      console.error('Error clearing analytics data:', error);
+    }
   }
 };
+
+// Export for use in other files
+if (typeof window !== 'undefined') {
+  window.VocabStorage = VocabStorage;
+  window.GamificationStorage = GamificationStorage;
+  window.AnalyticsStorage = AnalyticsStorage;
+}
 
