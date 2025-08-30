@@ -1,5 +1,15 @@
-// Vocab SRS Service Worker
-Logger.info("Vocab SRS Service Worker started");
+// serviceWorker.js - Simplified without modules
+console.log("🔧 Service Worker starting...");
+
+// Mock logger for testing
+const logger = {
+  log: function(message) {
+    console.log("📝 [ServiceWorker]", message);
+  },
+  error: function(message) {
+    console.error("❌ [ServiceWorker]", message);
+  }
+};
 
 // Setup context menu on install
 chrome.runtime.onInstalled.addListener(async () => {
@@ -10,9 +20,9 @@ chrome.runtime.onInstalled.addListener(async () => {
       title: "Add '%s' to My Dictionary",
       contexts: ["selection"]
     });
-    Logger.info("Context menu created successfully");
+    logger.log("Context menu created successfully");
   } catch (error) {
-    Logger.error("Error setting up context menus:", error);
+    logger.error("Error setting up context menus:", error);
   }
 });
 
@@ -29,7 +39,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
         args: [selectedText]
       });
     } catch (error) {
-      Logger.error("Error showing selection error:", error);
+      logger.error("Error showing selection error:", error);
     }
     return;
   }
@@ -41,7 +51,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
       args: [selectedText]
     });
   } catch (error) {
-    Logger.error("Error showing add word modal:", error);
+    logger.error("Error showing add word modal:", error);
   }
 });
 
@@ -86,7 +96,7 @@ function showAddWordModal(text) {
 
 // Message handler
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  Logger.debug("Service worker received message:", request);
+  logger.log("Service worker received message:", request);
 
   switch (request.action) {
     case "ping":
@@ -117,7 +127,7 @@ function openPopup(path, width, height, sendResponse) {
   }).then((window) => {
     sendResponse({ success: true, windowId: window.id });
   }).catch((error) => {
-    Logger.error("Error opening window:", error);
+    logger.error("Error opening window:", error);
     sendResponse({ success: false, error: error.message });
   });
 }

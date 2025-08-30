@@ -23,7 +23,3 @@ export const DateUtils = {
     return new Date(dateStr).toLocaleDateString();
   }
 };
-
-if (typeof window !== "undefined") {
-  window.DateUtils = DateUtils;
-}

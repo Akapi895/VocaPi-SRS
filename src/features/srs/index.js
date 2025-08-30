@@ -1,15 +1,6 @@
 import AdvancedSRSAlgorithm from "./advanced-srs.js";
 import { scheduleNextReview } from "./scheduler.js";
-import { TimeUtils, calculateForgettingCurve, analyzeResponseTime, calculateQualityBonus, calculateConsistencyBonus } from "./utils.js";
+import { TimeUtils } from "./utils.js";
+export * from "./utils.js"; // calculateForgettingCurve, analyzeResponseTime, ...
 
-if (typeof window !== "undefined") {
-  window.SRS = {
-    AdvancedSRSAlgorithm,
-    scheduleNextReview,
-    TimeUtils,
-    calculateForgettingCurve,
-    analyzeResponseTime,
-    calculateQualityBonus,
-    calculateConsistencyBonus
-  };
-}
+export { AdvancedSRSAlgorithm, scheduleNextReview, TimeUtils };

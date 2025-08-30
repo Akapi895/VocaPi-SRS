@@ -53,11 +53,6 @@
             </div>
         </div>
         
-        <!-- Cloud Sync Widget -->
-        <div id="cloud-sync-container" class="cloud-sync-container">
-            <!-- Cloud Sync UI will be rendered here -->
-        </div>
-        
         <!-- Main Content -->
         <div class="main-content" id="main-screen">
             <div class="action-buttons">
@@ -88,6 +83,10 @@
                 <button id="import-btn" class="btn btn-outline" title="Import vocabulary">
                     <span class="btn-icon">📥</span>
                     <!-- Import -->
+                </button>
+                <button id="debug-storage" class="btn btn-outline" title="Debug storage" style="background: #ff9800; color: white;">
+                    <span class="btn-icon">🔍</span>
+                    Debug
                 </button>
                 <input type="file" id="import-file" accept=".json" style="display: none;">
             </div>
@@ -290,20 +289,6 @@
     </script>
     
     <!-- Core Dependencies -->
-    <script src="../../core/logger.js"></script>
-    <script src="../../core/utils.js"></script>
-    <script src="../../core/env-config.js"></script>
-    <script src="../../features/cloud-sync/cloud-sync.js"></script>
-    <script src="../js/cloud-sync-ui.js"></script>
-    <script src="../../core/api.js"></script>
-    <script src="../../features/srs/advanced-srs.js"></script>
-    <script src="../../managers/performance-optimizer.js"></script>
-    <script src="../../managers/integration-manager.js"></script>
-    <script src="../js/analytics.js"></script>
-    <script src="../js/gamification.js"></script>
-    <script src="../js/fast-gamification.js"></script>
-    <script src="../js/gamificationUI.js"></script>
-    <script src="../../managers/keyboard-shortcuts.js"></script>
-    <script src="../js/popup.js"></script>
+    <script src="../js/popup.entry.js"></script>
 </body>
 </html>

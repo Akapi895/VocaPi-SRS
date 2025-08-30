@@ -1,5 +1,5 @@
 // Dictionary API
-const DictionaryAPI = {
+export const DictionaryAPI = {
   BASE_URL: 'https://api.dictionaryapi.dev/api/v2/entries/en/',
   
   async fetchWordData(text) {
@@ -57,7 +57,7 @@ const DictionaryAPI = {
 };
 
 // Audio Player
-const AudioPlayer = {
+export const AudioPlayer = {
   current: null,
   
   async playAudio(text, url) {
@@ -94,5 +94,3 @@ const AudioPlayer = {
     if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
   }
 };
-
-if (typeof window!=='undefined') window.VocabAPI = { DictionaryAPI, AudioPlayer };

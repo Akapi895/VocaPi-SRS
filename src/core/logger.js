@@ -70,5 +70,5 @@ class VocabLogger {
 
 // Global export
 const logger = new VocabLogger();
-if (typeof window !== "undefined") window.Logger = logger;
-if (typeof module !== "undefined" && module.exports) module.exports = logger;
+export default logger;
+export { VocabLogger };

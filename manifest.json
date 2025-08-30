@@ -1,6 +1,6 @@
 {
   "manifest_version": 3,
-  "name": "Vocab SRS - Test",
+  "name": "VocaPi - Test",
   "version": "1.0.0",
   "description": "Test extension",
   
@@ -10,35 +10,25 @@
     "scripting",
     "contextMenus"
   ],
-  
-  "content_scripts": [
-    {
-      "matches": ["<all_urls>"],
-      "js": [
-        "src/core/logger.js",
-        "src/core/utils.js",
-        "src/core/api.js",
-        "src/core/contentScript.js",
-        "src/core/date.js",
-        "src/core/storage.js",
-        "src/ui/js/addModal.js"
-      ],
-      "css": [
-        "src/ui/css/addModal.css"
-      ],
-      "run_at": "document_idle"
-    }
-  ],
-  
+
+  "host_permissions": ["<all_urls>"],
+
   "background": {
-    "service_worker": "src/core/serviceWorker.js",
-    "type": "module"
+    "service_worker": "src/core/serviceWorker.js"
   },
   
   "action": {
     "default_popup": "src/ui/html/popup.html",
-    "default_title": "Vocab SRS"
+    "default_title": "VocaPi"
   },
+  
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>", "file://*"],
+      "js": ["src/content/index.js"],
+      "run_at": "document_idle"
+    }
+  ],
   
   "options_page": "src/ui/html/options.html",
   
@@ -47,29 +37,25 @@
       "resources": [
         "src/core/utils.js",
         "src/core/api.js",
-        "src/env-config.js",
+        "src/core/env-config.js",
+        "src/features/analytics/core/stats.js",
+        "src/features/srs/advanced-srs.js",
+        "src/features/gamification/gamification.js",
         "src/ui/js/analytics.js",
-        "src/advanced-srs.js",
-        "src/ui/js/gamification.js",
-        "src/cloud-sync.js",
-        "src/performance-optimizer.js",
-        "src/managers/integration-manager.js",
-        "src/keyboard-shortcuts.js",
+        "src/ui/js/analytics-dashboard.js",
         "src/ui/html/review.html",
         "src/ui/html/analytics.html",
         "src/ui/css/review.css",
         "src/ui/css/analytics.css",
         "src/ui/css/addModal.css",
-        "src/ui/js/review.js",
-        "src/ui/js/analytics.js",
-        "src/ui/js/analytics-dashboard.js",
-        "src/ui/js/cloud-sync-ui.js"
+        "src/ui/js/review.js"
       ],
-      "matches": ["<all_urls>"]
+      "matches": ["<all_urls>", "file://*"]
     }
   ],
   
   "icons": {
+    "16": "assets/icon16.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
   }

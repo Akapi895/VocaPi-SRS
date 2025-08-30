@@ -1,28 +1,17 @@
-// Utility functions for Vocab SRS Extension
-const {
+import { DateUtils } from "./date.js";
+import { StorageManager, VocabStorage } from "./storage.js";
+import { TextUtils } from "./text.js";
+import {
   AdvancedSRSAlgorithm,
   scheduleNextReview,
-  TimeUtils: SRSTimeUtils,
+  TimeUtils as SRSTimeUtils,
   calculateForgettingCurve,
   analyzeResponseTime,
   calculateQualityBonus,
   calculateConsistencyBonus
-} = window.SRS || {};
+} from "../features/srs/index.js";
 
-const { StorageManager, VocabStorage } = window;
-const { DateUtils } = window;
-
-// Generate UUID v4
-function generateUUID() {
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
-    return v.toString(16);
-  });
-}
-
-// Enhanced SRS (Spaced Repetition System) Algorithm
-const SRSAlgorithm = {
+export const SRSAlgorithm = {
   updateCard(srsData, quality, options = {}) {
     try {
       if (options.useAdvanced) {
@@ -33,44 +22,43 @@ const SRSAlgorithm = {
           difficulty: options.difficulty,
           reviewHistory: options.reviewHistory || []
         };
-        let updated = advanced.calculateNextReview(
-          card,
-          quality,
-          options.responseTime,
-          options.userStats || {}
+        const updated = advanced.calculateNextReview(
+          card, quality, options.responseTime, options.userStats || {}
         );
-        if (typeof updated.nextReview === "number") {
-          updated.nextReview = new Date(updated.nextReview).toISOString();
-        }
-        return this.normalizeSRSData(updated);
+        const norm = this.normalizeSRSData(
+          typeof updated.nextReview === "number"
+            ? { ...updated, nextReview: new Date(updated.nextReview).toISOString() }
+            : updated
+        );
+        return norm;
       }
       return this.fallbackSM2Algorithm(srsData, quality);
-    } catch (err) {
-      console.error("SRSAlgorithm error:", err);
+    } catch (e) {
+      console.error("SRSAlgorithm error:", e);
       return this.fallbackSM2Algorithm(srsData, quality);
     }
   },
 
   fallbackSM2Algorithm(srsData, quality) {
-    let updated = { ...srsData };
-    updated.repetitions = updated.repetitions || 0;
-    updated.interval = updated.interval || 10;
-    updated.easeFactor = updated.easeFactor || 2.5;
+    let u = { ...srsData };
+    u.repetitions = u.repetitions || 0;
+    u.interval = u.interval || 10;
+    u.easeFactor = u.easeFactor || 2.5;
 
     if (quality >= 3) {
-      updated.repetitions += 1;
-      updated.interval = Math.round(updated.interval * updated.easeFactor);
-      updated.easeFactor += 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
-      if (updated.easeFactor < 1.3) updated.easeFactor = 1.3;
+      u.repetitions += 1;
+      u.interval = Math.round(u.interval * u.easeFactor);
+      u.easeFactor += 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
+      if (u.easeFactor < 1.3) u.easeFactor = 1.3;
     } else {
-      updated.repetitions = 0;
-      updated.interval = quality <= 1 ? 10 : 30;
-      updated.easeFactor = Math.max(1.3, updated.easeFactor - 0.2);
+      u.repetitions = 0;
+      u.interval = quality <= 1 ? 10 : 30;
+      u.easeFactor = Math.max(1.3, u.easeFactor - 0.2);
     }
 
-    updated.interval = Math.max(10, Math.min(525600, updated.interval));
-    updated.nextReview = new Date(Date.now() + updated.interval * 60000).toISOString();
-    return updated;
+    u.interval = Math.max(10, Math.min(525600, u.interval));
+    u.nextReview = new Date(Date.now() + u.interval * 60000).toISOString();
+    return u;
   },
 
   normalizeSRSData(srs) {
@@ -88,92 +76,9 @@ const SRSAlgorithm = {
   }
 };
 
-// Text validation utilities
-const TextUtils = {
-  isValidWord(text) {
-    if (!text || text.length === 0) return false;
-    
-    // Support both single words and phrases
-    const trimmedText = text.trim();
-    
-    // Basic validation: not empty, reasonable length, contains letters
-    if (trimmedText.length > 200) return false; // Max phrase length
-    if (!/[a-zA-Z]/.test(trimmedText)) return false; // Must contain letters
-    
-    // Allow letters, numbers, spaces, hyphens, apostrophes, commas, periods
-    const phrasePattern = /^[a-zA-Z0-9\s''\-,.\(\)!?]+$/;
-    return phrasePattern.test(trimmedText);
-  },
-  
-  isValidSingleWord(text) {
-    if (!text || text.length === 0) return false;
-    
-    // Check for single word (no spaces, only letters and common word characters)
-    const wordPattern = /^[a-zA-Z]+(?:[''-][a-zA-Z]+)*$/;
-    const words = text.split(/\s+/);
-    
-    return words.length === 1 && wordPattern.test(words[0]);
-  },
-  
-  isPhrase(text) {
-    if (!text) return false;
-    const words = text.trim().split(/\s+/);
-    return words.length > 1;
-  },
-  
-  countWords(text) {
-    if (!text) return 0;
-    return text.trim().split(/\s+/).length;
-  },
-  
-  sanitizeText(text) {
-    return text.trim().replace(/\s+/g, ' '); // Normalize whitespace
-  },
-  
-  sanitizeWord(word) {
-    return word.trim().toLowerCase();
-  },
-  
-  capitalizeFirst(str) {
-    return str.charAt(0).toUpperCase() + str.slice(1);
-  },
-  
-  formatDisplayText(text) {
-    // For display purposes - capitalize appropriately
-    if (!text) return '';
-    
-    const trimmed = this.sanitizeText(text);
-    
-    // If it's a single word, just capitalize first letter
-    if (!this.isPhrase(trimmed)) {
-      return this.capitalizeFirst(trimmed.toLowerCase());
-    }
-    
-    // For phrases, capitalize first letter of each sentence
-    return trimmed.replace(/^\w|\.\s+\w/g, letter => letter.toUpperCase());
-  }
-};
-
-// Export for use in other scripts
-if (typeof window !== 'undefined') {
-  window.VocabUtils = {
-    generateUUID,
-    DateUtils,
-    StorageManager,
-    VocabStorage,
-    SRSAlgorithm,
-    TextUtils,
-    SRSTimeUtils
-  };
+export function calculateAccuracy(reviewed, correct) {
+  if (!reviewed || reviewed === 0) return 0;
+  return Math.round((correct / reviewed) * 100);
 }
 
-// Also export individual utilities for backward compatibility
-if (typeof window !== 'undefined') {
-  window.generateUUID = generateUUID;
-  window.DateUtils = DateUtils;
-  window.StorageManager = StorageManager;
-  window.VocabStorage = VocabStorage;
-  window.SRSAlgorithm = SRSAlgorithm;
-  window.TextUtils = TextUtils;
-  window.TimeUtils = SRSTimeUtils;
-}
+export { DateUtils, StorageManager, VocabStorage, TextUtils, SRSTimeUtils, calculateAccuracy };
