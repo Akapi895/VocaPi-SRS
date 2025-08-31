@@ -1,18 +1,19 @@
-export default class AntiPasteGuard {
+// Anti-paste guard for review system
+class AntiPasteGuard {
   setup(inputElement) {
     if (!inputElement) return;
     
     // Prevent all forms of paste
     inputElement.addEventListener('paste', (e) => {
       e.preventDefault();
-      this.showAntiPasteWarning();
+      this.showWarning();
       return false;
     });
     
     // Prevent drag and drop
     inputElement.addEventListener('drop', (e) => {
       e.preventDefault();
-      this.showAntiPasteWarning();
+      this.showWarning();
       return false;
     });
     
@@ -24,7 +25,7 @@ export default class AntiPasteGuard {
     // Prevent context menu (right-click)
     inputElement.addEventListener('contextmenu', (e) => {
       e.preventDefault();
-      this.showAntiPasteWarning();
+      this.showWarning();
       return false;
     });
     
@@ -44,7 +45,7 @@ export default class AntiPasteGuard {
         if (rapidInputCount > 2) {
           // Suspicious activity - clear input and warn
           e.target.value = '';
-          this.showAntiPasteWarning();
+          this.showWarning();
           rapidInputCount = 0;
         }
       } else {
@@ -59,7 +60,7 @@ export default class AntiPasteGuard {
       // Block Ctrl+V, Cmd+V, Ctrl+Shift+V, etc.
       if ((e.ctrlKey || e.metaKey) && (e.key === 'v' || e.key === 'V')) {
         e.preventDefault();
-        this.showAntiPasteWarning();
+        this.showWarning();
         return false;
       }
     });
@@ -141,4 +142,9 @@ export default class AntiPasteGuard {
       }, 500);
     }
   }
+}
+
+// Export to global scope
+if (typeof window !== 'undefined') {
+  window.AntiPasteGuard = AntiPasteGuard;
 }

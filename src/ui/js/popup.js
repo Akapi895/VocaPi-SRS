@@ -223,8 +223,20 @@ class VocabSRSPopup {
         return;
       }
 
-      // For now, just show a simple message
-      this.showError('Review system will be implemented next');
+      // Open review window
+      try {
+        const response = await chrome.runtime.sendMessage({ action: 'openReviewWindow' });
+        if (response && response.success) {
+          console.log('✅ Review window opened successfully');
+          // Close popup after opening review window
+          window.close();
+        } else {
+          throw new Error(response?.error || 'Failed to open review window');
+        }
+      } catch (error) {
+        console.error('❌ Error opening review window:', error);
+        this.showError('Failed to open review window: ' + error.message);
+      }
       
     } catch (error) {
       console.error('❌ Error starting review:', error);
@@ -438,7 +450,7 @@ class VocabSRSPopup {
       this.showError('Failed to delete word');
     }
   }
-  
+
   // Kiểm tra điều kiện xóa từ
   checkDeleteConditions(word) {
     const conditions = {

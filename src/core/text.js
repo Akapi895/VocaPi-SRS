@@ -23,16 +23,9 @@ const TextUtils = {
     if (!this.isPhrase(trimmed)) return this.capitalizeFirst(trimmed.toLowerCase());
     return trimmed.replace(/^\w|\.\s+\w/g, l => l.toUpperCase());
   },
-  // Thêm method cleanText để tương thích với addModal.js
-  cleanText(text) {
-    return text.trim();
-  }
+  cleanText(text) { return text.trim(); }
 };
 
-// Expose to window for content scripts
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !window.TextUtils) {
   window.TextUtils = TextUtils;
-  console.log("✅ TextUtils exposed to window");
 }
-
-// No export needed for content scripts

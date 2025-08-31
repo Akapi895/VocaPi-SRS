@@ -24,8 +24,6 @@ const DateUtils = {
   }
 };
 
-// Expose to window for content scripts
-if (typeof window !== 'undefined') {
+if (typeof window !== 'undefined' && !window.DateUtils) {
   window.DateUtils = DateUtils;
-  console.log("✅ DateUtils exposed to window");
 }

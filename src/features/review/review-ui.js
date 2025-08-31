@@ -1,15 +1,12 @@
-export const ReviewUI = {
+const ReviewUI = {
     // ---------------------------
     // Hiển thị & cập nhật màn hình chính
     // ---------------------------
     showReviewScreen() {
-        this.hideAllScreens();
+        window.ReviewUI.hideAllScreens();
 
         const main = document.querySelector('.review-main');
         if (main) main.style.display = 'flex';
-
-        this.updateProgressUI();
-        this.updateSessionStats();
     },
 
     loadCurrentCard() {
@@ -44,16 +41,15 @@ export const ReviewUI = {
         const hintSection = document.querySelector('.hint-section');
         if (hintSection) hintSection.style.display = 'block';
 
-        this.toggleSection('#input-section', true);
-        this.toggleSection('#result-section', false);
-        this.toggleSection('#retype-section', false);
+        window.ReviewUI.toggleSection('#input-section', true);
+        window.ReviewUI.toggleSection('#result-section', false);
+        window.ReviewUI.toggleSection('#retype-section', false);
 
-        this.updateProgressUI();
+        window.ReviewUI.updateProgressUI.call(this);
 
         const answerInput = this.getEl('answer-input');
         if (answerInput) {
             answerInput.value = '';
-            // ⚠️ Ở đây gọi lại antiPaste.setup() từ ngoài
             setTimeout(() => answerInput.focus(), 100);
         }
 
@@ -62,7 +58,7 @@ export const ReviewUI = {
             btn.classList.remove('suggested');
         });
 
-        this.updateAudioButton();
+        window.ReviewUI.updateAudioButton.call(this);
     },
 
     // ---------------------------
@@ -86,10 +82,13 @@ export const ReviewUI = {
     },
 
     updateSessionStats() {
-        this.getEl('reviewed-count').textContent = this.reviewStats.reviewed;
+        const reviewed = this.reviewStats?.reviewed || 0;
+        const correct = this.reviewStats?.correct || 0;
+        
+        this.getEl('reviewed-count').textContent = reviewed;
 
-        const accuracy = this.reviewStats.reviewed > 0
-            ? Math.round((this.reviewStats.correct / this.reviewStats.reviewed) * 100)
+        const accuracy = reviewed > 0
+            ? Math.round((correct / reviewed) * 100)
             : 0;
         this.getEl('accuracy-display').textContent = `${accuracy}%`;
 
@@ -101,6 +100,8 @@ export const ReviewUI = {
     updateAudioButton() {
         const audioBtn = this.getEl('play-audio-btn');
         if (!audioBtn) return;
+        
+        // Fix: Use audioBtn instead of this.audioBtn
         audioBtn.innerHTML = this.currentWordData?.audioUrl
             ? '<span class="btn-icon">🔊</span> Pronunciation'
             : '<span class="btn-icon">🗣️</span> Pronunciation';
@@ -112,8 +113,9 @@ export const ReviewUI = {
     showFeedback(isCorrect, correctAnswer) {
         this.isAnswerRevealed = true;
 
-        this.toggleSection('#input-section', false);
-        this.toggleSection('#result-section', true);
+        // Fix: Use window.ReviewUI.toggleSection instead of this.toggleSection
+        window.ReviewUI.toggleSection('#input-section', false);
+        window.ReviewUI.toggleSection('#result-section', true);
 
         this.getEl('correct-answer').textContent = correctAnswer || '';
         this.getEl('user-answer').textContent = this.userAnswer || '';
@@ -131,11 +133,12 @@ export const ReviewUI = {
             userAnswerSpan?.classList.add('incorrect');
         }
 
-        this.suggestQuality(isCorrect);
+        window.ReviewUI.suggestQuality.call(this, isCorrect);
     },
 
     resetQualityButtons() {
-        this.getEls('.quality-btn').forEach(btn => btn.classList.remove('suggested'));
+        // Fix: Use window.ReviewUI.getEls instead of this.getEls
+        window.ReviewUI.getEls.call(this, '.quality-btn').forEach(btn => btn.classList.remove('suggested'));
     },
 
     highlightQualityButtons(qualities = []) {
@@ -146,16 +149,18 @@ export const ReviewUI = {
     },
 
     suggestQuality(isCorrect) {
-        this.resetQualityButtons();
+        // Fix: Use window.ReviewUI.resetQualityButtons instead of this.resetQualityButtons
+        window.ReviewUI.resetQualityButtons.call(this);
 
         if (this.wasSkipped) {
-            this.highlightQualityButtons([0]);
+            // Fix: Use window.ReviewUI.highlightQualityButtons instead of this.highlightQualityButtons
+            window.ReviewUI.highlightQualityButtons.call(this, [0]);
         } else if (!isCorrect) {
-            this.highlightQualityButtons([1]);
+            window.ReviewUI.highlightQualityButtons.call(this, [1]);
         } else if (this.wasHintUsed) {
-            this.highlightQualityButtons([2]);
+            window.ReviewUI.highlightQualityButtons.call(this, [2]);
         } else {
-            this.highlightQualityButtons([3, 4, 5]);
+            window.ReviewUI.highlightQualityButtons.call(this, [3, 4, 5]);
         }
     },
 
@@ -189,5 +194,18 @@ export const ReviewUI = {
 
     getEls(selector) {
         return document.querySelectorAll(selector);
+    },
+
+    // Fix: Add missing toggleSection method
+    toggleSection(selector, show) {
+        const element = document.querySelector(selector);
+        if (element) {
+            element.style.display = show ? 'block' : 'none';
+        }
     }
 };
+
+// Export to global scope
+if (typeof window !== 'undefined') {
+  window.ReviewUI = ReviewUI;
+}

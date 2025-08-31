@@ -1,4 +1,4 @@
-export default class TimeTracker {
+class TimeTracker {
     constructor(inactivityThreshold = 30000) {
         this.windowOpenTime = Date.now();
         this.lastActivityTime = Date.now();
@@ -137,4 +137,9 @@ export default class TimeTracker {
         
         return Math.round(currentActive / 60000); // Return in minutes
     }
+}
+
+// Export to global scope
+if (typeof window !== 'undefined') {
+  window.TimeTracker = TimeTracker;
 }

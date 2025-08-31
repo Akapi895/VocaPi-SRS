@@ -76,12 +76,23 @@ const VocabStorage = {
   },
 
   async getAllWords() {
-    await waitForIndexedDB();
     try {
+      await waitForIndexedDB();
       const words = await window.indexedDBManager.getAll('vocabWords');
       return Array.isArray(words) ? words : [];
     } catch (error) {
-      console.error('Error getting all words:', error);
+        console.error('❌ IndexedDB failed, falling back to Chrome Storage:', error);
+        
+        // Fallback to Chrome Storage
+        try {
+          const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+          if (response && response.success) {
+              return response.words || [];
+            }
+        } catch (fallbackError) {
+          console.error('❌ Chrome Storage fallback also failed:', fallbackError);
+        }
+        
       return [];
     }
   },
@@ -181,14 +192,74 @@ const VocabStorage = {
   },
 
   async updateWord(id, updates) {
-    await waitForIndexedDB();
-    const words = await this.getAllWords();
-    const idx = words.findIndex(w => w.id === id);
-    if (idx === -1) throw new Error("Word not found");
-    
-    const updatedWord = { ...words[idx], ...updates, lastModified: window.DateUtils.now() };
-    await window.indexedDBManager.set('vocabWords', updatedWord);
-    return updatedWord;
+    try {
+        console.log(' Updating word with id:', id);
+        console.log(' Updates:', updates);
+        
+        await waitForIndexedDB();
+        const words = await this.getAllWords();
+        console.log('📚 Total words in IndexedDB:', words.length);
+        
+        // Search by id in IndexedDB
+        const idx = words.findIndex(w => w.id === id);
+        if (idx === -1) {
+            console.log('⚠️ Word not found in IndexedDB, trying Chrome Storage fallback...');
+            
+            // Fallback to Chrome Storage
+            try {
+                const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+                if (response && response.success && response.words.length > 0) {
+                    const chromeWords = response.words;
+                    console.log('📚 Found words in Chrome Storage:', chromeWords.length);
+                    
+                    // Find word in Chrome Storage
+                    const chromeWord = chromeWords.find(w => w.id === id);
+                    if (chromeWord) {
+                        console.log('✅ Found word in Chrome Storage, updating there...');
+                        
+                        // Update word in Chrome Storage
+                        const updatedChromeWords = chromeWords.map(w => 
+                            w.id === id ? { ...w, ...updates, lastModified: window.DateUtils.now() } : w
+                        );
+                        
+                        // Save back to Chrome Storage
+                        await chrome.runtime.sendMessage({ 
+                            action: 'saveAllWords', 
+                            words: updatedChromeWords 
+                        });
+                        
+                        console.log('✅ Word updated in Chrome Storage successfully');
+                        
+                        // Try to sync to IndexedDB
+                        try {
+                            await window.indexedDBManager.set('vocabWords', { ...chromeWord, ...updates, lastModified: window.DateUtils.now() });
+                            console.log('✅ Word also synced to IndexedDB');
+                        } catch (indexedDBError) {
+                            console.warn('⚠️ Failed to sync to IndexedDB:', indexedDBError);
+                        }
+                        
+                        return { ...chromeWord, ...updates, lastModified: window.DateUtils.now() };
+                    } else {
+                        throw new Error(`Word not found in Chrome Storage either: ${id}`);
+                    }
+                } else {
+                    throw new Error('No words found in Chrome Storage');
+                }
+            } catch (chromeError) {
+                console.error('❌ Chrome Storage fallback failed:', chromeError);
+                throw new Error(`Word not found by id: ${id}`);
+            }
+        }
+        
+        // Update in IndexedDB
+        const updatedWord = { ...words[idx], ...updates, lastModified: window.DateUtils.now() };
+        await window.indexedDBManager.set('vocabWords', updatedWord);
+        console.log('✅ Word updated successfully in IndexedDB:', updatedWord);
+        return updatedWord;
+    } catch (error) {
+        console.error('❌ Error updating word:', error);
+        throw error;
+    }
   },
 
   async removeWord(id) {

@@ -148,40 +148,6 @@ if (!window.VocabStorage || typeof window.VocabStorage.addWord !== 'function') {
   console.log("✅ Using real VocabStorage from core");
 }
 
-// Sử dụng TextUtils thực từ core/text.js nếu có, nếu không thì dùng mock
-if (!window.TextUtils) {
-  console.log("⚠️ TextUtils not found, creating fallback");
-  window.TextUtils = {
-    cleanText: function(text) {
-      return text.trim();
-    },
-    sanitizeText: function(text) {
-      return text.trim().toLowerCase();
-    },
-    formatDisplayText: function(text) {
-      return text.trim();
-    },
-    isPhrase: function(text) {
-      return text.trim().split(/\s+/).length > 1;
-    },
-    countWords: function(text) {
-      return text.trim().split(/\s+/).length;
-    }
-  };
-  console.log("✅ Fallback TextUtils created");
-} else {
-  console.log("✅ Using real TextUtils from core");
-  
-  // Đảm bảo cleanText method có sẵn
-  if (!window.TextUtils.cleanText) {
-    console.log("⚠️ Adding missing cleanText method to real TextUtils");
-    window.TextUtils.cleanText = function(text) {
-      return text.trim();
-    };
-  }
-}
-
-// Word types for selection
 const WORD_TYPES = [
   { value: 'noun', label: 'Danh từ (Noun)' },
   { value: 'verb', label: 'Động từ (Verb)' },

@@ -191,7 +191,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 
     case "openReviewWindow":
-      openPopup("src/ui/html/review.html", 1000, 700, sendResponse);
+      handleOpenReviewWindow(sendResponse);
       return true;
 
     case "openAnalyticsWindow":
@@ -540,6 +540,43 @@ async function syncIndexedDBToChromeStorage(words) {
   } catch (error) {
     logger.error("Failed to sync to Chrome Storage:", error);
     throw error;
+  }
+}
+
+// Handle opening review window
+async function handleOpenReviewWindow(sendResponse) {
+  try {
+    const result = await chrome.storage.local.get(['vocabWords']);
+    const allWords = result.vocabWords || [];
+    
+    if (allWords.length === 0) {
+      sendResponse({ success: false, error: 'No words available for review' });
+      return;
+    }
+    
+    // Filter due words for review
+    const dueWords = allWords.filter(word => {
+      try {
+        if (!word.srs || !word.srs.nextReview) return true;
+        const nextReview = new Date(word.srs.nextReview);
+        return nextReview <= new Date();
+      } catch (dateError) {
+        return true; // Treat as due if date parsing fails
+      }
+    });
+    
+    if (dueWords.length === 0) {
+      sendResponse({ success: false, error: 'No words are due for review right now' });
+      return;
+    }
+    
+    // Open review window with due words count
+    logger.log(`📚 Opening review window with ${dueWords.length} due words`);
+    openPopup("src/ui/html/review.html", 1000, 700, sendResponse);
+    
+  } catch (error) {
+    logger.error('❌ Error preparing review data:', error);
+    sendResponse({ success: false, error: 'Failed to prepare review data' });
   }
 }
 

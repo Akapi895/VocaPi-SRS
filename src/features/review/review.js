@@ -1,16 +1,7 @@
 // Vocab SRS Review Window JavaScript
-import { SRSAlgorithm, calculateAccuracy } from "../../core/utils.js"; 
-import { AudioPlayer } from "../../core/api.js";
-import VocabStorage from "../../core/storage.js";
-import VocabAnalytics from "../analytics/core/vocab-analytics.js"; 
-import { scheduleNextReview } from "../srs/index.js";
+// All dependencies will be available globally from other scripts
 
-import TimeTracker from "./time-tracker.js";
-import AntiPasteGuard from "./anti-paste.js";
-import { ReviewUI } from "./review-ui.js";
-import { ReviewData } from "./review-data.js";
-
-export default class VocabSRSReview {
+class VocabSRSReview {
   // ---------------------------
   // 1. Khởi tạo & vòng đời
   // ---------------------------
@@ -24,8 +15,8 @@ export default class VocabSRSReview {
     this.wasHintUsed = false;
     this.wasSkipped = false;
 
-    this.timeTracker = new TimeTracker(30000);
-    this.antiPaste = new AntiPasteGuard();
+    this.timeTracker = new window.TimeTracker(30000);
+    this.antiPaste = new window.AntiPasteGuard();
 
     this.init();
     this.timeTracker.setupWindowTracking();
@@ -33,34 +24,50 @@ export default class VocabSRSReview {
   
   async init() {
     console.log('Initializing Vocab SRS Review Window');
+
     try {
-      this.analytics = new VocabAnalytics();
-      await this.analytics.ensureInitialized();
-      await this.analytics.startSession();
-      console.log('✅ Analytics session started');
+        if (window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
+            this.analytics = new window.VocabAnalytics();
+            await this.analytics.ensureInitialized();
+            await this.analytics.startSession();
+            console.log('✅ Analytics session started');
+        } else {
+            console.log('ℹ️ VocabAnalytics not available, continuing without analytics');
+        }
     } catch (err) {
       console.warn('⚠️ Analytics init failed:', err);
     }
 
     try {
-      const data = await ReviewData.loadReviewData();
-      if (data.error) {
-        ReviewUI.showError(data.error);
-        return;
-      }
-      this.currentReviewWords = data.words;
-      this.currentWordIndex = 0;
-      this.reviewStats = { reviewed: 0, correct: 0 };
+        const data = await window.ReviewData.loadReviewData();
+        if (data.error) {
+            window.ReviewUI.showError(data.error);
+            return;
+        }
+        
+        console.log('✅ Review data loaded successfully:', data);
+        this.currentReviewWords = data.words;
+        this.currentWordIndex = 0;
+        this.reviewStats = { reviewed: 0, correct: 0 };
 
-      ReviewUI.showReviewScreen.call(this);
-      ReviewUI.loadCurrentCard.call(this);
+        // Fix: Bind context properly for all method calls
+        window.ReviewUI.showReviewScreen.call(this);
+        
+        // Update progress and stats after showing screen
+        window.ReviewUI.updateProgressUI.call(this);
+        window.ReviewUI.updateSessionStats.call(this);
+        
+        window.ReviewUI.loadCurrentCard.call(this);
+        
+        console.log('✅ Review screen initialized with', this.currentReviewWords.length, 'words');
+        
     } catch (err) {
-      console.error('❌ Failed to load review data:', err);
-      ReviewUI.showError('Could not load review data. Please try again.');
+        console.error('❌ Failed to load review data:', err);
+        window.ReviewUI.showError('Could not load review data. Please try again.');
     }
 
     this.bindEvents();
-  }
+}
 
   bindEvents() {
     const safeBind = (id, event, handler) => {
@@ -139,7 +146,7 @@ export default class VocabSRSReview {
   nextCard() {
     this.currentWordIndex++;
     if (this.currentWordIndex < this.currentReviewWords.length) {
-      ReviewUI.loadCurrentCard.call(this);
+      window.ReviewUI.loadCurrentCard.call(this);
     } else {
       this.completeReview();
     }
@@ -150,19 +157,22 @@ export default class VocabSRSReview {
     if (!currentWord) return;
 
     console.log(`📊 Submitting quality=${quality} for word "${currentWord.word}"`);
+    console.log('🔍 Current word data:', currentWord);
 
     try {
-      // Nếu có scheduleNextReview thì ưu tiên, nếu không fallback SM-2
-      if (typeof scheduleNextReview === "function") {
-        scheduleNextReview(currentWord, quality >= 3);
-      } else {
-        currentWord.srs = SRSAlgorithm.fallbackSM2Algorithm(
-          currentWord.srs || {},
-          quality
-        );
-      }
+          // Nếu có scheduleNextReview thì ưu tiên, nếu không fallback SM-2
+    if (typeof window.scheduleNextReview === "function") {
+      window.scheduleNextReview(currentWord, quality >= 3);
+    } else if (window.SRSAlgorithm) {
+      currentWord.srs = window.SRSAlgorithm.fallbackSM2Algorithm(
+        currentWord.srs || {},
+        quality
+      );
+    }
 
-      await VocabStorage.updateWord(currentWord.word, currentWord);
+      // Fix: Use currentWord.id instead of currentWord.word
+      console.log('💾 Updating word in storage with id:', currentWord.id);
+      await window.VocabStorage.updateWord(currentWord.id, currentWord);
       console.log("💾 Word updated with quality");
 
       this.reviewStats.reviewed++;
@@ -171,7 +181,11 @@ export default class VocabSRSReview {
       this.nextCard();
     } catch (error) {
       console.error("❌ Error updating review:", error);
-      ReviewUI.showError(`Failed to update review: ${error.message}`);
+      if (window.ReviewUI && window.ReviewUI.showError) {
+      window.ReviewUI.showError(`Failed to update review: ${error.message}`);
+    } else {
+      console.error("Failed to update review:", error);
+    }
     }
   }
 
@@ -181,25 +195,39 @@ export default class VocabSRSReview {
     if (!currentWord) return;
 
     const isCorrect =
-      userInput.toLowerCase() === currentWord.meaning.toLowerCase();
+        userInput.toLowerCase() === currentWord.meaning.toLowerCase();
 
     this.reviewStats.reviewed++;
     if (isCorrect) this.reviewStats.correct++;
 
     console.log(
-      `✅ Answer for "${currentWord.word}": ${isCorrect ? "Correct" : "Incorrect"}`
+        `✅ Answer for "${currentWord.word}": ${isCorrect ? "Correct" : "Incorrect"}`
     );
+    console.log('🔍 Current word data:', currentWord);
 
-    ReviewUI.showFeedback.call(this, isCorrect, currentWord.meaning);
+    window.ReviewUI.showFeedback.call(this, isCorrect, currentWord.meaning);
 
     // schedule SRS update
-    scheduleNextReview(currentWord, isCorrect);
+    if (typeof window.scheduleNextReview === "function") {
+        window.scheduleNextReview(currentWord, isCorrect);
+    }
 
-    // Update word in storage
-    VocabStorage.updateWord(currentWord.word, currentWord)
-      .then(() => console.log("💾 Word updated in storage"))
-      .catch((err) => console.error("❌ Failed to update word:", err));
-  }
+    // Update word in storage with fallback handling
+    console.log('💾 Updating word in storage with id:', currentWord.id);
+    window.VocabStorage.updateWord(currentWord.id, currentWord)
+        .then((updatedWord) => {
+            console.log("💾 Word updated in storage successfully");
+            // Update local copy
+            const wordIndex = this.currentReviewWords.findIndex(w => w.id === currentWord.id);
+            if (wordIndex !== -1) {
+                this.currentReviewWords[wordIndex] = updatedWord;
+            }
+        })
+        .catch((err) => {
+            console.error("❌ Failed to update word:", err);
+            // Continue without updating - word will be updated later
+        });
+}
 
   checkRetypeAnswer() {
     const retypeInput = this.getEl('retype-input').value.trim();
@@ -233,12 +261,12 @@ export default class VocabSRSReview {
     this.isAnswerRevealed = true;
 
     // Ẩn input, hiện result
-    ReviewUI.toggleSection('#input-section', false);
-    ReviewUI.toggleSection('#result-section', true);
+    window.ReviewUI.toggleSection('#input-section', false);
+    window.ReviewUI.toggleSection('#result-section', true);
 
     // Luôn hiện audio, ẩn hint
-    ReviewUI.toggleSection('.hint-section', false);
-    ReviewUI.toggleSection('.audio-section', true);
+    window.ReviewUI.toggleSection('.hint-section', false);
+    window.ReviewUI.toggleSection('.audio-section', true);
 
     // Update result fields
     this.getEl('correct-answer').textContent = this.currentWordData?.word ?? '';
@@ -253,7 +281,7 @@ export default class VocabSRSReview {
     userAnswerSpan?.classList.add('skipped');
 
     // Ẩn quality buttons
-    ReviewUI.toggleSection('.quality-buttons', false);
+    window.ReviewUI.toggleSection('.quality-buttons', false);
 
     // Sau vài giây, chuyển sang retype
     setTimeout(() => this.showRetypeSection(), 3000);
@@ -264,8 +292,8 @@ export default class VocabSRSReview {
 
   showRetypeSection() {
     // Hide quality buttons and show retype section
-    ReviewUI.toggleSection('.quality-buttons', false);
-    ReviewUI.toggleSection('#retype-section', true);
+    window.ReviewUI.toggleSection('.quality-buttons', false);
+    window.ReviewUI.toggleSection('#retype-section', true);
 
     const retypeInput = this.getEl('retype-input');
     if (retypeInput) {
@@ -288,7 +316,7 @@ export default class VocabSRSReview {
     if (audioSection) audioSection.style.display = 'block';
 
     // Cập nhật nút audio (file có sẵn hay fallback TTS)
-    ReviewUI.updateAudioButton.call(this);
+    window.ReviewUI.updateAudioButton.call(this);
 
     // Ẩn hẳn nút hint sau khi dùng
     const hintBtn = this.getEl('hint-btn');
@@ -303,11 +331,19 @@ export default class VocabSRSReview {
     }
 
     try {
-      await AudioPlayer.playAudio(currentWord.word, currentWord.audioUrl);
+      if (window.AudioPlayer && window.AudioPlayer.playAudio) {
+        await window.AudioPlayer.playAudio(currentWord.word, currentWord.audioUrl);
+      } else {
+        console.warn("AudioPlayer not available");
+      }
       console.log(`🔊 Playing audio for word: ${currentWord.word}`);
     } catch (error) {
       console.error("❌ Audio playback failed:", error);
-      ReviewUI.showError("Failed to play audio. Please try again later.");
+      if (window.ReviewUI && window.ReviewUI.showError) {
+        window.ReviewUI.showError("Failed to play audio. Please try again later.");
+      } else {
+        console.error("Failed to play audio:", error);
+      }
     }
   }
   
@@ -321,18 +357,19 @@ export default class VocabSRSReview {
   }
   
   continueReview() {
-    ReviewUI.showReviewScreen.call(this);
-    ReviewUI.loadCurrentCard.call(this);
+    window.ReviewUI.showReviewScreen.call(this);
+    window.ReviewUI.loadCurrentCard.call(this);
   }
   
   async completeReview() {
-    ReviewUI.hideAllScreens.call(this);
+    window.ReviewUI.hideAllScreens.call(this);
     document.getElementById('review-complete').style.display = 'block';
 
     const timeData = this.timeTracker.finalizeTimeTracking();
     document.getElementById('final-reviewed-count').textContent = this.reviewStats.reviewed;
     document.getElementById('final-accuracy-rate').textContent =
-      `${calculateAccuracy(this.reviewStats.reviewed, this.reviewStats.correct)}%`;
+      `${window.calculateAccuracy ? window.calculateAccuracy(this.reviewStats.reviewed, this.reviewStats.correct) : 
+        Math.round((this.reviewStats.correct / this.reviewStats.reviewed) * 100)}%`;
 
     const remaining = this.currentReviewWords.length - this.currentWordIndex;
     document.getElementById('remaining-words-count').textContent = remaining;
@@ -397,4 +434,9 @@ export default class VocabSRSReview {
   getEls(selector) {
     return document.querySelectorAll(selector);
   }
+}
+
+// Export to global scope
+if (typeof window !== 'undefined') {
+  window.VocabSRSReview = VocabSRSReview;
 }
