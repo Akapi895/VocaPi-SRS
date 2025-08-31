@@ -1,5 +1,5 @@
 // Date utilities
-export const DateUtils = {
+const DateUtils = {
   now() {
     return new Date().toISOString();
   },
@@ -23,3 +23,9 @@ export const DateUtils = {
     return new Date(dateStr).toLocaleDateString();
   }
 };
+
+// Expose to window for content scripts
+if (typeof window !== 'undefined') {
+  window.DateUtils = DateUtils;
+  console.log("✅ DateUtils exposed to window");
+}

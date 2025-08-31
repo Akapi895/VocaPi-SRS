@@ -68,7 +68,12 @@ class VocabLogger {
   }
 }
 
-// Global export
+// Global instance
 const logger = new VocabLogger();
-export default logger;
-export { VocabLogger };
+
+// Expose to window for content scripts
+if (typeof window !== 'undefined') {
+  window.VocabLogger = VocabLogger;
+  window.logger = logger;
+  console.log("✅ VocabLogger and logger exposed to window");
+}

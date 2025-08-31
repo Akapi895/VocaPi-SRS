@@ -1,5 +1,5 @@
 // Dictionary API
-export const DictionaryAPI = {
+const DictionaryAPI = {
   BASE_URL: 'https://api.dictionaryapi.dev/api/v2/entries/en/',
   
   async fetchWordData(text) {
@@ -53,11 +53,42 @@ export const DictionaryAPI = {
   async testConnection() {
     try { await this.fetchWordData('test'); return true; }
     catch { return false; }
+  },
+
+  // Thêm method getWordInfo để tương thích với addModal.js
+  async getWordInfo(word) {
+    try {
+      const data = await this.fetchWordData(word);
+      if (data) {
+        return {
+          word: data.word,
+          phonetic: data.phonetic || "/" + word + "/",
+          audioUrl: data.audioUrl || ""
+        };
+      }
+    } catch (error) {
+      console.log("⚠️ DictionaryAPI.getWordInfo failed:", error.message);
+    }
+    
+    // Fallback
+    return {
+      word: word,
+      phonetic: "/" + word + "/",
+      audioUrl: ""
+    };
   }
 };
 
+// Expose to window for content scripts
+if (typeof window !== 'undefined') {
+  window.DictionaryAPI = DictionaryAPI;
+  console.log("✅ DictionaryAPI exposed to window");
+}
+
+// No export needed for content scripts
+
 // Audio Player
-export const AudioPlayer = {
+const AudioPlayer = {
   current: null,
   
   async playAudio(text, url) {
@@ -94,3 +125,11 @@ export const AudioPlayer = {
     if (window.speechSynthesis?.speaking) window.speechSynthesis.cancel();
   }
 };
+
+// Expose to window for content scripts
+if (typeof window !== 'undefined') {
+  window.AudioPlayer = AudioPlayer;
+  console.log("✅ AudioPlayer exposed to window");
+}
+
+// No export needed for content scripts

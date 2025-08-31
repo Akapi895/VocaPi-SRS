@@ -3,22 +3,77 @@
 
 // Wait for IndexedDB to be available
 function waitForIndexedDB() {
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    // Check if already initialized
     if (window.indexedDBManager && window.indexedDBManager.isInitialized) {
+      console.log("✅ IndexedDB already initialized");
       resolve();
-    } else {
-      const checkInterval = setInterval(() => {
-        if (window.indexedDBManager && window.indexedDBManager.isInitialized) {
-          clearInterval(checkInterval);
-          resolve();
-        }
-      }, 100);
+      return;
     }
+
+    // Add timeout to prevent infinite waiting
+    const timeout = setTimeout(() => {
+      console.error("❌ IndexedDB initialization timeout after 10 seconds");
+      reject(new Error("IndexedDB initialization timeout"));
+    }, 10000);
+
+    let attempts = 0;
+    const maxAttempts = 100; // 10 seconds with 100ms intervals
+    
+    const checkInterval = setInterval(() => {
+      attempts++;
+      
+      if (window.indexedDBManager && window.indexedDBManager.isInitialized) {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        console.log("✅ IndexedDB initialized successfully");
+        resolve();
+      } else if (window.indexedDBManager) {
+        console.log(`⏳ Waiting for IndexedDB to initialize... (attempt ${attempts}/${maxAttempts})`);
+        
+        // Try to initialize manually after a few attempts
+        if (attempts === 5) {
+          try {
+            console.log("🔄 Attempting manual IndexedDB initialization...");
+            window.indexedDBManager.init().then(() => {
+              clearInterval(checkInterval);
+              clearTimeout(timeout);
+              console.log("✅ IndexedDB manually initialized");
+              resolve();
+            }).catch(error => {
+              console.error("❌ Manual IndexedDB init failed:", error);
+            });
+          } catch (error) {
+            console.error("❌ Error calling IndexedDB init:", error);
+          }
+        }
+      } else {
+        console.log(`⏳ IndexedDBManager not found, waiting... (attempt ${attempts}/${maxAttempts})`);
+      }
+      
+      // Stop checking after max attempts
+      if (attempts >= maxAttempts) {
+        clearInterval(checkInterval);
+        clearTimeout(timeout);
+        console.error("❌ Max attempts reached, IndexedDB not available");
+        reject(new Error("IndexedDB not available after maximum attempts"));
+      }
+    }, 100);
   });
 }
 
 const VocabStorage = {
   VOCAB_KEY: "vocab_words",
+
+  // Method to check IndexedDB status
+  getIndexedDBStatus() {
+    return {
+      indexedDBManagerExists: !!window.indexedDBManager,
+      indexedDBManagerType: typeof window.indexedDBManager,
+      isInitialized: window.indexedDBManager?.isInitialized || false,
+      hasInitMethod: typeof window.indexedDBManager?.init === 'function'
+    };
+  },
 
   async getAllWords() {
     await waitForIndexedDB();
@@ -32,42 +87,96 @@ const VocabStorage = {
   },
 
   async addWord(wordData) {
-    await waitForIndexedDB();
-    const words = await this.getAllWords();
-    const normalizedInput = window.TextUtils.sanitizeText(wordData.word.toLowerCase());
-    const exists = words.some(w => window.TextUtils.sanitizeText(w.word.toLowerCase()) === normalizedInput);
-    if (exists) throw new Error(`"${wordData.word}" already exists in your dictionary`);
-
-    const newWord = {
-      id: wordData.id || window.IDUtils.generateUUID(),
-      word: window.TextUtils.formatDisplayText(wordData.word),
-      meaning: wordData.meaning || "",
-      example: wordData.example || "",
-      phonetic: wordData.phonetic || "",
-      audioUrl: wordData.audioUrl || null,
-      wordType: window.TextUtils.isPhrase(wordData.word) ? "phrase" : "word",
-      wordCount: window.TextUtils.countWords(wordData.word),
-      srs: wordData.srs && typeof wordData.srs === "object"
-        ? {
-            easeFactor: wordData.srs.easeFactor || 2.5,
-            interval: wordData.srs.interval || 0,
-            repetitions: wordData.srs.repetitions || 0,
-            nextReview: wordData.srs.nextReview || window.DateUtils.now()
-          }
-        : { easeFactor: 2.5, interval: 0, repetitions: 0, nextReview: window.DateUtils.now() },
-      createdAt: wordData.createdAt || window.DateUtils.now(),
-      lastModified: window.DateUtils.now(),
-      tags: wordData.tags || [],
-      difficulty: wordData.difficulty || "medium",
-      source: wordData.source || "manual"
-    };
-
+    console.log("🔍 VocabStorage.addWord called with:", wordData);
+    
     try {
-      await window.indexedDBManager.add('vocabWords', newWord);
-      return newWord;
+      console.log("⏳ Waiting for IndexedDB...");
+      await waitForIndexedDB();
+      console.log("✅ IndexedDB ready, getting all words...");
+      
+      const words = await this.getAllWords();
+      console.log("✅ Got all words, count:", words.length);
+      
+      const normalizedInput = window.TextUtils.sanitizeText(wordData.word.toLowerCase());
+      console.log("✅ Text sanitized:", normalizedInput);
+      
+      const exists = words.some(w => window.TextUtils.sanitizeText(w.word.toLowerCase()) === normalizedInput);
+      if (exists) throw new Error(`"${wordData.word}" already exists in your dictionary`);
+      console.log("✅ Word doesn't exist, creating new word...");
+
+      const newWord = {
+        id: wordData.id || window.IDUtils.generateUUID(),
+        word: window.TextUtils.formatDisplayText(wordData.word),
+        meaning: wordData.meaning || "",
+        example: wordData.example || "",
+        phonetic: wordData.phonetic || "",
+        audioUrl: wordData.audioUrl || null,
+        wordType: wordData.wordType || (window.TextUtils.isPhrase(wordData.word) ? "phrase" : "word"),
+        wordCount: window.TextUtils.countWords(wordData.word),
+        srs: wordData.srs && typeof wordData.srs === "object"
+          ? {
+              easeFactor: wordData.srs.easeFactor || 2.5,
+              interval: wordData.srs.interval || 0,
+              repetitions: wordData.srs.repetitions || 0,
+              nextReview: wordData.srs.nextReview || window.DateUtils.now()
+            }
+          : { easeFactor: 2.5, interval: 0, repetitions: 0, nextReview: window.DateUtils.now() },
+        createdAt: wordData.createdAt || window.DateUtils.now(),
+        lastModified: window.DateUtils.now(),
+        tags: wordData.tags || [],
+        difficulty: wordData.difficulty || "medium",
+        source: wordData.source || "manual"
+      };
+      
+      console.log("✅ New word object created:", newWord);
+      console.log("⏳ Adding to IndexedDB...");
+
+      try {
+        const result = await window.indexedDBManager.add('vocabWords', newWord);
+        console.log("✅ Word added to IndexedDB, result:", result);
+        return newWord;
+      } catch (indexedDBError) {
+        console.warn("⚠️ IndexedDB failed, falling back to localStorage:", indexedDBError);
+        
+        // Fallback to localStorage
+        const existingWords = JSON.parse(localStorage.getItem('vocabWords') || '[]');
+        existingWords.push(newWord);
+        localStorage.setItem('vocabWords', JSON.stringify(existingWords));
+        console.log("✅ Word saved to localStorage fallback");
+        return newWord;
+      }
+      
     } catch (error) {
-      console.error('Error adding word to IndexedDB:', error);
-      throw error;
+      console.error('❌ Error in VocabStorage.addWord:', error);
+      
+      // Final fallback - try to save to localStorage directly
+      try {
+        const newWord = {
+          id: wordData.id || window.IDUtils.generateUUID(),
+          word: wordData.word,
+          meaning: wordData.meaning || "",
+          example: wordData.example || "",
+          phonetic: wordData.phonetic || "",
+          audioUrl: wordData.audioUrl || null,
+          wordType: wordData.wordType || "word",
+          wordCount: 1,
+          srs: { easeFactor: 2.5, interval: 0, repetitions: 0, nextReview: new Date().toISOString() },
+          createdAt: new Date().toISOString(),
+          lastModified: new Date().toISOString(),
+          tags: [],
+          difficulty: "medium",
+          source: "manual"
+        };
+        
+        const existingWords = JSON.parse(localStorage.getItem('vocabWords') || '[]');
+        existingWords.push(newWord);
+        localStorage.setItem('vocabWords', JSON.stringify(existingWords));
+        console.log("✅ Word saved to localStorage as final fallback");
+        return newWord;
+      } catch (fallbackError) {
+        console.error('❌ All fallbacks failed:', fallbackError);
+        throw error; // Throw original error
+      }
     }
   },
 

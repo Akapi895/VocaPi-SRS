@@ -1,10 +1,6 @@
 // src/ui/js/popup.js - Simplified without modules
 class VocabSRSPopup {
   constructor() {
-    console.log('🏗️ VocabSRSPopup constructor called');
-    console.log('🏗️ DOM ready state:', document.readyState);
-    console.log('🏗️ Document body:', !!document.body);
-    
     this.currentReviewWords = [];
     this.currentWordIndex = 0;
     this.reviewStats = { reviewed: 0, correct: 0 };
@@ -17,10 +13,8 @@ class VocabSRSPopup {
 
     // Wait for DOM to be ready before initializing
     if (document.readyState === 'loading') {
-      console.log('🏗️ DOM still loading, waiting...');
       document.addEventListener('DOMContentLoaded', () => this.init());
     } else {
-      console.log('🏗️ DOM ready, initializing immediately');
       this.init();
     }
   }
@@ -29,12 +23,9 @@ class VocabSRSPopup {
   // Init & boot
   // ---------------------------
   async init() {
-    console.log('🚀 Initializing Vocab SRS Popup');
-
     // Load stats and bind events
     await this.loadStats();
     this.bindEvents();
-    console.log('✅ Vocab SRS Popup initialization complete');
   }
 
   // ---------------------------
@@ -42,92 +33,123 @@ class VocabSRSPopup {
   // ---------------------------
   async loadStats() {
     try {
-      console.log('🔍 Attempting to load stats from service worker...');
-      console.log('🔍 Chrome object available:', typeof chrome !== 'undefined');
-      console.log('🔍 Chrome runtime available:', typeof chrome !== 'undefined' && chrome.runtime);
-      console.log('🔍 Chrome runtime.sendMessage available:', typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage);
-      
       // Check if we're in a real extension environment
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        console.log('📡 Sending message to service worker...');
-        // Get words from IndexedDB via background script
-        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
-        
-        console.log('📡 Service worker response:', response);
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to get words');
-        }
-        
-        const allWords = response.words || [];
-        console.log('📚 Words received from service worker:', allWords);
-        
-        this.updateStatsDisplay(allWords);
-        console.log('✅ Stats loaded from service worker:', { total: allWords.length });
-      } else {
-        throw new Error('Service worker not available');
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        this.updateStatsDisplay([]);
+        return;
       }
+      
+      // Try multiple times with increasing timeout
+      let response = null;
+      let lastError = null;
+      
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error(`Service worker timeout (${attempt * 3}s)`)), attempt * 3000);
+          });
+          
+          const messagePromise = chrome.runtime.sendMessage({ 
+            action: 'getWords',
+            attempt: attempt,
+            timestamp: Date.now()
+          });
+          
+          // Race between message and timeout
+          response = await Promise.race([messagePromise, timeoutPromise]);
+          
+          if (response && response.success) {
+            break;
+          } else {
+            throw new Error(response?.error || 'Invalid response from service worker');
+          }
+          
+        } catch (error) {
+          lastError = error;
+          
+          if (attempt < 3) {
+            await new Promise(resolve => setTimeout(resolve, 1000));
+          }
+        }
+      }
+      
+      if (!response || !response.success) {
+        throw lastError || new Error('All attempts failed');
+      }
+      
+      const allWords = response.words || [];
+      this.updateStatsDisplay(allWords);
+      
     } catch (error) {
       console.error('❌ Error loading stats from service worker:', error);
-      console.log('🔄 Falling back to direct Chrome Storage access...');
       
       // Fallback: try to read directly from Chrome Storage
       try {
-        const result = await chrome.storage.local.get(['vocabWords']);
-        const allWords = result.vocabWords || [];
-        console.log('📚 Words read directly from Chrome Storage:', allWords);
-        
-        this.updateStatsDisplay(allWords);
-        console.log('✅ Stats loaded from fallback:', { total: allWords.length });
+        if (typeof chrome.storage !== 'undefined' && chrome.storage.local) {
+          const result = await chrome.storage.local.get(['vocabWords']);
+          const allWords = result.vocabWords || [];
+          this.updateStatsDisplay(allWords);
+        } else {
+          throw new Error('Chrome storage not available');
+        }
       } catch (fallbackError) {
         console.error('❌ Fallback also failed:', fallbackError);
-        this.showError('Failed to load vocabulary stats');
+        
+        // Final fallback: show empty state
+        this.updateStatsDisplay([]);
+        
+        // Only show error if we're not in a mock environment
+        if (typeof chrome !== 'undefined' && chrome.runtime) {
+          this.showError('Failed to load vocabulary stats. Please refresh the extension.');
+        }
       }
     }
   }
 
   updateStatsDisplay(allWords) {
-    console.log('🔧 updateStatsDisplay called with:', allWords);
-    console.log('🔧 allWords length:', allWords.length);
-    
-    // Calculate due words (simplified)
-    const dueWords = allWords.filter(word => {
-      if (!word.srs || !word.srs.nextReview) return true;
-      const nextReview = new Date(word.srs.nextReview);
-      return nextReview <= new Date();
-    });
-    
-    console.log('🔧 dueWords calculated:', dueWords.length);
-
-    const totalWordsEl = document.getElementById('total-words');
-    const dueWordsEl = document.getElementById('due-words');
-    
-    console.log('🔧 totalWordsEl found:', !!totalWordsEl);
-    console.log('🔧 dueWordsEl found:', !!dueWordsEl);
-    
-    if (totalWordsEl) {
-      totalWordsEl.textContent = allWords.length;
-      console.log('🔧 Updated total-words to:', allWords.length);
-    }
-    if (dueWordsEl) {
-      dueWordsEl.textContent = dueWords.length;
-      console.log('🔧 Updated due-words to:', dueWords.length);
-    }
-
-    // Enable/disable review button
-    const reviewBtn = document.getElementById('start-review-btn');
-    console.log('🔧 reviewBtn found:', !!reviewBtn);
-    
-    if (reviewBtn) {
-      if (dueWords.length === 0) {
-        reviewBtn.disabled = true;
-        reviewBtn.innerHTML = '<span class="btn-icon">✓</span>No words due';
-        console.log('🔧 Review button disabled');
-      } else {
-        reviewBtn.disabled = false;
-        reviewBtn.innerHTML = '<span class="btn-icon">🔄</span>Start Review';
-        console.log('🔧 Review button enabled');
+    try {
+      // Ensure allWords is an array
+      if (!Array.isArray(allWords)) {
+        allWords = [];
       }
+      
+      // Calculate due words (simplified)
+      const dueWords = allWords.filter(word => {
+        try {
+          if (!word || !word.srs || !word.srs.nextReview) return true;
+          const nextReview = new Date(word.srs.nextReview);
+          return nextReview <= new Date();
+        } catch (dateError) {
+          return true; // Treat as due if date parsing fails
+        }
+      });
+
+      const totalWordsEl = document.getElementById('total-words');
+      const dueWordsEl = document.getElementById('due-words');
+      
+      if (totalWordsEl) {
+        totalWordsEl.textContent = allWords.length;
+      }
+      if (dueWordsEl) {
+        dueWordsEl.textContent = dueWords.length;
+      }
+
+      // Enable/disable review button
+      const reviewBtn = document.getElementById('start-review-btn');
+      
+      if (reviewBtn) {
+        if (dueWords.length === 0) {
+          reviewBtn.disabled = true;
+          reviewBtn.innerHTML = '<span class="btn-icon">✓</span>No words due';
+        } else {
+          reviewBtn.disabled = false;
+          reviewBtn.innerHTML = '<span class="btn-icon">🔄</span>Start Review';
+        }
+      }
+      
+    } catch (error) {
+      console.error('❌ Error updating stats display:', error);
+      // Don't show error to user, just log it
     }
   }
 
@@ -135,11 +157,8 @@ class VocabSRSPopup {
   // Event bindings
   // ---------------------------
   bindEvents() {
-    console.log('🔧 bindEvents called');
-    
     const bindIf = (id, ev, handler) => {
       const el = document.getElementById(id);
-      console.log(`🔧 Binding ${ev} event for ${id}:`, !!el);
       if (el) el.addEventListener(ev, handler);
     };
 
@@ -151,56 +170,26 @@ class VocabSRSPopup {
     bindIf('import-btn', 'click', () => this.importVocab());
     bindIf('import-file', 'change', (e) => this.handleFileImport(e));
     bindIf('back-to-main', 'click', () => this.showMainScreen());
+    bindIf('back-from-list', 'click', () => this.showMainScreen());
     bindIf('retry-btn', 'click', () => this.loadStats());
     
-    // Add debug button if it exists
-    const debugBtn = document.getElementById('debug-storage');
-    console.log('🔧 debug-storage button found:', !!debugBtn);
-    if (debugBtn) {
-      debugBtn.addEventListener('click', () => this.debugStorage());
-      console.log('🔧 Debug button event bound');
-    }
+
     
-    console.log('🔧 All events bound');
+    // Add search functionality
+    const searchInput = document.getElementById('search-input');
+    if (searchInput) {
+      // Add debounced search to avoid too many searches while typing
+      let searchTimeout;
+      searchInput.addEventListener('input', (e) => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+          this.handleSearch(e.target.value);
+        }, 300); // Wait 300ms after user stops typing
+      });
+    }
   }
 
-  // Debug storage function
-  async debugStorage() {
-    try {
-      console.log('🔍 Debugging storage...');
-      
-      // Try service worker first
-      try {
-        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
-        
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to get words');
-        }
-        
-        const allWords = response.words || [];
-        
-        // Show alert with info
-        alert(`Storage Debug Info:\n\n` +
-              `VocabWords count: ${allWords.length}\n\n` +
-              `VocabWords: ${allWords.map(w => w.word).join(', ') || 'None'}`);
-        
-      } catch (serviceWorkerError) {
-        console.log('🔄 Service worker failed, trying direct Chrome Storage...');
-        
-        // Fallback to direct Chrome Storage
-        const result = await chrome.storage.local.get(['vocabWords']);
-        const allWords = result.vocabWords || [];
-        
-        alert(`Storage Debug Info (Direct Access):\n\n` +
-              `VocabWords count: ${allWords.length}\n\n` +
-              `VocabWords: ${allWords.map(w => w.word).join(', ') || 'None'}`);
-      }
-      
-    } catch (error) {
-      console.error('❌ Debug storage error:', error);
-      alert('Debug error: ' + error.message);
-    }
-  }
+
 
   // ---------------------------
   // Actions
@@ -208,10 +197,23 @@ class VocabSRSPopup {
   async startReview() {
     try {
       this.showLoading();
-      const response = await chrome.runtime.sendMessage({ action: 'getWords' });
       
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to get words');
+      // Check if we're in a real extension environment
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        this.showError('Extension environment not available');
+        return;
+      }
+      
+      // Try to get words with timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Service worker timeout')), 5000);
+      });
+      
+      const messagePromise = chrome.runtime.sendMessage({ action: 'getWords' });
+      const response = await Promise.race([messagePromise, timeoutPromise]);
+      
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'Failed to get words');
       }
       
       const allWords = response.words || [];
@@ -223,9 +225,15 @@ class VocabSRSPopup {
 
       // For now, just show a simple message
       this.showError('Review system will be implemented next');
+      
     } catch (error) {
-      console.error('Error starting review:', error);
-      this.showError('Failed to start review');
+      console.error('❌ Error starting review:', error);
+      
+      if (error.message.includes('timeout')) {
+        this.showError('Service worker not responding. Please refresh the extension.');
+      } else {
+        this.showError('Failed to start review: ' + error.message);
+      }
     }
   }
 
@@ -234,37 +242,120 @@ class VocabSRSPopup {
       this.showLoading();
       
       let allWords = [];
+      let source = 'unknown';
       
-      // Try service worker first
-      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
-        const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+      // Check if we're in a real extension environment
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        allWords = [];
+        source = 'mock';
+      } else {
+        // Try service worker with retry logic
+        let response = null;
+        let lastError = null;
         
-        if (!response.success) {
-          throw new Error(response.error || 'Failed to get words');
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error(`Service worker timeout (${attempt * 3}s)`)), attempt * 3000);
+            });
+            
+            const messagePromise = chrome.runtime.sendMessage({ 
+              action: 'getWords',
+              attempt: attempt,
+              timestamp: Date.now()
+            });
+            
+            response = await Promise.race([messagePromise, timeoutPromise]);
+            
+            if (response && response.success) {
+              allWords = response.words || [];
+              source = response.source || 'service worker';
+              break;
+            } else {
+              throw new Error(response?.error || 'Invalid response from service worker');
+            }
+            
+          } catch (error) {
+            lastError = error;
+            
+            if (attempt < 3) {
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
         }
         
-        allWords = response.words || [];
-      } else {
-        // Fallback to direct storage
-        const result = await chrome.storage.local.get(['vocabWords']);
-        allWords = result.vocabWords || [];
+        // Fallback to Chrome Storage if service worker failed
+        if (allWords.length === 0) {
+          try {
+            if (typeof chrome.storage !== 'undefined' && chrome.storage.local) {
+              const result = await chrome.storage.local.get(['vocabWords']);
+              allWords = result.vocabWords || [];
+              source = 'Chrome Storage';
+            } else {
+              throw new Error('Chrome storage not available');
+            }
+          } catch (storageError) {
+            allWords = [];
+            source = 'empty';
+          }
+        }
       }
+      
+      // Store all words for search functionality
+      this.allWords = allWords;
       
       this.hideAllScreens();
       this.getEl('word-list-screen').style.display = 'block';
       this.renderWordList(allWords);
+      
     } catch (error) {
-      console.error('Error showing word list:', error);
-      this.showError('Failed to load word list');
+      console.error('❌ Critical error showing word list:', error);
+      this.showError('Failed to load word list: ' + error.message);
     }
+  }
+
+  // Handle search functionality
+  handleSearch(searchTerm) {
+    if (!this.allWords || this.allWords.length === 0) {
+      return;
+    }
+    
+    const filteredWords = this.allWords.filter(word => {
+      const searchLower = searchTerm.toLowerCase().trim();
+      if (!searchLower) return true; // Show all words if search is empty
+      
+      // Search in word, meaning, example, and phonetic
+      return (
+        word.word.toLowerCase().includes(searchLower) ||
+        word.meaning.toLowerCase().includes(searchLower) ||
+        (word.example && word.example.toLowerCase().includes(searchLower)) ||
+        (word.phonetic && word.phonetic.toLowerCase().includes(searchLower))
+      );
+    });
+    
+    this.renderWordList(filteredWords);
   }
 
   renderWordList(words) {
     const wordList = this.getEl('word-list');
+    const searchStatus = document.getElementById('search-status');
     if (!wordList) return;
     
+    // Update search status
+    if (searchStatus) {
+      if (this.allWords && this.allWords.length > 0) {
+        if (words.length === this.allWords.length) {
+          searchStatus.textContent = `Showing all ${words.length} words`;
+        } else {
+          searchStatus.textContent = `Found ${words.length} of ${this.allWords.length} words`;
+        }
+      } else {
+        searchStatus.textContent = '';
+      }
+    }
+    
     if (words.length === 0) {
-      wordList.innerHTML = '<div class="empty-state">No words in your dictionary yet</div>';
+      wordList.innerHTML = '<div class="empty-state">No words found matching your search</div>';
       return;
     }
 
@@ -279,7 +370,6 @@ class VocabSRSPopup {
           ${word.example ? `<div class="word-example">${word.example}</div>` : ''}
         </div>
         <div class="word-meta">
-          <span class="next-review">Added: ${new Date(word.createdAt).toLocaleDateString()}</span>
           <button class="delete-word-btn" data-word-id="${word.id}" title="Delete word">🗑️</button>
         </div>
       </div>
@@ -297,6 +387,41 @@ class VocabSRSPopup {
 
   async deleteWord(wordId) {
     try {
+      // Tìm từ cần xóa trong danh sách
+      const wordToDelete = this.allWords.find(word => word.id === wordId);
+      if (!wordToDelete) {
+        this.showError('Không tìm thấy từ cần xóa');
+        return;
+      }
+  
+      // Kiểm tra điều kiện xóa
+      const canDelete = this.checkDeleteConditions(wordToDelete);
+      if (!canDelete.allowed) {
+        this.showDeleteRestriction(canDelete.reason);
+        return;
+      }
+  
+      // Xác nhận xóa với thông tin về từ
+      const confirmed = await this.confirmDeleteWithInfo(wordToDelete);
+      if (!confirmed) return;
+  
+      // Tiến hành xóa
+      if (window.VocabStorage && window.VocabStorage.removeWord) {
+        await window.VocabStorage.removeWord(wordId);
+        
+        // Remove from local array
+        this.allWords = this.allWords.filter(word => word.id !== wordId);
+        
+        // Refresh the word list and stats
+        await this.loadStats();
+        if (this.getEl('word-list-screen')?.style.display === 'block') {
+          await this.showWordList();
+        }
+        
+        return;
+      }
+      
+      // Fallback: try service worker
       const response = await chrome.runtime.sendMessage({ action: 'deleteWord', wordId });
       
       if (!response.success) {
@@ -309,9 +434,90 @@ class VocabSRSPopup {
         await this.showWordList();
       }
     } catch (error) {
-      console.error('Error deleting word:', error);
+      console.error('❌ Error deleting word:', error);
       this.showError('Failed to delete word');
     }
+  }
+  
+  // Kiểm tra điều kiện xóa từ
+  checkDeleteConditions(word) {
+    const conditions = {
+      allowed: false,
+      reason: '',
+      details: {}
+    };
+  
+    // Điều kiện 1: Phải có đủ số lần ôn tập
+    const minRepetitions = 5; // Cần ít nhất 5 lần ôn tập
+    if (!word.srs || word.srs.repetitions < minRepetitions) {
+      conditions.reason = `Cần ôn tập ít nhất ${minRepetitions} lần trước khi xóa`;
+      conditions.details.repetitions = word.srs?.repetitions || 0;
+      conditions.details.required = minRepetitions;
+      return conditions;
+    }
+  
+    // Điều kiện 2: Phải đạt độ khó nhất định (Easy trở lên)
+    const minQuality = 3; // Quality 3 = Correct, 4 = Easy, 5 = Perfect
+    if (!word.srs || word.srs.lastQuality < minQuality) {
+      conditions.reason = 'Cần đạt ít nhất mức "Correct" trước khi xóa';
+      conditions.details.lastQuality = word.srs?.lastQuality || 0;
+      conditions.details.required = minQuality;
+      return conditions;
+    }
+  
+    // Điều kiện 3: Phải vượt qua khoảng thời gian tối thiểu
+    const minInterval = 7; // Ít nhất 7 ngày
+    if (!word.srs || word.srs.interval < minInterval) {
+      conditions.reason = `Cần duy trì ít nhất ${minInterval} ngày trước khi xóa`;
+      conditions.details.interval = word.srs?.interval || 0;
+      conditions.details.required = minInterval;
+      return conditions;
+    }
+  
+    // Điều kiện 4: Phải có ít nhất 3 lần ôn tập liên tiếp thành công
+    const minStreak = 3;
+    if (!word.srs || word.srs.successStreak < minStreak) {
+      conditions.reason = `Cần có ít nhất ${minStreak} lần ôn tập thành công liên tiếp`;
+      conditions.details.successStreak = word.srs?.successStreak || 0;
+      conditions.details.required = minStreak;
+      return conditions;
+    }
+  
+    // Tất cả điều kiện đều thỏa mãn
+    conditions.allowed = true;
+    conditions.reason = 'Có thể xóa từ này';
+    return conditions;
+  }
+  
+  // Hiển thị thông báo hạn chế xóa
+  showDeleteRestriction(reason) {
+    const message = `Không thể xóa từ này:\n\n${reason}\n\nHãy tiếp tục ôn tập để đạt điều kiện xóa.`;
+    alert(message);
+  }
+  
+  // Xác nhận xóa với thông tin chi tiết
+  async confirmDeleteWithInfo(word) {
+    const message = `Bạn có chắc muốn xóa từ "${word.word}"?\n\n` +
+      `• Đã ôn tập: ${word.srs?.repetitions || 0} lần\n` +
+      `• Chất lượng cuối: ${this.getQualityText(word.srs?.lastQuality)}\n` +
+      `• Khoảng thời gian: ${word.srs?.interval || 0} ngày\n` +
+      `• Chuỗi thành công: ${word.srs?.successStreak || 0} lần\n\n` +
+      `Từ này đã đạt điều kiện xóa. Việc xóa không thể hoàn tác!`;
+    
+    return confirm(message);
+  }
+  
+  // Chuyển đổi số quality thành text
+  getQualityText(quality) {
+    const qualityMap = {
+      0: 'Blackout',
+      1: 'Incorrect', 
+      2: 'Hard',
+      3: 'Correct',
+      4: 'Easy',
+      5: 'Perfect'
+    };
+    return qualityMap[quality] || 'Unknown';
   }
 
   // Placeholder functions for other actions
@@ -325,10 +531,22 @@ class VocabSRSPopup {
 
   async exportVocab() {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'getWords' });
+      // Check if we're in a real extension environment
+      if (typeof chrome === 'undefined' || !chrome.runtime || !chrome.runtime.sendMessage) {
+        this.showError('Extension environment not available');
+        return;
+      }
       
-      if (!response.success) {
-        throw new Error(response.error || 'Failed to get words');
+      // Try to get words with timeout
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Service worker timeout')), 5000);
+      });
+      
+      const messagePromise = chrome.runtime.sendMessage({ action: 'getWords' });
+      const response = await Promise.race([messagePromise, timeoutPromise]);
+      
+      if (!response || !response.success) {
+        throw new Error(response?.error || 'Failed to get words');
       }
       
       const allWords = response.words || [];
@@ -347,8 +565,13 @@ class VocabSRSPopup {
       link.click();
       
     } catch (error) {
-      console.error('Export error:', error);
-      this.showError('Failed to export vocabulary');
+      console.error('❌ Export error:', error);
+      
+      if (error.message.includes('timeout')) {
+        this.showError('Service worker not responding. Please refresh the extension.');
+      } else {
+        this.showError('Failed to export vocabulary: ' + error.message);
+      }
     }
   }
 
@@ -473,5 +696,3 @@ class VocabSRSPopup {
     });
   }
 }
-
-// VocabSRSPopup class is now initialized by popup.entry.js after all scripts are loaded

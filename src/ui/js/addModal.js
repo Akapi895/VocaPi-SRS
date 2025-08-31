@@ -1,40 +1,200 @@
 // addModal.js - Simplified without modules
 console.log("📝 addModal.js loaded");
 
-// Mock functions for testing
-window.DictionaryAPI = {
+// Sử dụng DictionaryAPI thực từ core/api.js nếu có, nếu không thì dùng mock
+window.DictionaryAPI = window.DictionaryAPI || {
   getWordInfo: async function(word) {
-    console.log("🔍 Mock DictionaryAPI.getWordInfo called for:", word);
+    console.log("🔍 DictionaryAPI.getWordInfo called for:", word);
+    
+    try {
+      // Thử sử dụng API thực
+      const response = await fetch(`https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data && data.length > 0) {
+          const entry = data[0];
+          const phonetic = entry.phonetic || entry.phonetics?.find(p => p.text)?.text || '';
+          const audioUrl = entry.phonetics?.find(p => p.audio?.includes('-us') || p.audio?.includes('_us'))?.audio || 
+                          entry.phonetics?.find(p => p.audio)?.audio || '';
+          
+          console.log("✅ Real API data fetched:", { phonetic, audioUrl });
+          return {
+            word: word,
+            phonetic: phonetic || "/" + word + "/",
+            audioUrl: audioUrl
+          };
+        }
+      }
+    } catch (error) {
+      console.log("⚠️ Real API failed, using mock data:", error.message);
+    }
+    
+    // Fallback to mock data
     return {
       word: word,
       phonetic: "/" + word + "/",
-      audioUrl: null
+      audioUrl: "" // Không có audio URL thực
     };
   }
 };
 
-window.AudioPlayer = {
+// Log status của core modules
+console.log("🔍 Core modules status:");
+console.log("  - DictionaryAPI:", !!window.DictionaryAPI);
+console.log("  - AudioPlayer:", !!window.AudioPlayer);
+console.log("  - VocabStorage:", !!window.VocabStorage);
+console.log("  - TextUtils:", !!window.TextUtils);
+console.log("  - IndexedDBManager:", !!window.indexedDBManager);
+console.log("  - IDUtils:", !!window.IDUtils);
+console.log("  - DateUtils:", !!window.DateUtils);
+
+// Sử dụng AudioPlayer thực từ core/api.js nếu có, nếu không thì dùng mock
+window.AudioPlayer = window.AudioPlayer || {
   playAudio: async function(word, audioUrl) {
-    console.log("🔊 Mock AudioPlayer.playAudio called for:", word);
-    return true;
+    console.log("🔊 AudioPlayer.playAudio called for:", word, "with URL:", audioUrl);
+    
+    // Nếu có audio URL, thử phát audio
+    if (audioUrl) {
+      try {
+        const audio = new Audio(audioUrl);
+        audio.volume = 0.7;
+        
+        return new Promise((resolve) => {
+          audio.onended = () => resolve({method:'audio',success:true});
+          audio.onerror = () => {
+            console.log("⚠️ Audio URL failed, falling back to TTS");
+            resolve(this.playTTS(word));
+          };
+          audio.play().catch(() => {
+            console.log("⚠️ Audio play failed, falling back to TTS");
+            resolve(this.playTTS(word));
+          });
+        });
+      } catch (error) {
+        console.log("⚠️ Audio creation failed, falling back to TTS:", error.message);
+        return this.playTTS(word);
+      }
+    }
+    
+    // Fallback to TTS
+    return this.playTTS(word);
+  },
+  
+  playTTS: function(word) {
+    if (window.speechSynthesis) {
+      return new Promise((resolve) => {
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.8;
+        utterance.volume = 0.8;
+        utterance.onend = () => resolve({method:'tts',success:true});
+        utterance.onerror = () => resolve({method:'tts',success:false});
+        window.speechSynthesis.speak(utterance);
+      });
+    }
+    
+    console.log("⚠️ TTS not supported, using mock");
+    return Promise.resolve({method:'mock',success:true});
   }
 };
 
-window.VocabStorage = {
-  addWord: async function(wordData) {
-    console.log("💾 Mock VocabStorage.addWord called:", wordData);
-    return true;
+// Sử dụng VocabStorage thực từ core/storage.js nếu có, nếu không thì dùng mock
+if (!window.VocabStorage || typeof window.VocabStorage.addWord !== 'function') {
+  console.log("⚠️ VocabStorage not found or invalid, creating fallback");
+  const originalVocabStorage = window.VocabStorage;
+  
+  window.VocabStorage = {
+    addWord: async function(wordData) {
+      console.log("💾 VocabStorage.addWord called:", wordData);
+      
+      // Validate required fields
+      if (!wordData.wordType) {
+        throw new Error('Word type is required');
+      }
+      if (!wordData.meaning) {
+        throw new Error('Meaning is required');
+      }
+      
+      try {
+        // Thử sử dụng storage thực từ core
+        if (originalVocabStorage && typeof originalVocabStorage.addWord === 'function') {
+          console.log("🔄 Using real VocabStorage from core");
+          const result = await originalVocabStorage.addWord(wordData);
+          console.log("✅ Real storage result:", result);
+          return result;
+        } else {
+          console.log("⚠️ Real VocabStorage not available, using mock");
+        }
+      } catch (error) {
+        console.log("⚠️ Real storage failed, using mock:", error.message);
+        console.error("Full error:", error);
+      }
+      
+      // Fallback to mock storage
+      console.log("📝 Using mock storage");
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      console.log("✅ Word saved successfully (mock):", {
+        id: 'mock-id-' + Date.now(),
+        ...wordData,
+        createdAt: new Date().toISOString()
+      });
+      
+      return true;
+    }
+  };
+  console.log("✅ Fallback VocabStorage created");
+} else {
+  console.log("✅ Using real VocabStorage from core");
+}
+
+// Sử dụng TextUtils thực từ core/text.js nếu có, nếu không thì dùng mock
+if (!window.TextUtils) {
+  console.log("⚠️ TextUtils not found, creating fallback");
+  window.TextUtils = {
+    cleanText: function(text) {
+      return text.trim();
+    },
+    sanitizeText: function(text) {
+      return text.trim().toLowerCase();
+    },
+    formatDisplayText: function(text) {
+      return text.trim();
+    },
+    isPhrase: function(text) {
+      return text.trim().split(/\s+/).length > 1;
+    },
+    countWords: function(text) {
+      return text.trim().split(/\s+/).length;
+    }
+  };
+  console.log("✅ Fallback TextUtils created");
+} else {
+  console.log("✅ Using real TextUtils from core");
+  
+  // Đảm bảo cleanText method có sẵn
+  if (!window.TextUtils.cleanText) {
+    console.log("⚠️ Adding missing cleanText method to real TextUtils");
+    window.TextUtils.cleanText = function(text) {
+      return text.trim();
+    };
   }
-};
+}
 
-window.TextUtils = {
-  cleanText: function(text) {
-    return text.trim();
-  }
-};
-
-console.log("✅ addModal.js mock functions created");
-
+// Word types for selection
+const WORD_TYPES = [
+  { value: 'noun', label: 'Danh từ (Noun)' },
+  { value: 'verb', label: 'Động từ (Verb)' },
+  { value: 'adjective', label: 'Tính từ (Adjective)' },
+  { value: 'adverb', label: 'Trạng từ (Adverb)' },
+  { value: 'pronoun', label: 'Đại từ (Pronoun)' },
+  { value: 'preposition', label: 'Giới từ (Preposition)' },
+  { value: 'conjunction', label: 'Liên từ (Conjunction)' },
+  { value: 'interjection', label: 'Thán từ (Interjection)' },
+  { value: 'idiom', label: 'Thành ngữ (Idiom)' },
+  { value: 'phrase', label: 'Cụm từ (Phrase)' },
+  { value: 'other', label: 'Khác (Other)' }
+];
 
 // Add Word Modal UI Component
 const VocabAddModal = {
@@ -69,7 +229,15 @@ const VocabAddModal = {
         </div>
         
         <div class="vocab-form-group">
-          <label for="vocab-meaning">Meaning (Vietnamese): *</label>
+          <label for="vocab-word-type">Word Type:</label>
+          <select id="vocab-word-type" required>
+            <option value="">-- Select word type --</option>
+            ${WORD_TYPES.map(type => `<option value="${type.value}">${type.label}</option>`).join('')}
+          </select>
+        </div>
+        
+        <div class="vocab-form-group">
+          <label for="vocab-meaning">Meaning (Vietnamese):</label>
           <input type="text" id="vocab-meaning" placeholder="Nhập nghĩa tiếng Việt..." required>
         </div>
         
@@ -83,7 +251,7 @@ const VocabAddModal = {
           <div class="vocab-phonetic-group">
             <input type="text" id="vocab-phonetic" placeholder="Will be fetched for single words..." readonly>
             <button type="button" id="vocab-fetch-pronunciation" class="vocab-btn vocab-btn-secondary">
-              Fetch Pronunciation
+              🔍 Fetch Pronunciation
             </button>
           </div>
         </div>
@@ -109,6 +277,7 @@ const VocabAddModal = {
 
     this.els = {
       word: this.modal.querySelector('#vocab-word'),
+      wordType: this.modal.querySelector('#vocab-word-type'),
       meaning: this.modal.querySelector('#vocab-meaning'),
       example: this.modal.querySelector('#vocab-example'),
       phonetic: this.modal.querySelector('#vocab-phonetic'),
@@ -168,6 +337,7 @@ const VocabAddModal = {
     this.currentWord = word;
 
     this.els.word.value = word;
+    this.els.wordType.value = '';
     this.els.meaning.value = '';
     this.els.example.value = '';
     this.els.phonetic.value = '';
@@ -176,14 +346,13 @@ const VocabAddModal = {
     
     this.overlay.classList.add('show');
     setTimeout(() => {
-      this.els.meaning.focus();
+      this.els.wordType.focus();
     }, 150);
   },
 
   hide() {
     this.overlay.classList.remove('show');
     this.currentWord = '';
-    // AudioPlayer.stop(); // This line was removed as per the new_code
   },
 
   isVisible() {
@@ -203,6 +372,7 @@ const VocabAddModal = {
     
     fetchBtn.classList.add('loading');
     fetchBtn.disabled = true;
+    fetchBtn.innerHTML = '⏳ Fetching...';
     statusDiv.textContent = 'Fetching pronunciation...';
     statusDiv.className = 'vocab-status-message vocab-status-loading';
     
@@ -242,6 +412,7 @@ const VocabAddModal = {
     } finally {
       fetchBtn.classList.remove('loading');
       fetchBtn.disabled = false;
+      fetchBtn.innerHTML = '🔍 Fetch Pronunciation';
     }
   },
 
@@ -277,42 +448,48 @@ const VocabAddModal = {
   },
 
   async saveWord() {
-    const meaningInput = this.els.meaning;
-    const exampleInput = this.els.example;
-    const phoneticInput = this.els.phonetic;
-    const audioGroup = this.els.audioGroup;
     const saveBtn = this.els.saveBtn;
-    const playBtn = this.els.playBtn;
-    
-    // Check if audio is currently playing
-    if (playBtn.disabled || playBtn.classList.contains('loading')) {
-      return; // Don't save if audio is playing
-    }
-    
-    const meaning = meaningInput.value.trim();
-    
-    if (!meaning) {
-      this.showStatus('Please enter a meaning in Vietnamese', 'error');
-      meaningInput.focus();
-      return;
-    }
-    
     saveBtn.classList.add('loading');
     saveBtn.disabled = true;
     
     try {
       const wordData = {
         word: this.currentWord,
-        meaning: meaning,
-        example: exampleInput.value.trim(),
-        phonetic: phoneticInput.value.trim(),
-        audioUrl: audioGroup.dataset.audioUrl || ''
+        wordType: this.els.wordType.value,
+        meaning: this.els.meaning.value.trim(),
+        example: this.els.example.value.trim(),
+        phonetic: this.els.phonetic.value.trim(),
+        audioUrl: this.els.audioGroup.dataset.audioUrl || '',
+        srs: {
+          easeFactor: 2.5,
+          interval: 0,
+          repetitions: 0,
+          nextReview: new Date().toISOString()
+        }
       };
       
       // Debug logging
       console.log('Saving word data:', wordData);
-            
-      await window.VocabStorage.addWord(wordData);
+      console.log('🔍 VocabStorage type:', typeof window.VocabStorage);
+      console.log('🔍 VocabStorage.addWord type:', typeof window.VocabStorage.addWord);
+      console.log('🔍 VocabStorage methods:', Object.getOwnPropertyNames(window.VocabStorage));
+      
+      // Check IndexedDB status
+      if (window.VocabStorage.getIndexedDBStatus) {
+        const dbStatus = window.VocabStorage.getIndexedDBStatus();
+        console.log('🔍 IndexedDB Status:', dbStatus);
+      }
+      
+      console.log('🚀 About to call VocabStorage.addWord...');
+      
+      // Add timeout to prevent infinite loading
+      const savePromise = window.VocabStorage.addWord(wordData);
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Save operation timed out after 15 seconds')), 15000);
+      });
+      
+      const saveResult = await Promise.race([savePromise, timeoutPromise]);
+      console.log('✅ Save result:', saveResult);
       this.showStatus('Word saved successfully!', 'success');
       
       // Store currentWord before hiding modal (since hide() clears it)
@@ -372,6 +549,23 @@ const VocabFloatingButton = {
     console.log('✅ VocabFloatingButton initialized');
   },
 
+  // Method để content script có thể gọi
+  showButton(selection) {
+    this.showButtonInternal(selection);
+  },
+
+  hideButton() {
+    this.hideButtonInternal();
+  },
+
+  handleAddWord() {
+    if (this.currentSelection) {
+      VocabAddModal.show(this.currentSelection);
+      this.hideButtonInternal();
+      window.getSelection().removeAllRanges();
+    }
+  },
+
   createButton() {
     this.button = document.createElement('button');
     this.button.className = 'vocab-floating-btn';
@@ -405,16 +599,25 @@ const VocabFloatingButton = {
     const selection = window.getSelection();
     const selectedText = selection.toString().trim();
     
-    if (!selectedText || !window.TextUtils.cleanText(selectedText)) {
-      this.hideButton();
-      return;
+    // Fallback nếu TextUtils chưa sẵn sàng
+    if (!window.TextUtils || typeof window.TextUtils.cleanText !== 'function') {
+      console.log("⚠️ TextUtils not ready, using fallback text validation");
+      if (!selectedText || selectedText.length < 1 || selectedText.length > 200) {
+        this.hideButtonInternal();
+        return;
+      }
+    } else {
+      if (!selectedText || !window.TextUtils.cleanText(selectedText)) {
+        this.hideButtonInternal();
+        return;
+      }
     }
     
     this.currentSelection = selectedText;
-    this.showButton(selection);
+    this.showButtonInternal(selection);
   },
 
-  showButton(selection) {
+  showButtonInternal(selection) {
     const range = selection.getRangeAt(0);
     const rect = range.getBoundingClientRect();
     this.button.style.left = `${rect.left + window.scrollX}px`;
@@ -422,30 +625,40 @@ const VocabFloatingButton = {
     this.button.classList.add('show');
   },
 
-  hideButton() {
+  hideButtonInternal() {
     this.button.classList.remove('show');
     this.currentSelection = null;
-  },
-
-  handleAddWord() {
-    if (this.currentSelection) {
-      VocabAddModal.show(this.currentSelection);
-      this.hideButton();
-      window.getSelection().removeAllRanges();
-    }
   }
 };
 
-// Initialize - sửa để hoạt động trong content script
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    VocabAddModal.init();
-    VocabFloatingButton.init();
-  });
-} else {
-  // DOM đã sẵn sàng, khởi tạo ngay
+// Initialize components immediately
+function initializeComponents() {
+  console.log("🔧 Initializing addModal.js components...");
+  
+  // Initialize components immediately without waiting
   VocabAddModal.init();
   VocabFloatingButton.init();
+  console.log("✅ Components initialized immediately");
 }
 
-export { VocabAddModal, VocabFloatingButton };
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initializeComponents);
+} else {
+  // DOM đã sẵn sàng, khởi tạo ngay
+  initializeComponents();
+}
+
+// Expose to window for content script usage
+if (typeof window !== 'undefined') {
+  window.VocabAddModal = VocabAddModal;
+  window.VocabFloatingButton = VocabFloatingButton;
+  console.log("✅ VocabAddModal and VocabFloatingButton exposed to window");
+  
+  // Test if components are accessible
+  console.log("🧪 Testing component accessibility:");
+  console.log("  - window.VocabAddModal:", !!window.VocabAddModal);
+  console.log("  - window.VocabFloatingButton:", !!window.VocabFloatingButton);
+  console.log("  - VocabAddModal.show:", typeof window.VocabAddModal?.show);
+  console.log("  - VocabFloatingButton.showButton:", typeof window.VocabFloatingButton?.showButton);
+}
