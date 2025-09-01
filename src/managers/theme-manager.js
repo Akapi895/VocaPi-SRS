@@ -173,8 +173,3 @@ if (typeof window !== 'undefined') {
   window.ThemeManager = ThemeManager;
   window.themeManager = new ThemeManager();
 }
-
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = ThemeManager;
-}

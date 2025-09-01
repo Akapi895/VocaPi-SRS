@@ -449,8 +449,3 @@ if (typeof window !== 'undefined') {
   // Global translation function
   window.t = (key, params) => window.i18n.translate(key, params);
 }
-
-// Export for use in other scripts
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = I18nManager;
-}
