@@ -3,10 +3,10 @@
 // Mock logger for testing
 const logger = {
   log: function(message) {
-    console.log("📝 [ServiceWorker]", message);
+    console.log("[ServiceWorker]", message);
   },
   error: function(message) {
-    console.error("❌ [ServiceWorker]", message);
+    console.error("[ServiceWorker]", message);
   }
 };
 
@@ -43,55 +43,55 @@ chrome.runtime.onStartup.addListener(async () => {
 // Sync data from Chrome Storage to IndexedDB on install
 async function syncDataOnInstall() {
   try {
-    logger.log("🔄 Starting data sync on install...");
+    logger.log("Starting data sync on install...");
     
     // Get words from Chrome Storage
     const result = await chrome.storage.local.get(['vocabWords']);
     const words = result.vocabWords || [];
     
     if (words.length > 0) {
-      logger.log(`📚 Found ${words.length} words in Chrome Storage, attempting to sync to IndexedDB...`);
+      logger.log(`Found ${words.length} words in Chrome Storage, attempting to sync to IndexedDB...`);
       
       // Try to migrate to IndexedDB
       try {
         await migrateToIndexedDB(words);
-        logger.log("✅ Data sync completed successfully");
+        logger.log("Data sync completed successfully");
       } catch (migrationError) {
-        logger.warn("⚠️ Data sync failed, will retry later:", migrationError);
+        logger.warn("Data sync failed, will retry later:", migrationError);
       }
     } else {
-      logger.log("📚 No words found in Chrome Storage");
+      logger.log("No words found in Chrome Storage");
     }
   } catch (error) {
-    logger.error("❌ Error during data sync:", error);
+    logger.error("Error during data sync:", error);
   }
 }
 
 // Check and sync data on startup
 async function checkAndSyncData() {
   try {
-    logger.log("🔄 Checking data consistency on startup...");
+    logger.log("Checking data consistency on startup...");
     
     // Get words from Chrome Storage
     const result = await chrome.storage.local.get(['vocabWords']);
     const chromeStorageWords = result.vocabWords || [];
     
     if (chromeStorageWords.length === 0) {
-      logger.log("📚 No words in Chrome Storage, nothing to sync");
+      logger.log("No words in Chrome Storage, nothing to sync");
       return;
     }
     
-    logger.log(`📚 Found ${chromeStorageWords.length} words in Chrome Storage`);
+    logger.log(`Found ${chromeStorageWords.length} words in Chrome Storage`);
     
     // Try to sync with IndexedDB if available
     try {
       await migrateToIndexedDB(chromeStorageWords);
-      logger.log("✅ Startup data sync completed successfully");
+      logger.log("Startup data sync completed successfully");
     } catch (migrationError) {
-      logger.log("⚠️ Startup data sync failed, continuing with Chrome Storage only");
+      logger.log("Startup data sync failed, continuing with Chrome Storage only");
     }
   } catch (error) {
-    logger.error("❌ Error during startup data check:", error);
+    logger.error("Error during startup data check:", error);
   }
 }
 
@@ -180,6 +180,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleGetWords(sendResponse);
       return true;
 
+    case "updateWord":
+      handleUpdateWord(request.id, request.updates, sendResponse);
+      return true;
+
     case "deleteWord":
       handleDeleteWord(request.wordId, sendResponse);
       return true;
@@ -187,8 +191,6 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     case "saveAllWords":
       handleSaveAllWords(request.words, sendResponse);
       return true;
-
-
 
     case "openReviewWindow":
       handleOpenReviewWindow(sendResponse);
@@ -206,7 +208,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 // Handle saving word to storage
 async function handleSaveWord(wordData, sendResponse) {
   try {
-    logger.log("Saving word:", wordData);
+    logger.log('handleSaveWord called with:', wordData);
     
     // Create new word object with same structure as storage.js
     const newWord = {
@@ -231,53 +233,17 @@ async function handleSaveWord(wordData, sendResponse) {
       source: wordData.source || "manual"
     };
 
-    // Strategy 1: Try to save to IndexedDB via content script (if available)
-    let indexedDBSuccess = false;
+    logger.log('New word object created:', newWord);
+
+    // Save to Chrome Storage (primary storage)
     try {
-      const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-      
-      if (tabs.length > 0) {
-        const tab = tabs[0];
-        
-        if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
-          try {
-            const indexedDBPromise = chrome.tabs.sendMessage(tab.id, { 
-              action: 'saveWordToIndexedDB',
-              word: newWord,
-              timestamp: Date.now()
-            });
-            
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('IndexedDB timeout')), 3000);
-            });
-            
-            const response = await Promise.race([indexedDBPromise, timeoutPromise]);
-            
-            if (response && response.success) {
-              logger.log('✅ Word saved to IndexedDB successfully');
-              indexedDBSuccess = true;
-            }
-          } catch (indexedDBError) {
-            logger.warn("⚠️ IndexedDB save failed:", indexedDBError);
-          }
-        }
-      }
-    } catch (indexedDBError) {
-      logger.warn("⚠️ IndexedDB strategy failed:", indexedDBError);
-    }
-    
-    // Strategy 2: Always save to Chrome Storage (primary storage)
-    try {
+      logger.log('Saving to Chrome Storage...');
       await saveToChromeStorage(newWord);
-      logger.log('✅ Word saved to Chrome Storage successfully');
+      logger.log('Word saved to Chrome Storage successfully');
       
-      if (indexedDBSuccess) {
-        sendResponse({ success: true, word: newWord, source: 'Both (IndexedDB + Chrome Storage)' });
-      } else {
-        sendResponse({ success: true, word: newWord, source: 'Chrome Storage (IndexedDB unavailable)' });
-      }
+      sendResponse({ success: true, word: newWord, source: 'Chrome Storage' });
     } catch (storageError) {
-      logger.error('❌ Chrome Storage save failed:', storageError);
+      logger.error('Chrome Storage save failed:', storageError);
       sendResponse({ success: false, error: storageError.message });
     }
     
@@ -290,67 +256,23 @@ async function handleSaveWord(wordData, sendResponse) {
 // Handle getting all words
 async function handleGetWords(sendResponse) {
   try {
+    logger.log("handleGetWords called");
     let words = [];
-    let source = 'unknown';
+    let source = 'Chrome Storage';
     
-    // Strategy 1: Get words from Chrome Storage (primary source)
+    // Strategy: Get words from Chrome Storage (primary source)
     try {
+      logger.log('Reading from Chrome Storage...');
       const result = await chrome.storage.local.get(['vocabWords']);
       words = result.vocabWords || [];
-      source = 'Chrome Storage';
-      logger.log(`✅ Got ${words.length} words from Chrome Storage`);
+      logger.log(`Chrome Storage: ${words.length} words loaded`);
     } catch (storageError) {
       logger.error("Chrome Storage failed:", storageError);
       words = [];
       source = 'empty';
     }
     
-    // Strategy 2: Try to sync with IndexedDB if available (for enhanced features)
-    if (words.length > 0) {
-      try {
-        const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-        
-        if (tabs.length > 0) {
-          const tab = tabs[0];
-          
-          if (tab.url && (tab.url.startsWith('http://') || tab.url.startsWith('https://'))) {
-            try {
-              // Try to get words from IndexedDB for comparison
-              const indexedDBPromise = chrome.tabs.sendMessage(tab.id, { 
-                action: 'getWordsFromIndexedDB',
-                timestamp: Date.now()
-              });
-              
-              const timeoutPromise = new Promise((_, reject) => {
-                setTimeout(() => reject(new Error('IndexedDB timeout')), 2000);
-              });
-              
-              const response = await Promise.race([indexedDBPromise, timeoutPromise]);
-              
-              if (response && response.success && Array.isArray(response.words)) {
-                const indexedDBWords = response.words;
-                logger.log(`📊 IndexedDB has ${indexedDBWords.length} words, Chrome Storage has ${words.length} words`);
-                
-                // If IndexedDB has more words, try to sync
-                if (indexedDBWords.length > words.length) {
-                  logger.log("🔄 IndexedDB has more words, syncing to Chrome Storage...");
-                  await syncIndexedDBToChromeStorage(indexedDBWords);
-                  words = indexedDBWords;
-                  source = 'IndexedDB (Synced to Chrome Storage)';
-                } else if (indexedDBWords.length < words.length) {
-                  logger.log("🔄 Chrome Storage has more words, syncing to IndexedDB...");
-                  await migrateToIndexedDB(words);
-                }
-              }
-            } catch (messageError) {
-              logger.log("IndexedDB not available, using Chrome Storage only");
-            }
-          }
-        }
-      } catch (indexedDBError) {
-        logger.log("IndexedDB sync attempt failed, continuing with Chrome Storage");
-      }
-    }
+    logger.log(`Final result: ${words.length} words from ${source}`);
     
     sendResponse({ 
       success: true, 
@@ -379,9 +301,9 @@ async function handleDeleteWord(wordId, sendResponse) {
       const updatedWords = existingWords.filter(w => w.id !== wordId);
       
       await chrome.storage.local.set({ vocabWords: updatedWords });
-      logger.log('✅ Word deleted from Chrome Storage successfully');
+      logger.log('Word deleted from Chrome Storage successfully');
     } catch (storageError) {
-      logger.error('❌ Chrome Storage delete failed:', storageError);
+      logger.error('Chrome Storage delete failed:', storageError);
       sendResponse({ success: false, error: 'Failed to delete from Chrome Storage' });
       return;
     }
@@ -408,7 +330,7 @@ async function handleDeleteWord(wordId, sendResponse) {
             const response = await Promise.race([indexedDBPromise, timeoutPromise]);
             
             if (response && response.success) {
-              logger.log('✅ Word deleted from IndexedDB successfully');
+              logger.log('Word deleted from IndexedDB successfully');
             }
           } catch (indexedDBError) {
             logger.log("IndexedDB delete not available, word deleted from Chrome Storage only");
@@ -432,15 +354,15 @@ async function handleSaveAllWords(words, sendResponse) {
   try {
     // Save to Chrome Storage first (primary storage)
     await chrome.storage.local.set({ vocabWords: words });
-    logger.log('✅ All words saved to Chrome Storage successfully, count:', words.length);
+    logger.log('All words saved to Chrome Storage successfully, count:', words.length);
     
     // Try to sync to IndexedDB if available
     try {
       await migrateToIndexedDB(words);
-      logger.log('✅ Words also synced to IndexedDB');
+      logger.log('Words also synced to IndexedDB');
       sendResponse({ success: true, source: 'Both (Chrome Storage + IndexedDB)' });
     } catch (migrationError) {
-      logger.log('⚠️ IndexedDB sync failed, words saved to Chrome Storage only');
+      logger.log('IndexedDB sync failed, words saved to Chrome Storage only');
       sendResponse({ success: true, source: 'Chrome Storage (IndexedDB unavailable)' });
     }
   } catch (error) {
@@ -449,7 +371,43 @@ async function handleSaveAllWords(words, sendResponse) {
   }
 }
 
-
+// Handle updating word in storage
+async function handleUpdateWord(wordId, updates, sendResponse) {
+  try {
+    logger.log('handleUpdateWord called with id:', wordId);
+    logger.log('Updates:', updates);
+    
+    // Get existing words from Chrome Storage
+    const result = await chrome.storage.local.get(['vocabWords']);
+    const existingWords = result.vocabWords || [];
+    
+    // Find word to update
+    const wordIndex = existingWords.findIndex(w => w.id === wordId);
+    if (wordIndex === -1) {
+      throw new Error(`Word with id ${wordId} not found`);
+    }
+    
+    // Update word data
+    const updatedWord = {
+      ...existingWords[wordIndex],
+      ...updates,
+      lastModified: new Date().toISOString()
+    };
+    
+    // Update in array
+    existingWords[wordIndex] = updatedWord;
+    
+    // Save back to Chrome Storage
+    await chrome.storage.local.set({ vocabWords: existingWords });
+    
+    logger.log('Word updated successfully:', updatedWord.word);
+    sendResponse({ success: true, word: updatedWord, source: 'Chrome Storage' });
+    
+  } catch (error) {
+    logger.error('Error updating word:', error);
+    sendResponse({ success: false, error: error.message });
+  }
+}
 
 // Save word to Chrome Storage with duplicate checking
 async function saveToChromeStorage(newWord) {
@@ -519,7 +477,7 @@ async function migrateToIndexedDB(words) {
           timestamp: Date.now()
         });
         
-        logger.log(`✅ Migration request sent for ${words.length} words`);
+        logger.log(`Migration request sent for ${words.length} words`);
       }
     }
   } catch (error) {
@@ -531,12 +489,12 @@ async function migrateToIndexedDB(words) {
 // Sync words from IndexedDB to Chrome Storage
 async function syncIndexedDBToChromeStorage(words) {
   try {
-    logger.log(`🔄 Syncing ${words.length} words from IndexedDB to Chrome Storage...`);
+    logger.log(`Syncing ${words.length} words from IndexedDB to Chrome Storage...`);
     
     // Save all words to Chrome Storage
     await chrome.storage.local.set({ vocabWords: words });
     
-    logger.log("✅ Successfully synced words to Chrome Storage");
+    logger.log("Successfully synced words to Chrome Storage");
   } catch (error) {
     logger.error("Failed to sync to Chrome Storage:", error);
     throw error;
@@ -545,39 +503,58 @@ async function syncIndexedDBToChromeStorage(words) {
 
 // Handle opening review window
 async function handleOpenReviewWindow(sendResponse) {
-  try {
-    const result = await chrome.storage.local.get(['vocabWords']);
-    const allWords = result.vocabWords || [];
-    
-    if (allWords.length === 0) {
-      sendResponse({ success: false, error: 'No words available for review' });
-      return;
+    try {
+        const result = await chrome.storage.local.get(['vocabWords']);
+        const allWords = result.vocabWords || [];
+        
+        if (allWords.length === 0) {
+            sendResponse({ success: false, error: 'No words available for review' });
+            return;
+        }
+        
+        // Filter due words for review
+        const dueWords = allWords.filter(word => {
+            try {
+                if (!word.srs || !word.srs.nextReview) return true;
+                const nextReview = new Date(word.srs.nextReview);
+                return nextReview <= new Date();
+            } catch (dateError) {
+                return true; // Treat as due if date parsing fails
+            }
+        });
+        
+        if (dueWords.length === 0) {
+            sendResponse({ success: false, error: 'No words are due for review right now' });
+            return;
+        }
+        
+        // Sort due words by nextReview (earliest first)
+        const sortedDueWords = dueWords.sort((a, b) => {
+            const aTime = a.srs?.nextReview ? new Date(a.srs.nextReview).getTime() : 0;
+            const bTime = b.srs?.nextReview ? new Date(b.srs.nextReview).getTime() : 0;
+            
+            if (aTime > 0 && bTime > 0) {
+                return aTime - bTime; // Earliest first
+            }
+            
+            // Prioritize words without nextReview (new words)
+            if (aTime === 0 && bTime > 0) return -1;
+            if (aTime > 0 && bTime === 0) return 1;
+            
+            // If neither has nextReview, sort by creation date
+            const aCreated = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+            const bCreated = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+            return bCreated - aCreated; // Newest first
+        });
+        
+        // Open review window with sorted due words count
+        logger.log(`Opening review window with ${sortedDueWords.length} due words (sorted by nextReview)`);
+        openPopup("src/ui/html/review.html", 1000, 700, sendResponse);
+        
+    } catch (error) {
+        logger.error('Error preparing review data:', error);
+        sendResponse({ success: false, error: 'Failed to prepare review data' });
     }
-    
-    // Filter due words for review
-    const dueWords = allWords.filter(word => {
-      try {
-        if (!word.srs || !word.srs.nextReview) return true;
-        const nextReview = new Date(word.srs.nextReview);
-        return nextReview <= new Date();
-      } catch (dateError) {
-        return true; // Treat as due if date parsing fails
-      }
-    });
-    
-    if (dueWords.length === 0) {
-      sendResponse({ success: false, error: 'No words are due for review right now' });
-      return;
-    }
-    
-    // Open review window with due words count
-    logger.log(`📚 Opening review window with ${dueWords.length} due words`);
-    openPopup("src/ui/html/review.html", 1000, 700, sendResponse);
-    
-  } catch (error) {
-    logger.error('❌ Error preparing review data:', error);
-    sendResponse({ success: false, error: 'Failed to prepare review data' });
-  }
 }
 
 // Open popup utility

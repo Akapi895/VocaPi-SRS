@@ -75,8 +75,8 @@
                         <span class="user-answer" id="user-answer">example</span>
                     </div>
                     <div class="answer-row">
-                        <span class="answer-label">Correct answer:</span>
-                        <span class="correct-answer" id="correct-answer">example</span>
+                        <span class="answer-label">Correct word:</span>
+                        <span class="correct-answer" id="correct-answer"></span>
                     </div>
                     <div class="phonetic-row">
                         <span class="phonetic-display" id="phonetic-display">/ɪɡˈzæmpəl/</span>
@@ -192,16 +192,20 @@
     <script src="../../core/date.js"></script>
     <script src="../../core/id.js"></script>
     <script src="../../core/text.js"></script>
-    <script src="../../core/indexeddb.js"></script>
     <script src="../../core/storage.js"></script>
-    
+
+    <!-- SRS Features -->
+    <script src="../../features/srs/utils.js"></script>
+    <script src="../../features/srs/scheduler.js"></script>
+    <script src="../../features/srs/index.js"></script>
+
     <!-- Review Features -->
     <script src="../../features/review/anti-paste.js"></script>
     <script src="../../features/review/time-tracker.js"></script>
     <script src="../../features/review/review-ui.js"></script>
     <script src="../../features/review/review-data.js"></script>
     <script src="../../features/review/review.js"></script>
-    
+
     <!-- Entry Point -->
     <script src="../js/review.entry.js"></script>
     

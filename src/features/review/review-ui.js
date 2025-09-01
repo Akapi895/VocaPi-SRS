@@ -110,18 +110,22 @@ const ReviewUI = {
     // ---------------------------
     // Feedback & Quality
     // ---------------------------
-    showFeedback(isCorrect, correctAnswer) {
+    showFeedback(isCorrect, correctAnswer, context) {
         this.isAnswerRevealed = true;
+
+        // Use context parameter instead of this
+        const ctx = context || this;
 
         // Fix: Use window.ReviewUI.toggleSection instead of this.toggleSection
         window.ReviewUI.toggleSection('#input-section', false);
         window.ReviewUI.toggleSection('#result-section', true);
 
-        this.getEl('correct-answer').textContent = correctAnswer || '';
-        this.getEl('user-answer').textContent = this.userAnswer || '';
+        // Use context.getEl() instead of this.getEl()
+        ctx.getEl('correct-answer').textContent = correctAnswer || '';
+        ctx.getEl('user-answer').textContent = ctx.userAnswer || '';
 
-        const resultDiv = this.getEl('result-section');
-        const userAnswerSpan = this.getEl('user-answer');
+        const resultDiv = ctx.getEl('result-section');
+        const userAnswerSpan = ctx.getEl('user-answer');
         resultDiv?.classList.remove('correct-answer', 'incorrect-answer');
         userAnswerSpan?.classList.remove('correct', 'incorrect');
 
@@ -133,7 +137,7 @@ const ReviewUI = {
             userAnswerSpan?.classList.add('incorrect');
         }
 
-        window.ReviewUI.suggestQuality.call(this, isCorrect);
+        window.ReviewUI.suggestQuality.call(ctx, isCorrect);
     },
 
     resetQualityButtons() {
@@ -205,7 +209,6 @@ const ReviewUI = {
     }
 };
 
-// Export to global scope
 if (typeof window !== 'undefined') {
   window.ReviewUI = ReviewUI;
 }

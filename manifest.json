@@ -29,7 +29,6 @@
         "src/core/utils.js",
         "src/core/text.js",
         "src/core/api.js",
-        "src/core/indexeddb.js",
         "src/core/storage.js",
         "src/ui/js/addModal.js",
         "src/content/index.js"
@@ -44,7 +43,6 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "src/core/indexeddb.js",
         "src/core/utils.js",
         "src/core/storage.js",
         "src/core/migration.js",

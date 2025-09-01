@@ -144,7 +144,6 @@ class AntiPasteGuard {
   }
 }
 
-// Export to global scope
 if (typeof window !== 'undefined') {
   window.AntiPasteGuard = AntiPasteGuard;
 }

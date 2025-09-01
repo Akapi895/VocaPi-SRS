@@ -1,7 +1,4 @@
-// class chính
-import { scheduleNextReview } from "./scheduler.js";
-
-class AdvancedSRSAlgorithm {
+window.AdvancedSRSAlgorithm = class AdvancedSRSAlgorithm {
   constructor() {
     this.DEFAULT_PARAMETERS = {
       requestRetention: 0.9,
@@ -15,12 +12,12 @@ class AdvancedSRSAlgorithm {
   calculateNextReview(card, quality, responseTime = null, userStats = {}) {
     const adaptiveFactor = this.calculateAdaptiveFactor(userStats, card.category);
     const { interval, easeFactor, repetitions, nextReviewDate, forgettingCurveAdjustment, responseTimeBonus } =
-      scheduleNextReview(card, quality, responseTime, adaptiveFactor, userStats, this.DEFAULT_PARAMETERS);
+      window.scheduleNextReview(card, quality, responseTime, adaptiveFactor, userStats, this.DEFAULT_PARAMETERS);
 
     const now = Date.now();
     const reviewEntry = {
       date: now, quality, responseTime,
-      interval: card.srs.interval || 0, // bỏ || 0
+      interval: card.srs.interval || 0,
       newInterval: interval,
       easeFactor, intervalUnit: 'minutes'
     };
@@ -46,6 +43,4 @@ class AdvancedSRSAlgorithm {
     else if (categoryAccuracy < 0.7) factor = 0.8;
     return factor;
   }
-}
-
-export default AdvancedSRSAlgorithm;
+};
