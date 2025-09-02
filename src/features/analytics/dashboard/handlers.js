@@ -20,7 +20,7 @@ class DashboardHandlers {
     );
 
     const actions = {
-      'back-to-main': () => history.back(),
+      'back-to-main': () => this.goBackToMain(),
       'refresh-analytics': this.boundHandleRefresh,
       'retry-analytics': () => this.dashboard.init()
     };
@@ -29,6 +29,32 @@ class DashboardHandlers {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', handler);
     });
+  }
+
+  goBackToMain() {
+    // ✅ SỬA: Mở popup chính thay vì sử dụng history.back()
+    try {
+      // Đóng cửa sổ analytics hiện tại
+      window.close();
+      
+      // Mở popup chính
+      chrome.action.openPopup();
+    } catch (error) {
+      console.warn('⚠️ Could not open popup, trying alternative method:', error);
+      
+      // Fallback: Sử dụng chrome.tabs để mở popup
+      try {
+        chrome.tabs.create({
+          url: chrome.runtime.getURL('src/ui/html/popup.html'),
+          active: true
+        });
+        window.close();
+      } catch (fallbackError) {
+        console.error('❌ Failed to open popup:', fallbackError);
+        // Last resort: sử dụng history.back()
+        history.back();
+      }
+    }
   }
 
   // Cleanup method to prevent memory leaks

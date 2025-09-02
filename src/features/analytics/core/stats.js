@@ -1,11 +1,19 @@
 // Analytics Stats Functions
 function getQualityDistribution(data) {
-  const distribution = { 1:0, 2:0, 3:0, 4:0, 5:0 };
+  const distribution = { 0:0, 1:0, 2:0, 3:0, 4:0, 5:0 }; // ✅ SỬA: Thêm key 0 cho Blackout
   data.reviewSessions.forEach(session => {
-    if (session.quality && distribution[session.quality] !== undefined) {
+    if (session.quality !== undefined && distribution[session.quality] !== undefined) {
       distribution[session.quality]++;
     }
   });
+  
+  // ✅ THÊM: Debug logs
+  console.log('🔍 Quality Distribution debug:', {
+    totalSessions: data.reviewSessions?.length || 0,
+    distribution: distribution,
+    sampleSessions: data.reviewSessions?.slice(-5).map(s => ({ quality: s.quality, wordId: s.wordId })) || []
+  });
+  
   return distribution;
 }
 
@@ -51,16 +59,34 @@ function getMostActiveDay(data) {
 function getAverageSessionLength(data) {
   if (!data.reviewSessions || data.reviewSessions.length === 0) return 0;
 
-  // ✅ CẢI THIỆN: Tính session length dựa trên daily stats thay vì individual reviews
+  // ✅ SỬA: Tính session length dựa trên số ngày học thay vì số reviews
   const dailyStats = Object.values(data.dailyStats || {});
   if (dailyStats.length === 0) return 0;
 
-  const totalTime = dailyStats.reduce((sum, day) => sum + (day.timeSpent || 0), 0);
-  const totalSessions = dailyStats.reduce((sum, day) => sum + (day.reviewsCount || 0), 0);
+  // Lọc ra những ngày có hoạt động học (reviewsCount > 0)
+  const activeDays = dailyStats.filter(day => (day.reviewsCount || 0) > 0);
+  if (activeDays.length === 0) return 0;
+
+  const totalTime = activeDays.reduce((sum, day) => sum + (day.timeSpent || 0), 0);
+  const numberOfSessions = activeDays.length; // Số ngày có hoạt động học
   
-  if (totalSessions === 0) return 0;
+  const avgTimeMs = totalTime / numberOfSessions;
   
-  const avgTimeMs = totalTime / totalSessions;
+  // ✅ THÊM: Debug logs
+  console.log('🔍 Average Session Length debug:', {
+    totalTimeMs: totalTime,
+    totalTimeMinutes: Math.round(totalTime / 60000),
+    numberOfSessions: numberOfSessions,
+    avgTimeMs: avgTimeMs,
+    avgTimeMinutes: Math.round(avgTimeMs / 60000),
+    activeDays: activeDays.map(day => ({
+      date: day.date || 'unknown',
+      reviewsCount: day.reviewsCount,
+      timeSpent: day.timeSpent,
+      timeSpentMinutes: Math.round((day.timeSpent || 0) / 60000)
+    }))
+  });
+  
   return Math.round(avgTimeMs / 60000); // minutes
 }
 
