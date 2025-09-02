@@ -85,6 +85,11 @@ class DashboardUI {
   }
 
   formatTime(minutes) {
+    // ✅ SỬA: Đảm bảo minutes là số và hợp lệ
+    if (typeof minutes !== 'number' || isNaN(minutes)) {
+      minutes = 0;
+    }
+    
     // ✅ SỬA: Kiểm tra nếu minutes quá lớn (có thể là milliseconds)
     if (minutes > 10000) {
       // Nếu quá lớn, có thể là milliseconds, convert sang minutes
@@ -127,7 +132,10 @@ class DashboardUI {
 
   async loadAchievements(achievements) {
     try {
-      console.log('🏆 Loading achievements:', achievements);
+      console.log('🏆 loadAchievements called with:', achievements);
+      console.log('🏆 Achievements type:', typeof achievements);
+      console.log('🏆 Achievements length:', achievements?.length);
+      console.log('🏆 Achievements array:', achievements);
       
       const container = document.getElementById('achievements-grid');
       if (!container) {
@@ -138,6 +146,7 @@ class DashboardUI {
       container.innerHTML = '';
       
       if (!achievements || achievements.length === 0) {
+        console.log('🏆 No achievements to display, showing placeholder');
         container.innerHTML = `
           <div class="achievement-card">
             <div class="achievement-icon">🎯</div>
@@ -150,22 +159,53 @@ class DashboardUI {
         return;
       }
       
-      // ✅ SỬA: Hiển thị achievements thật
-      achievements.forEach(achievement => {
+      console.log('🏆 Rendering achievements:', achievements.length);
+      
+      // ✅ SỬA: Hiển thị tất cả achievements (unlocked và locked)
+      achievements.forEach((achievement, index) => {
+        console.log(`🏆 Rendering achievement ${index + 1}:`, {
+          id: achievement.id,
+          name: achievement.name,
+          unlocked: achievement.unlocked,
+          progress: achievement.progress
+        });
+        
         const achievementCard = document.createElement('div');
-        achievementCard.className = 'achievement-card unlocked';
+        achievementCard.className = `achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'} rarity-${achievement.rarity || 'common'}`;
+        
+        // ✅ THÊM: Progress bar cho achievements chưa unlock
+        const progressBar = !achievement.unlocked ? `
+          <div class="achievement-progress">
+            <div class="progress-bar">
+              <div class="progress-fill" style="width: ${achievement.progress}%"></div>
+            </div>
+            <div class="progress-text">${Math.round(achievement.progress)}%</div>
+          </div>
+        ` : '';
+        
+        // ✅ THÊM: Rarity badge
+        const rarityBadge = achievement.rarity ? `
+          <div class="rarity-badge rarity-${achievement.rarity}">${achievement.rarity.toUpperCase()}</div>
+        ` : '';
+        
         achievementCard.innerHTML = `
-          <div class="achievement-icon">${achievement.icon}</div>
+          <div class="achievement-icon ${achievement.unlocked ? '' : 'locked'}">${achievement.icon}</div>
           <div class="achievement-info">
-            <h4>${achievement.name}</h4>
+            <div class="achievement-header">
+              <h4>${achievement.name}</h4>
+              ${rarityBadge}
+            </div>
             <p>${achievement.description}</p>
             <div class="achievement-xp">+${achievement.xpReward} XP</div>
+            ${progressBar}
           </div>
         `;
+        
         container.appendChild(achievementCard);
       });
       
-      console.log(`✅ Loaded ${achievements.length} achievements`);
+      const unlockedCount = achievements.filter(a => a.unlocked).length;
+      console.log(`✅ Loaded ${achievements.length} achievements (${unlockedCount} unlocked)`);
     } catch (error) {
       console.error('❌ Error loading achievements:', error);
     }

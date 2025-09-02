@@ -101,13 +101,10 @@ async function recordWordReview(data, wordId, userAnswer, correctAnswer, quality
   console.log('⏱️ Time debug:', {
     originalTimeSpent: timeSpent,
     timeSpentMinutes: Math.round(timeSpent / 60000 * 100) / 100,
-    currentTotalTime: data.totalTimeSpent,
-    newTotalTime: data.totalTimeSpent + Math.round(timeSpent / 60000 * 100) / 100
+    dailyTimeSpent: dailyData.timeSpent
   });
   
-  // Update total time spent (in minutes)
-  const timeSpentMinutes = Math.round(timeSpent / 60000 * 100) / 100;
-  data.totalTimeSpent += timeSpentMinutes;
+  // ✅ REMOVED: Không cần cập nhật data.totalTimeSpent nữa vì sẽ tính từ dailyStats
   
   // Tổng thời gian + ngày review cuối
   data.lastReviewDate = now.toISOString();

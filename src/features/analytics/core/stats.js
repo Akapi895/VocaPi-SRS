@@ -144,11 +144,26 @@ async function getDashboardStats(data, gamification) {
     }
   }
 
+  // ✅ SỬA: Tính totalTimeSpent từ dailyStats giống như Weekly Progress
+  const dailyStats = Object.values(data.dailyStats || {});
+  const totalTimeSpentMs = dailyStats.reduce((sum, day) => sum + (day.timeSpent || 0), 0);
+  const totalTimeSpentMinutes = Math.round(totalTimeSpentMs / 60000);
+
+  // ✅ THÊM: Debug cho totalTimeSpent
+  console.log('🔍 Total time spent debug:', {
+    dataTotalTimeSpent: data.totalTimeSpent,
+    calculatedFromDailyStats: totalTimeSpentMinutes,
+    totalTimeSpentMs: totalTimeSpentMs,
+    dailyStatsCount: dailyStats.length,
+    type: typeof data.totalTimeSpent,
+    isNaN: isNaN(data.totalTimeSpent)
+  });
+
   // ✅ SỬA: Sử dụng gamification data cho XP và achievements
   const result = {
     totalWordsLearned: data.totalWords || 0,
     currentStreak: data.currentStreak || 0,
-    totalTimeSpent: data.totalTimeSpent || 0,
+    totalTimeSpent: totalTimeSpentMinutes, // ✅ Sử dụng tính toán từ dailyStats
     todayAccuracy: todayAccuracy,
     totalXP: gamificationData?.currentXP || 0, // ✅ Sử dụng gamification XP
     achievementCount: gamificationData?.achievementCount || 0, // ✅ Sử dụng gamification achievements

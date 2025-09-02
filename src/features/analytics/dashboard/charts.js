@@ -154,7 +154,7 @@ class DashboardCharts {
     // Generate the text-based chart
     textWrapper.innerHTML = `
       <div class="text-chart" style="background: rgba(16, 24, 39, 0.8); border-radius: 12px; padding: 16px; margin: 8px 0;">
-        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">📈 Weekly Progress (Text Version)</div>
+        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">📈 Weekly Progress</div>
         <div class="weekly-bars" style="display: flex; justify-content: space-between; align-items: end; height: 120px; margin: 16px 0;">
           ${chartData.map(day => {
             const wordsPct = maxWords > 0 ? Math.max(5, (day.words / maxWords) * 100) : 5;
@@ -265,7 +265,7 @@ class DashboardCharts {
     // Generate the text-based quality chart
     textWrapper.innerHTML = `
       <div class="text-chart" style="background: rgba(16, 24, 39, 0.8); border-radius: 12px; padding: 16px; margin: 8px 0;">
-        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">🎯 Quality Distribution (Text Version)</div>
+        <div class="chart-title" style="color: white; font-weight: 600; font-size: 16px; margin-bottom: 16px; text-align: center;">🎯 Quality Distribution</div>
         <div class="quality-bars" style="display: flex; flex-direction: column; gap: 8px;">
           ${labels.map((label, index) => {
             const count = data[index] || 0;

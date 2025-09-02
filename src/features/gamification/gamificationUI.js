@@ -64,9 +64,8 @@ class GamificationUI {
     if (!this.gamification) return this.renderPlaceholder(container);
 
     try {
-      const [data, achievements, challenge] = await Promise.all([
+      const [data, challenge] = await Promise.all([
         this.gamification.getPlayerStats(),
-        this.gamification.getUnlockedAchievements(),
         this.gamification.getCurrentChallenge()
       ]);
 
@@ -76,7 +75,6 @@ class GamificationUI {
         ${this.renderPlayerHeader(data)}
         ${this.renderDailyChallenge(challenge)}
         ${this.renderStatsGrid(data)}
-        ${this.renderAchievements(achievements)}
       `;
       this.attachEventListeners(container);
     } catch (error) {
@@ -164,12 +162,10 @@ class GamificationUI {
   }
 
   renderStatsGrid(data) {
+    // ✅ SỬA: Chỉ hiển thị Total XP, Achievements, và Best Day
     const stats = [
-      { icon: "🎯", number: data.totalWords || 0, label: "Words Learned" },
-      { icon: "��", number: `${data.streakDays || 0} day${(data.streakDays || 0) === 1 ? "" : "s"}`, label: "Current Streak" },
       { icon: "⚡", number: data.currentXP || 0, label: "Total XP" },
       { icon: "🏆", number: data.achievementCount || 0, label: "Achievements" },
-      { icon: "��", number: `${data.accuracy || 0}%`, label: "Accuracy" },
       { icon: "⭐", number: data.bestDayReviews || 0, label: "Best Day" }
     ];
     
@@ -181,37 +177,10 @@ class GamificationUI {
       </div>`).join("")}</div>`;
   }
 
-  renderAchievements(achievements) {
-    return `
-      <div class="achievement-section">
-        <h3>🏆 Achievements</h3>
-        <div class="achievement-grid">
-          ${achievements.map(a => this.renderAchievementCard(a)).join("")}
-        </div>
-      </div>`;
-  }
 
-  renderAchievementCard(a) {
-    return `
-      <div class="achievement-card ${a.unlockedAt ? "unlocked" : "locked"}">
-        <div class="achievement-header">
-          <div class="achievement-icon">${a.icon}</div>
-          <div class="achievement-info"><h4>${a.name}</h4></div>
-        </div>
-        <p>${a.description}</p>
-        <div class="achievement-meta">
-          <span>+${a.xp} XP</span>
-          <span class="rarity-${a.rarity || "common"}">${a.rarity || "common"}</span>
-        </div>
-        ${a.unlockedAt ? `<div class="achievement-unlocked-date">Unlocked ${new Date(a.unlockedAt).toLocaleDateString()}</div>` : ""}
-      </div>`;
-  }
 
   // --------- Events ---------
   attachEventListeners(container) {
-    container.querySelectorAll(".achievement-card").forEach(c =>
-      c.addEventListener("click", () => c.classList.toggle("expanded"))
-    );
     container.querySelectorAll(".stat-card-gam").forEach(c => {
       c.onmouseenter = () => (c.style.transform = "translateY(-4px) scale(1.02)");
       c.onmouseleave = () => (c.style.transform = "");

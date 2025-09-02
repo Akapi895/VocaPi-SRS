@@ -222,21 +222,43 @@ class AnalyticsDashboard {
       
       // ✅ THÊM: Lấy gamification data
       let gamificationData = null;
-      let achievements = [];
+      let allAchievements = [];
       
       if (window.VocabGamification && typeof window.VocabGamification === 'function') {
         try {
           const gamificationInstance = new window.VocabGamification();
           await gamificationInstance.initializeGamification();
           
+          // ✅ SỬA: Kết nối analytics với gamification TRƯỚC KHI gọi methods
+          gamificationInstance.analytics = analyticsInstance;
+          console.log('🔗 Analytics connected to gamification:', !!gamificationInstance.analytics);
+          
+          // ✅ THÊM: Verify analytics connection
+          if (gamificationInstance.analytics) {
+            const testData = await gamificationInstance.analytics.getAnalyticsData();
+            console.log('🔍 Analytics test data:', {
+              totalWords: testData?.totalWords,
+              currentStreak: testData?.currentStreak,
+              hasDailyStats: !!testData?.dailyStats
+            });
+          }
+          
           gamificationData = await gamificationInstance.getPlayerStats();
-          achievements = await gamificationInstance.getUnlockedAchievements();
+          
+          // ✅ THÊM: Debug logs
+          console.log('🔍 Calling getAllAchievements...');
+          allAchievements = await gamificationInstance.getAllAchievements();
+          console.log(' getAllAchievements result:', allAchievements);
+          console.log(' Achievements count:', allAchievements.length);
+          console.log('🔍 Unlocked count:', allAchievements.filter(a => a.unlocked).length);
           
           console.log('🎮 Gamification data loaded:', gamificationData);
-          console.log('🏆 Achievements loaded:', achievements);
+          console.log('🏆 All achievements loaded:', allAchievements);
         } catch (error) {
           console.error('❌ Failed to load gamification data:', error);
         }
+      } else {
+        console.warn('⚠️ VocabGamification not available');
       }
       
       const [dashboardStats, weeklyProgress, difficultWords] = await Promise.all([
@@ -267,7 +289,7 @@ class AnalyticsDashboard {
         currentStreak: dashboardStats.currentStreak,
         todayAccuracy: dashboardStats.todayAccuracy,
         totalXP: dashboardStats.totalXP,
-        achievements: achievements.length
+        achievements: allAchievements.length
       });
 
       const hasData = this.checkDataAvailability(dashboardStats, weeklyProgress);
@@ -275,7 +297,7 @@ class AnalyticsDashboard {
       if (!hasData) {
         await this.showEmptyState(dashboardStats);
       } else {
-        await this.renderDashboardData(dashboardStats, weeklyProgress, difficultWords, achievements);
+        await this.renderDashboardData(dashboardStats, weeklyProgress, difficultWords, allAchievements);
       }
 
       if (this.ui && typeof this.ui.hideLoading === 'function') {
