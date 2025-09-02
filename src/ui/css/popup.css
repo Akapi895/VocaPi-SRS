@@ -783,6 +783,183 @@ body {
   background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
 }
 
+/* ✅ THÊM: CSS cho từ đến due - làm mờ để không xem trước */
+.word-item-due {
+  opacity: 0.3 !important;
+  filter: blur(2px);
+  pointer-events: none;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.word-item-due::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.8) 0%, rgba(240, 253, 250, 0.8) 100%);
+  z-index: 1;
+  border-radius: 8px;
+}
+
+.word-item-due .due-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  background: rgba(245, 158, 11, 0.9);
+  color: white;
+  padding: 8px 12px;
+  border-radius: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: 0 4px 12px rgba(245, 158, 11, 0.3);
+  border: 2px solid rgba(255, 255, 255, 0.3);
+}
+
+.word-item-due .due-indicator::before {
+  content: 'Due for Review';
+  display: block;
+  font-size: 10px;
+  margin-bottom: 2px;
+  opacity: 0.9;
+}
+
+/* ✅ THÊM: CSS cho Toast Notifications - tham khảo từ addModal.css và global-styles.css */
+#popup-toast-container {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 10000;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.popup-toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: white;
+  padding: 16px 20px;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  max-width: 350px;
+  transform: translateX(400px);
+  opacity: 0;
+  transition: all 0.3s ease-out;
+  pointer-events: auto;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  border-left: 4px solid #3b82f6;
+}
+
+.popup-toast-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+
+.popup-toast-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.popup-toast-message {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 500;
+  color: #1a202c;
+  line-height: 1.4;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+.popup-toast-close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: #6b7280;
+  cursor: pointer;
+  padding: 0;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.popup-toast-close:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+/* Toast type variations */
+.popup-toast[data-type="success"] {
+  border-left-color: #10b981;
+}
+
+.popup-toast[data-type="error"] {
+  border-left-color: #ef4444;
+}
+
+.popup-toast[data-type="warning"] {
+  border-left-color: #f59e0b;
+}
+
+.popup-toast[data-type="export"] {
+  border-left-color: #6366f1;
+}
+
+.popup-toast[data-type="import"] {
+  border-left-color: #22c55e;
+}
+
+.popup-toast[data-type="info"] {
+  border-left-color: #3b82f6;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  #popup-toast-container {
+    left: 10px;
+    right: 10px;
+  }
+  
+  .popup-toast {
+    max-width: none;
+  }
+}
+
+/* High contrast and accessibility */
+@media (prefers-contrast: high) {
+  .popup-toast {
+    border: 2px solid #000;
+  }
+  
+  .popup-toast-close {
+    font-weight: 600;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-toast {
+    transition: none;
+  }
+}
+
 .word-content {
   grid-area: content;
   overflow: hidden; /* Prevent content overflow */

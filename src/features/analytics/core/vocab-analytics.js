@@ -131,7 +131,18 @@ class VocabAnalytics {
   }
 
   async getAnalyticsData() {
-    return this._withInit(() => ({ ...this.data }));
+    return this._withInit(async () => {
+      // ✅ SỬA: Tính toán overallAccuracy trước khi trả về
+      let overallAccuracy = 0;
+      if (window.AnalyticsStats && typeof window.AnalyticsStats.getOverallAccuracy === 'function') {
+        overallAccuracy = window.AnalyticsStats.getOverallAccuracy(this.data);
+      }
+      
+      return { 
+        ...this.data, 
+        overallAccuracy: overallAccuracy 
+      };
+    });
   }
 
   async getWeeklyProgress() {

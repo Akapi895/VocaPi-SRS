@@ -10,6 +10,7 @@ class VocabSRSPopup {
     this.wasHintUsed = false;
     this.wasSkipped = false;
     this.gamificationUI = null;
+    this.fastGamificationWidget = null;
 
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => this.init());
@@ -20,7 +21,104 @@ class VocabSRSPopup {
 
   async init() {
     await this.loadStats();
+    await this.initGamificationWidget();
     this.bindEvents();
+  }
+
+  async initGamificationWidget() {
+    try {
+      // Wait for gamification scripts to load
+      if (window.FastGamificationWidget) {
+        this.fastGamificationWidget = new window.FastGamificationWidget();
+        const container = document.getElementById('gamification-widget');
+        if (container) {
+          this.fastGamificationWidget.render(container);
+          console.log('✅ FastGamificationWidget initialized in popup');
+        }
+      } else {
+        console.warn('⚠️ FastGamificationWidget not available, using fallback');
+        this.updateGamificationFallback();
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize gamification widget:', error);
+      this.updateGamificationFallback();
+    }
+  }
+
+  async updateGamificationFallback() {
+    try {
+      // Fallback: Load gamification data manually
+      if (window.VocabGamification) {
+        const gamification = new window.VocabGamification();
+        await gamification.initializeGamification();
+        
+        const [playerStats, challenge] = await Promise.all([
+          gamification.getPlayerStats(),
+          gamification.getCurrentChallenge()
+        ]);
+
+        // ✅ THÊM: Lấy analytics data để có overallAccuracy
+        let analyticsData = null;
+        try {
+          if (window.VocabAnalytics) {
+            const analytics = new window.VocabAnalytics();
+            await analytics.ensureInitialized();
+            analyticsData = await analytics.getAnalyticsData();
+            console.log('🔍 Popup fallback analytics data:', analyticsData);
+          }
+        } catch (analyticsError) {
+          console.warn('⚠️ Could not load analytics data in popup fallback:', analyticsError);
+        }
+
+        // ✅ THÊM: Merge analytics data vào playerStats
+        const mergedStats = {
+          ...playerStats,
+          overallAccuracy: analyticsData?.overallAccuracy || 0,
+          currentStreak: analyticsData?.currentStreak || 0
+        };
+
+        this.updateGamificationDisplay(mergedStats, challenge);
+        console.log('✅ Gamification fallback data loaded with analytics');
+      }
+    } catch (error) {
+      console.error('❌ Failed to load gamification fallback data:', error);
+    }
+  }
+
+  updateGamificationDisplay(playerStats, challenge) {
+    const levelEl = document.querySelector('.gamification-level');
+    const xpEl = document.querySelector('.gamification-xp');
+    const streakEl = document.querySelector('.study-streak');
+    const accuracyEl = document.querySelector('.accuracy-rate');
+
+    // ✅ THÊM: Debug logs
+    console.log('🔍 Popup updateGamificationDisplay:', {
+      playerStats: playerStats,
+      levelEl: !!levelEl,
+      xpEl: !!xpEl,
+      streakEl: !!streakEl,
+      accuracyEl: !!accuracyEl,
+      overallAccuracy: playerStats?.overallAccuracy,
+      currentStreak: playerStats?.currentStreak
+    });
+
+    if (levelEl && playerStats) {
+      levelEl.textContent = playerStats.level || 1;
+    }
+
+    if (xpEl && playerStats) {
+      xpEl.textContent = playerStats.currentXP || 0;
+    }
+
+    if (streakEl && playerStats) {
+      streakEl.textContent = `${playerStats.currentStreak || 0} days`;
+    }
+
+    if (accuracyEl && playerStats) {
+      const accuracyValue = Math.round(playerStats.overallAccuracy || 0);
+      accuracyEl.textContent = `${accuracyValue}%`;
+      console.log('🔍 Popup updated accuracy display:', accuracyValue);
+    }
   }
 
   async loadStats() {
@@ -149,6 +247,17 @@ class VocabSRSPopup {
     bindIf('back-from-list', 'click', () => this.showMainScreen());
     bindIf('retry-btn', 'click', () => this.loadStats());
     
+    // ✅ THÊM: Listen for analytics updates to refresh gamification
+    window.addEventListener('vocabAnalyticsUpdated', () => {
+      console.log('📊 Popup received analytics update, refreshing gamification');
+      this.refreshGamificationData();
+    });
+
+    window.addEventListener('wordReviewed', () => {
+      console.log('📊 Popup received word review event, refreshing gamification');
+      this.refreshGamificationData();
+    });
+    
     const searchInput = document.getElementById('search-input');
     if (searchInput) {
       let searchTimeout;
@@ -158,6 +267,24 @@ class VocabSRSPopup {
           this.handleSearch(e.target.value);
         }, 300);
       });
+    }
+  }
+
+  async refreshGamificationData() {
+    try {
+      if (this.fastGamificationWidget) {
+        // Refresh the widget if available
+        const container = document.getElementById('gamification-widget');
+        if (container) {
+          this.fastGamificationWidget.clearCache();
+          this.fastGamificationWidget.loadActualData(container);
+        }
+      } else {
+        // Fallback: Update manually
+        await this.updateGamificationFallback();
+      }
+    } catch (error) {
+      console.error('❌ Failed to refresh gamification data:', error);
     }
   }
 
@@ -329,21 +456,29 @@ class VocabSRSPopup {
       return;
     }
 
-    wordList.innerHTML = words.map(word => `
-      <div class="word-item">
-        <div class="word-content">
-          <div class="word-main-info">
-            <span class="word-text">${word.word}</span>
-            ${word.phonetic ? `<span class="word-phonetic">${word.phonetic}</span>` : ''}
+    wordList.innerHTML = words.map(word => {
+      // ✅ THÊM: Kiểm tra xem từ có đến due không
+      const isDue = this.isWordDue(word);
+      const dueClass = isDue ? 'word-item-due' : '';
+      const dueTitle = isDue ? 'This word is due for review - complete your review to see details' : '';
+      
+      return `
+        <div class="word-item ${dueClass}" title="${dueTitle}">
+          <div class="word-content">
+            <div class="word-main-info">
+              <span class="word-text">${word.word}</span>
+              ${word.phonetic ? `<span class="word-phonetic">${word.phonetic}</span>` : ''}
+            </div>
+            <div class="word-meaning">${word.meaning}</div>
+            ${word.example ? `<div class="word-example">${word.example}</div>` : ''}
           </div>
-          <div class="word-meaning">${word.meaning}</div>
-          ${word.example ? `<div class="word-example">${word.example}</div>` : ''}
+          <div class="word-meta">
+            <button class="delete-word-btn" data-word-id="${word.id}" title="Delete word">🗑️</button>
+          </div>
+          ${isDue ? '<span class="due-indicator" title="Due for review">⏰</span>' : ''}
         </div>
-        <div class="word-meta">
-          <button class="delete-word-btn" data-word-id="${word.id}" title="Delete word">🗑️</button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     wordList.querySelectorAll('.delete-word-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -352,6 +487,23 @@ class VocabSRSPopup {
         this.deleteWord(btn.dataset.wordId);
       });
     });
+  }
+
+  // ✅ THÊM: Method để kiểm tra xem từ có đến due không
+  isWordDue(word) {
+    try {
+      if (!word || !word.srs || !word.srs.nextReview) {
+        // Từ mới chưa có SRS data
+        return word.srs && word.srs.repetitions > 0 ? false : true;
+      }
+      
+      const nextReview = new Date(word.srs.nextReview);
+      const now = new Date();
+      return nextReview <= now;
+    } catch (dateError) {
+      // Nếu có lỗi parse date, coi như due
+      return true;
+    }
   }
 
   async deleteWord(wordId) {
@@ -447,8 +599,8 @@ class VocabSRSPopup {
   }
   
   showDeleteRestriction(reason) {
-    const message = `Không thể xóa từ này:\n\n${reason}\n\nHãy tiếp tục ôn tập để đạt điều kiện xóa.`;
-    alert(message);
+    const message = `Không thể xóa từ này: ${reason}. Hãy tiếp tục ôn tập để đạt điều kiện xóa.`;
+    this.showMessage(message, 'warning');
   }
   
   async confirmDeleteWithInfo(word) {
@@ -489,37 +641,112 @@ class VocabSRSPopup {
         return;
       }
       
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Service worker timeout')), 5000);
-      });
+      this.showLoading('Exporting all data...');
       
-      const messagePromise = chrome.runtime.sendMessage({ action: 'getWords' });
-      const response = await Promise.race([messagePromise, timeoutPromise]);
+      // ✅ SỬA: Export tất cả dữ liệu quan trọng
+      const exportData = {
+        exportInfo: {
+          version: '2.0',
+          exportDate: new Date().toISOString(),
+          description: 'Complete Vocab SRS data export including words, analytics, and gamification'
+        },
+        words: [],
+        analytics: null,
+        gamification: null
+      };
       
-      if (!response || !response.success) {
-        throw new Error(response?.error || 'Failed to get words');
+      // 1. Export words data
+      try {
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Service worker timeout')), 5000);
+        });
+        
+        const messagePromise = chrome.runtime.sendMessage({ action: 'getWords' });
+        const response = await Promise.race([messagePromise, timeoutPromise]);
+        
+        if (response && response.success) {
+          exportData.words = response.words || [];
+        }
+      } catch (error) {
+        console.warn('Failed to export words:', error);
+        exportData.words = [];
       }
       
-      const allWords = response.words || [];
+      // 2. Export analytics data
+      try {
+        if (window.VocabAnalytics) {
+          const analytics = new window.VocabAnalytics();
+          await analytics.ensureInitialized();
+          exportData.analytics = await analytics.getAnalyticsData();
+          console.log('✅ Analytics data exported');
+        }
+      } catch (error) {
+        console.warn('Failed to export analytics:', error);
+        exportData.analytics = null;
+      }
       
-      if (allWords.length === 0) {
-        alert('No words to export');
+      // 3. Export gamification data
+      try {
+        if (window.VocabGamification) {
+          const gamification = new window.VocabGamification();
+          await gamification.initializeGamification();
+          exportData.gamification = {
+            playerStats: await gamification.getPlayerStats(),
+            achievements: await gamification.getAllAchievements(),
+            dailyChallenge: await gamification.getCurrentChallenge()
+          };
+          console.log('✅ Gamification data exported');
+        }
+      } catch (error) {
+        console.warn('Failed to export gamification:', error);
+        exportData.gamification = null;
+      }
+      
+      // 4. Export Chrome Storage data (fallback)
+      try {
+        if (typeof chrome.storage !== 'undefined' && chrome.storage.local) {
+          const storageData = await chrome.storage.local.get(null);
+          exportData.storage = storageData;
+          console.log('✅ Storage data exported');
+        }
+      } catch (error) {
+        console.warn('Failed to export storage:', error);
+        exportData.storage = null;
+      }
+      
+      this.hideLoading();
+      
+      if (exportData.words.length === 0 && !exportData.analytics && !exportData.gamification) {
+        this.showMessage('No data to export', 'warning');
         return;
       }
       
-      const dataStr = JSON.stringify(allWords, null, 2);
+      const dataStr = JSON.stringify(exportData, null, 2);
       const dataBlob = new Blob([dataStr], { type: 'application/json' });
       
       const link = document.createElement('a');
       link.href = URL.createObjectURL(dataBlob);
-      link.download = `vocab-export-${new Date().toISOString().split('T')[0]}.json`;
+      link.download = `vocab-complete-export-${new Date().toISOString().split('T')[0]}.json`;
       link.click();
       
+      // ✅ SỬA: Show success message với push notification
+      const exportedItems = [];
+      if (exportData.words.length > 0) exportedItems.push(`${exportData.words.length} words`);
+      if (exportData.analytics) exportedItems.push('analytics data');
+      if (exportData.gamification) exportedItems.push('gamification data');
+      if (exportData.storage) exportedItems.push('storage data');
+      
+      this.showMessage(`✅ Export successful! Exported: ${exportedItems.join(', ')}`, 'export');
+      
+      // ✅ SỬA: Đảm bảo quay về main screen sau export để hiển thị quick actions
+      this.showMainScreen();
+      
     } catch (error) {
+      this.hideLoading();
       if (error.message.includes('timeout')) {
         this.showError('Service worker not responding. Please refresh the extension.');
       } else {
-        this.showError('Failed to export vocabulary: ' + error.message);
+        this.showError('Failed to export data: ' + error.message);
       }
     }
   }
@@ -536,73 +763,222 @@ class VocabSRSPopup {
       }
       
       const text = await file.text();
-      const wordsArray = JSON.parse(text);
+      const importData = JSON.parse(text);
       
-      if (!Array.isArray(wordsArray)) {
-        throw new Error('Invalid file format: expected array of words');
-      }
+      this.showLoading('Importing data...');
       
-      this.showLoading('Importing words...');
+      let importedWords = 0;
+      let importedAnalytics = false;
+      let importedGamification = false;
+      let importedStorage = false;
+      let skippedWords = 0;
       
-      let importedCount = 0;
-      let skippedCount = 0;
-      const existingWords = [];
-      
-      for (const wordData of wordsArray) {
-        try {
-          if (!wordData.word || !wordData.meaning) {
-            skippedCount++;
-            continue;
-          }
+      // ✅ SỬA: Kiểm tra format file mới (v2.0) hoặc cũ (array of words)
+      if (importData.exportInfo && importData.exportInfo.version === '2.0') {
+        // New format with complete data
+        console.log('📥 Importing complete data format v2.0');
+        
+        // 1. Import words
+        if (importData.words && Array.isArray(importData.words)) {
+          const existingWords = [];
           
-          const completeWord = {
-            id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
-            word: wordData.word.trim(),
-            meaning: wordData.meaning || '',
-            example: wordData.example || '',
-            phonetic: wordData.phonetic || '',
-            createdAt: new Date().toISOString(),
-            lastModified: new Date().toISOString(),
-            srs: {
-              interval: 1,
-              repetitions: 0,
-              easiness: 2.5,
-              nextReview: new Date().toISOString()
+          for (const wordData of importData.words) {
+            try {
+              if (!wordData.word || !wordData.meaning) {
+                skippedWords++;
+                continue;
+              }
+              
+              // Preserve original data if available, otherwise create new
+              const completeWord = {
+                id: wordData.id || (Date.now().toString() + Math.random().toString(36).substr(2, 9)),
+                word: wordData.word.trim(),
+                meaning: wordData.meaning || '',
+                example: wordData.example || '',
+                phonetic: wordData.phonetic || '',
+                audioUrl: wordData.audioUrl || '',
+                createdAt: wordData.createdAt || new Date().toISOString(),
+                lastModified: new Date().toISOString(),
+                srs: wordData.srs || {
+                  interval: 1,
+                  repetitions: 0,
+                  easiness: 2.5,
+                  nextReview: new Date().toISOString()
+                }
+              };
+
+              existingWords.push(completeWord);
+              importedWords++;
+            } catch (err) {
+              skippedWords++;
             }
-          };
+          }
 
-          existingWords.push(completeWord);
-          importedCount++;
-        } catch (err) {
-          skippedCount++;
+          if (existingWords.length > 0) {
+            const saveResponse = await chrome.runtime.sendMessage({ 
+              action: 'saveAllWords', 
+              words: existingWords 
+            });
+            
+            if (!saveResponse.success) {
+              throw new Error(saveResponse.error || 'Failed to save imported words');
+            }
+          }
         }
-      }
+        
+        // 2. Import analytics data
+        if (importData.analytics) {
+          try {
+            if (window.VocabAnalytics) {
+              const analytics = new window.VocabAnalytics();
+              await analytics.ensureInitialized();
+              
+              // Merge analytics data
+              const currentData = await analytics.getAnalyticsData();
+              const mergedData = {
+                ...currentData,
+                ...importData.analytics,
+                // Preserve some current data
+                lastImportDate: new Date().toISOString()
+              };
+              
+              // Save merged data
+              if (window.AnalyticsStorage) {
+                await window.AnalyticsStorage.saveData(mergedData);
+                importedAnalytics = true;
+                console.log('✅ Analytics data imported');
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to import analytics:', error);
+          }
+        }
+        
+        // 3. Import gamification data
+        if (importData.gamification) {
+          try {
+            if (window.VocabGamification) {
+              const gamification = new window.VocabGamification();
+              await gamification.initializeGamification();
+              
+              // Import player stats and achievements
+              if (importData.gamification.playerStats) {
+                // Merge player stats
+                const currentStats = await gamification.getPlayerStats();
+                const mergedStats = {
+                  ...currentStats,
+                  ...importData.gamification.playerStats,
+                  lastImportDate: new Date().toISOString()
+                };
+                
+                // Save to storage
+                if (window.GamificationStorage) {
+                  await window.GamificationStorage.saveData(mergedStats);
+                  importedGamification = true;
+                  console.log('✅ Gamification data imported');
+                }
+              }
+            }
+          } catch (error) {
+            console.warn('Failed to import gamification:', error);
+          }
+        }
+        
+        // 4. Import storage data (fallback)
+        if (importData.storage) {
+          try {
+            if (typeof chrome.storage !== 'undefined' && chrome.storage.local) {
+              // Merge with existing storage
+              const currentStorage = await chrome.storage.local.get(null);
+              const mergedStorage = {
+                ...currentStorage,
+                ...importData.storage,
+                lastImportDate: new Date().toISOString()
+              };
+              
+              await chrome.storage.local.set(mergedStorage);
+              importedStorage = true;
+              console.log('✅ Storage data imported');
+            }
+          } catch (error) {
+            console.warn('Failed to import storage:', error);
+          }
+        }
+        
+      } else if (Array.isArray(importData)) {
+        // Legacy format - array of words only
+        console.log('📥 Importing legacy format (words only)');
+        
+        const existingWords = [];
+        
+        for (const wordData of importData) {
+          try {
+            if (!wordData.word || !wordData.meaning) {
+              skippedWords++;
+              continue;
+            }
+            
+            const completeWord = {
+              id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+              word: wordData.word.trim(),
+              meaning: wordData.meaning || '',
+              example: wordData.example || '',
+              phonetic: wordData.phonetic || '',
+              createdAt: new Date().toISOString(),
+              lastModified: new Date().toISOString(),
+              srs: {
+                interval: 1,
+                repetitions: 0,
+                easiness: 2.5,
+                nextReview: new Date().toISOString()
+              }
+            };
 
-      const saveResponse = await chrome.runtime.sendMessage({ 
-        action: 'saveAllWords', 
-        words: existingWords 
-      });
-      
-      if (!saveResponse.success) {
-        throw new Error(saveResponse.error || 'Failed to save imported words');
+            existingWords.push(completeWord);
+            importedWords++;
+          } catch (err) {
+            skippedWords++;
+          }
+        }
+
+        if (existingWords.length > 0) {
+          const saveResponse = await chrome.runtime.sendMessage({ 
+            action: 'saveAllWords', 
+            words: existingWords 
+          });
+          
+          if (!saveResponse.success) {
+            throw new Error(saveResponse.error || 'Failed to save imported words');
+          }
+        }
+      } else {
+        throw new Error('Invalid file format: expected complete data export or array of words');
       }
 
       this.hideLoading();
-      alert([
-        'Import Results:',
-        `✅ ${importedCount} words successfully imported`,
-        `⏭️ ${skippedCount} words skipped (already exist or invalid)`,
-        `📊 Total processed: ${importedCount + skippedCount}/${wordsArray.length}`
-      ].join('\n'));
-
-      await this.loadStats();
-      if (this.getEl('word-list-screen')?.style.display === 'block') {
-        await this.showWordList();
+      
+      // Show import results
+      const importResults = [];
+      if (importedWords > 0) importResults.push(`✅ ${importedWords} words imported`);
+      if (skippedWords > 0) importResults.push(`⏭️ ${skippedWords} words skipped`);
+      if (importedAnalytics) importResults.push('✅ Analytics data imported');
+      if (importedGamification) importResults.push('✅ Gamification data imported');
+      if (importedStorage) importResults.push('✅ Storage data imported');
+      
+      // ✅ SỬA: Show import results với push notification
+      if (importResults.length === 0) {
+        this.showMessage('No data was imported. Please check the file format.', 'warning');
+      } else {
+        this.showMessage(`✅ Import successful! ${importResults.join(', ')}`, 'import');
       }
+
+      // ✅ SỬA: Đảm bảo quay về main screen sau import để hiển thị quick actions
+      this.showMainScreen();
+      await this.loadStats();
     } catch (err) {
       this.hideLoading();
       console.error('Import error:', err);
-      this.showError('Failed to import vocabulary file: ' + err.message);
+      this.showError('Failed to import data: ' + err.message);
     } finally {
       event.target.value = '';
     }
@@ -615,7 +991,10 @@ class VocabSRSPopup {
   showMainScreen() {
     this.hideAllScreens();
     this.getEl('main-screen').style.display = 'block';
-    this.loadStats();
+    // ✅ SỬA: Load stats async để không block UI
+    this.loadStats().catch(error => {
+      console.warn('Failed to load stats in showMainScreen:', error);
+    });
   }
 
   showLoading(message = 'Loading...') {
@@ -633,6 +1012,104 @@ class VocabSRSPopup {
     this.hideAllScreens();
     this.getEl('error-state').style.display = 'block';
     this.getEl('error-message').textContent = message;
+  }
+
+  // ✅ CẢI THIỆN: Method để hiển thị push message với styling đẹp như toast
+  showMessage(message, type = 'info') {
+    console.log(`Message [${type}]: ${message}`);
+    
+    // Tạo toast container nếu chưa có
+    let toastContainer = document.getElementById('popup-toast-container');
+    if (!toastContainer) {
+      toastContainer = document.createElement('div');
+      toastContainer.id = 'popup-toast-container';
+      toastContainer.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10000;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        pointer-events: none;
+      `;
+      document.body.appendChild(toastContainer);
+    }
+    
+    // Tạo toast element
+    const toast = document.createElement('div');
+    toast.className = 'popup-toast';
+    toast.setAttribute('data-type', type);
+    
+    // Tạo icon dựa trên type
+    const icons = {
+      success: '✅',
+      error: '❌',
+      warning: '⚠️',
+      export: '📤',
+      import: '📥',
+      info: 'ℹ️'
+    };
+    
+    // Tạo content với icon và message
+    toast.innerHTML = `
+      <div class="popup-toast-content">
+        <div class="popup-toast-icon">${icons[type] || icons.info}</div>
+        <div class="popup-toast-message">${message}</div>
+        <button class="popup-toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+      </div>
+    `;
+    
+    // Apply styling
+    toast.style.cssText = `
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      background: white;
+      padding: 16px 20px;
+      border-radius: 8px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+      max-width: 350px;
+      transform: translateX(400px);
+      opacity: 0;
+      transition: all 0.3s ease-out;
+      pointer-events: auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    `;
+    
+    // Set border color based on type
+    const borderColors = {
+      success: '#10b981',
+      error: '#ef4444',
+      warning: '#f59e0b',
+      export: '#6366f1',
+      import: '#22c55e',
+      info: '#3b82f6'
+    };
+    
+    toast.style.borderLeft = `4px solid ${borderColors[type] || borderColors.info}`;
+    
+    // Add to container
+    toastContainer.appendChild(toast);
+    
+    // Show animation
+    setTimeout(() => {
+      toast.style.transform = 'translateX(0)';
+      toast.style.opacity = '1';
+    }, 100);
+    
+    // Auto-hide after 4 seconds
+    setTimeout(() => {
+      if (toast && toast.parentNode) {
+        toast.style.transform = 'translateX(400px)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          if (toast && toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 300);
+      }
+    }, 4000);
   }
 
   hideAllScreens() {

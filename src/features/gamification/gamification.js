@@ -655,10 +655,10 @@ class VocabGamification {
             });
             
             if (!isAlreadyUnlocked && conditionMet) {
-                this.data.unlockedAchievements.push(achievement.id);
-                this.addXP(achievement.xpReward);
-                newAchievements.push(achievement);
-                console.log(`🏆 Achievement unlocked: ${achievement.name} (+${achievement.xpReward} XP)`);
+                    this.data.unlockedAchievements.push(achievement.id);
+                    this.addXP(achievement.xpReward);
+                    newAchievements.push(achievement);
+                    console.log(`🏆 Achievement unlocked: ${achievement.name} (+${achievement.xpReward} XP)`);
             }
         });
         
