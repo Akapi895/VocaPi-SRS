@@ -20,6 +20,7 @@ const ReviewUI = {
         this.isAnswerRevealed = false;
         this.wasHintUsed = false;
         this.wasSkipped = false;
+        this.pendingQuality = null; // ✅ THÊM: Reset pending quality
         this.currentWordStartTime = Date.now();
 
         const meaning = this.getEl('meaning-display');

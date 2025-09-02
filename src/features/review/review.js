@@ -14,8 +14,7 @@ class VocabSRSReview {
     this.timeTracker = new window.TimeTracker(30000);
     this.antiPaste = new window.AntiPasteGuard();
 
-    // ✅ THÊM: Tạo analytics và gamification instances
-    this.analytics = null;
+      this.analytics = null;
     this.gamification = null;
     this.initAnalytics();
     this.initGamification();
@@ -25,33 +24,25 @@ class VocabSRSReview {
     this.initSRSFallback();
   }
 
-  // ✅ THÊM: Method để init analytics
   async initAnalytics() {
     try {
       if (window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
         this.analytics = new window.VocabAnalytics();
         await this.analytics.ensureInitialized();
-        console.log('✅ VocabAnalytics initialized in constructor');
-      } else {
-        console.warn('⚠️ VocabAnalytics not available in constructor');
       }
     } catch (error) {
-      console.error('❌ Failed to initialize analytics in constructor:', error);
+      console.error('Failed to initialize analytics:', error);
     }
   }
 
-  // ✅ THÊM: Method để init gamification
   async initGamification() {
     try {
       if (window.VocabGamification && typeof window.VocabGamification === 'function') {
         this.gamification = new window.VocabGamification();
         await this.gamification.initializeGamification();
-        console.log('✅ Gamification initialized in review');
-      } else {
-        console.warn('⚠️ VocabGamification not available in review');
       }
     } catch (error) {
-      console.error('❌ Failed to initialize gamification in review:', error);
+      console.error('Failed to initialize gamification:', error);
     }
   }
 
@@ -60,7 +51,6 @@ class VocabSRSReview {
         if (window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
             this.analytics = new window.VocabAnalytics();
             await this.analytics.ensureInitialized();
-            // await this.analytics.startSession();
         }
     } catch (err) {
       console.warn('Analytics init failed:', err);
@@ -162,7 +152,14 @@ class VocabSRSReview {
 
       if (this.isAnswerRevealed && e.key >= '0' && e.key <= '5') {
         e.preventDefault();
-        this.submitQuality(parseInt(e.key, 10));
+        
+        if (this.pendingQuality !== null) {
+          return;
+        } else if (e.key >= '0' && e.key <= '2') {
+          return;
+        } else {
+          this.submitQuality(parseInt(e.key, 10));
+        }
       }
 
       if ((e.ctrlKey || e.metaKey) && ['a', 'c', 'v', 'x'].includes(e.key.toLowerCase())) {
@@ -240,39 +237,26 @@ class VocabSRSReview {
             console.warn("Storage update failed, continuing with local data:", storageError);
         }
 
-        // ✅ SỬA: Tạo VocabAnalytics instance nếu chưa có
         if (!this.analytics && window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
           try {
             this.analytics = new window.VocabAnalytics();
             await this.analytics.ensureInitialized();
-            console.log('✅ VocabAnalytics instance created');
           } catch (analyticsError) {
-            console.error('❌ Failed to create VocabAnalytics instance:', analyticsError);
+            console.error('Failed to create VocabAnalytics instance:', analyticsError);
           }
         }
 
-        // ✅ SỬA: Tạo Gamification instance nếu chưa có
         if (!this.gamification && window.VocabGamification && typeof window.VocabGamification === 'function') {
           try {
             this.gamification = new window.VocabGamification();
             await this.gamification.initializeGamification();
-            console.log('✅ Gamification instance created');
           } catch (gamificationError) {
-            console.error('❌ Failed to create Gamification instance:', gamificationError);
+            console.error('Failed to create Gamification instance:', gamificationError);
           }
         }
 
-        // ✅ SỬA: Sử dụng instance đã tạo
         if (this.analytics && typeof this.analytics.recordWordReview === 'function') {
           try {
-            console.log('📊 Recording word review for analytics:', {
-              wordId: currentWord.id,
-              userAnswer: this.userAnswer || '(quality only)',
-              correctAnswer: currentWord.word,
-              quality: quality,
-              timeSpent: this.getResponseTime() || 0
-            });
-            
             await this.analytics.recordWordReview(
               currentWord.id,
               this.userAnswer || '(quality only)',
@@ -281,9 +265,6 @@ class VocabSRSReview {
               this.getResponseTime() || 0
             );
             
-            console.log('✅ Analytics data recorded successfully');
-            
-            // ✅ THÊM: Gamification tracking
             if (this.gamification && typeof this.gamification.handleWordReview === 'function') {
               try {
                 const isCorrect = this.userAnswer.toLowerCase() === currentWord.word.toLowerCase();
@@ -293,13 +274,11 @@ class VocabSRSReview {
                   quality,
                   this.getResponseTime() || 0
                 );
-                console.log('🎮 Gamification updated for review');
               } catch (gamificationError) {
-                console.error('❌ Failed to update gamification:', gamificationError);
+                console.error('Failed to update gamification:', gamificationError);
               }
             }
             
-            // Dispatch event để dashboard refresh
             const event = new CustomEvent('wordReviewed', {
               detail: { 
                 wordId: currentWord.id, 
@@ -310,13 +289,10 @@ class VocabSRSReview {
               }
             });
             window.dispatchEvent(event);
-            console.log('📡 Word reviewed event dispatched');
             
           } catch (analyticsError) {
-            console.error('❌ Failed to record analytics:', analyticsError);
+            console.error('Failed to record analytics:', analyticsError);
           }
-        } else {
-          console.warn('⚠️ VocabAnalytics not available for tracking');
         }
 
         this.reviewStats.reviewed++;
@@ -324,15 +300,22 @@ class VocabSRSReview {
 
         this.updateProgressInfo();
 
+        const qualityButtonsContainer = document.querySelector('.quality-buttons');
+        if (qualityButtonsContainer) {
+            qualityButtonsContainer.style.display = 'none';
+        }
+
         const isLastWord = (this.currentWordIndex === this.currentReviewWords.length - 1);
         
         if (isLastWord) {
             this.completeReview();
         } else {
-            if (quality < 3) {
-                setTimeout(() => this.showRetypeSection(), 2000);
-            } else {
+            if (quality >= 3) {
                 this.showContinueButton();
+            } else {
+                setTimeout(() => {
+                    this.nextCard();
+                }, 1000);
             }
         }
         
@@ -353,31 +336,29 @@ class VocabSRSReview {
     
     this.userAnswer = userInput;
     
-    this.showFeedback(isCorrect, currentWord.word);
-    this.pendingQuality = isCorrect ? (this.wasHintUsed ? 3 : 4) : 1;
+    if (this.wasHintUsed && !isCorrect) {
+      this.pendingQuality = 0;
+    } else if (!this.wasHintUsed && !isCorrect) {
+      this.pendingQuality = 1;
+    } else if (this.wasHintUsed && isCorrect) {
+      this.pendingQuality = 2;
+    } else {
+      this.pendingQuality = null;
+    }
     
-    // ✅ THÊM: Record analytics data for answer check
+    this.showFeedback(isCorrect, currentWord.word);
+    
     if (window.VocabAnalytics && typeof window.VocabAnalytics.recordWordReview === 'function') {
       try {
-        console.log('📊 Recording answer check for analytics:', {
-          wordId: currentWord.id,
-          userAnswer: userInput,
-          correctAnswer: currentWord.word,
-          isCorrect: isCorrect,
-          timeSpent: this.getResponseTime() || 0
-        });
-        
-        // Record as a review session (quality will be recorded later in submitQuality)
         window.VocabAnalytics.recordWordReview(
           currentWord.id,
           userInput,
           currentWord.word,
-          isCorrect ? 4 : 1, // Temporary quality
+          this.pendingQuality !== null ? this.pendingQuality : 4,
           this.getResponseTime() || 0
         );
-        
       } catch (analyticsError) {
-        console.error('❌ Failed to record answer check:', analyticsError);
+        console.error('Failed to record answer check:', analyticsError);
       }
     }
   }
@@ -392,19 +373,10 @@ class VocabSRSReview {
     }
     
     if (retypeInput.toLowerCase() === correctWord.toLowerCase()) {
-        const quality = this.wasSkipped ? 0 : 1;
+        const quality = this.pendingQuality !== null ? this.pendingQuality : (this.wasSkipped ? 0 : 1);
         
-        // ✅ THÊM: Record analytics data for retype
         if (window.VocabAnalytics && typeof window.VocabAnalytics.recordWordReview === 'function') {
           try {
-            console.log('📊 Recording retype for analytics:', {
-              wordId: this.currentWordData.id,
-              userAnswer: retypeInput,
-              correctAnswer: correctWord,
-              quality: quality,
-              timeSpent: this.getResponseTime() || 0
-            });
-            
             window.VocabAnalytics.recordWordReview(
               this.currentWordData.id,
               retypeInput,
@@ -412,15 +384,12 @@ class VocabSRSReview {
               quality,
               this.getResponseTime() || 0
             );
-            
           } catch (analyticsError) {
-            console.error('❌ Failed to record retype:', analyticsError);
+            console.error('Failed to record retype:', analyticsError);
           }
         }
         
-        this.submitQuality(quality).then(() => {
-            this.nextCard();
-        });
+        this.submitQuality(quality);
     } else {
         const input = document.getElementById('retype-input');
         input.style.animation = 'shake 0.5s';
@@ -664,41 +633,22 @@ class VocabSRSReview {
     if (!qualityButtonsContainer) return;
 
     if (this.wasSkipped) {
+        // Skip word = Quality 0
         qualityButtonsContainer.style.display = 'none';
-        
         setTimeout(() => {
             this.submitQuality(0);
         }, 3000);
         
-    } else if (!isCorrect) {
-        if (this.wasHintUsed) {
-            qualityButtonsContainer.style.display = 'none';
-            
-            setTimeout(() => {
-                this.submitQuality(0);
-            }, 3000);
-            
-        } else {
-            qualityButtonsContainer.style.display = 'none';
-            
-            setTimeout(() => {
-                this.submitQuality(1);
-            }, 3000);
-        }
+    } else if (this.pendingQuality !== null) {
+        qualityButtonsContainer.style.display = 'none';
+        setTimeout(() => {
+            this.showRetypeSection();
+        }, 2000);
         
     } else {
-        if (this.wasHintUsed) {
-            qualityButtonsContainer.style.display = 'none';
-            
-            setTimeout(() => {
-                this.submitQuality(2);
-            }, 3000);
-            
-        } else {
-            qualityButtonsContainer.style.display = 'block';
-            
-            this.disableQualityButtons([0, 1, 2]);
-        }
+        qualityButtonsContainer.style.display = 'block';
+        this.disableQualityButtons([0, 1, 2]);
+        this.highlightQualityButtons([3, 4, 5]);
     }
 }
 
@@ -756,34 +706,22 @@ updateProgressInfo() {
 
   getResponseTime() {
     if (this.currentWordStartTime) {
-      const timeSpent = Date.now() - this.currentWordStartTime;
-      console.log('⏱️ Response time calculated:', {
-        startTime: this.currentWordStartTime,
-        endTime: Date.now(),
-        timeSpent: timeSpent,
-        timeSpentSeconds: Math.round(timeSpent / 1000 * 100) / 100,
-        timeSpentMinutes: Math.round(timeSpent / 60000 * 100) / 100
-      });
-      return timeSpent;
+      return Date.now() - this.currentWordStartTime;
     }
     return null;
   }
 
   getCurrentStreak() {
-    // Simple streak calculation based on recent quality scores
     if (!this.recentQualities) {
       this.recentQualities = [];
     }
     
-    // Add current quality to recent qualities
     this.recentQualities.push(this.lastQuality || 0);
     
-    // Keep only last 10 qualities
     if (this.recentQualities.length > 10) {
       this.recentQualities = this.recentQualities.slice(-10);
     }
     
-    // Calculate streak of quality >= 3
     let streak = 0;
     for (let i = this.recentQualities.length - 1; i >= 0; i--) {
       if (this.recentQualities[i] >= 3) {
@@ -803,7 +741,7 @@ updateProgressInfo() {
         window.close();
         
     } catch (error) {
-        console.error('❌ Error closing review window:', error);
+        console.error('Error closing review window:', error);
         
         try {
             window.close();
