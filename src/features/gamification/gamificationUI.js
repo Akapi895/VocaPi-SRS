@@ -29,10 +29,9 @@ class GamificationUI {
 
       window.addEventListener("vocabAnalyticsUpdated", this.handleAnalyticsUpdate.bind(this));
       this.initialized = true;
-      console.log('🎮 GamificationUI initialized successfully');
+
     } catch (error) {
-      console.error("❌ Gamification UI init failed:", error);
-      // Don't throw, just log the error
+      console.error("Gamification UI init failed:", error);
     }
   }
 
@@ -245,5 +244,5 @@ if (typeof window !== 'undefined') {
     });
   }
   
-  console.log('🎮 GamificationUI exposed on window object');
+
 }

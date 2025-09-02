@@ -118,12 +118,11 @@ const envConfig = new EnvConfig();
 await envConfig.loadConfig();
 
 if (!envConfig.isFirebaseConfigured()) {
-  console.log("⚠️ Firebase not configured. Run setup wizard.");
+  console.log("Firebase not configured. Run setup wizard.");
 }
 
 // Expose to window for content scripts
 if (typeof window !== 'undefined') {
   window.EnvConfig = EnvConfig;
   window.envConfig = envConfig;
-  console.log("✅ EnvConfig and envConfig exposed to window");
 }

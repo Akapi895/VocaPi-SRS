@@ -9,5 +9,4 @@ function generateUUID() {
 // Expose to window for content scripts
 if (typeof window !== 'undefined') {
   window.generateUUID = generateUUID;
-  console.log("✅ generateUUID exposed to window");
 }

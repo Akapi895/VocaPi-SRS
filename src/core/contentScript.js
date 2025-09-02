@@ -1,4 +1,4 @@
-console.log('Vocab SRS content script loaded');
+
 
 if (!window.vocabSRSInitialized) {
   window.vocabSRSInitialized = true;
@@ -10,7 +10,7 @@ function init() {
     console.error('Vocab SRS utilities not loaded');
     return;
   }
-  console.log('Vocab SRS initialized on', location.hostname);
+
 }
 
 chrome.runtime.onMessage.addListener((req, _, sendRes)=>{
@@ -26,7 +26,7 @@ let currentUrl = location.href;
 const handleUrlChange = ()=>{
   if (location.href!==currentUrl) {
     currentUrl=location.href;
-    console.log('URL changed, reinit');
+
     setTimeout(init,500);
   }
 };

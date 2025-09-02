@@ -3,7 +3,7 @@
 // Mock logger for testing
 const logger = {
   log: function(message) {
-    console.log("[ServiceWorker]", message);
+
   },
   error: function(message) {
     console.error("[ServiceWorker]", message);

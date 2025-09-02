@@ -10,12 +10,10 @@ class StorageMigration {
       const migrationStatus = await this.getMigrationStatus();
       
       if (migrationStatus.completed) {
-        console.log('✅ Migration already completed');
+
         return true;
       }
 
-      console.log('🔄 Starting migration from Chrome Storage to IndexedDB...');
-      
       // Migrate vocabulary words
       await this.migrateVocabWords();
       
@@ -28,11 +26,9 @@ class StorageMigration {
       // Mark migration as completed
       await this.markMigrationCompleted();
       
-      console.log('✅ Migration completed successfully');
       return true;
-      
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      console.error('Migration failed:', error);
       return false;
     }
   }
@@ -73,14 +69,11 @@ class StorageMigration {
 
   async migrateVocabWords() {
     try {
-      console.log('📚 Migrating vocabulary words...');
-      
       // Get words from Chrome Storage
       const result = await chrome.storage.local.get(['vocabWords']);
       const vocabWords = result.vocabWords || [];
       
       if (vocabWords.length === 0) {
-        console.log('No vocabulary words to migrate');
         return;
       }
 
@@ -93,7 +86,6 @@ class StorageMigration {
             console.warn('Failed to migrate word:', word.word, error);
           }
         }
-        console.log(`✅ Migrated ${vocabWords.length} vocabulary words`);
       } else {
         console.warn('IndexedDB manager not available, skipping migration');
       }
@@ -105,21 +97,17 @@ class StorageMigration {
 
   async migrateGamificationData() {
     try {
-      console.log('🎮 Migrating gamification data...');
-      
       // Get gamification data from Chrome Storage
       const result = await chrome.storage.local.get(['vocabGamification']);
       const gamificationData = result.vocabGamification;
       
       if (!gamificationData) {
-        console.log('No gamification data to migrate');
         return;
       }
 
       // Save to IndexedDB
       if (window.indexedDBManager) {
         await window.indexedDBManager.set('gamification', gamificationData);
-        console.log('✅ Migrated gamification data');
       } else {
         console.warn('IndexedDB manager not available, skipping migration');
       }
@@ -131,21 +119,18 @@ class StorageMigration {
 
   async migrateAnalyticsData() {
     try {
-      console.log('📊 Migrating analytics data...');
-      
       // Get analytics data from Chrome Storage
       const result = await chrome.storage.local.get(['vocabAnalytics']);
       const analyticsData = result.vocabAnalytics;
       
       if (!analyticsData) {
-        console.log('No analytics data to migrate');
         return;
       }
 
       // Save to IndexedDB
       if (window.indexedDBManager) {
         await window.indexedDBManager.set('analytics', analyticsData);
-        console.log('✅ Migrated analytics data');
+
       } else {
         console.warn('IndexedDB manager not available, skipping migration');
       }
@@ -157,16 +142,13 @@ class StorageMigration {
 
   async cleanupChromeStorage() {
     try {
-      console.log('🧹 Cleaning up Chrome Storage...');
-      
-      // Remove migrated data from Chrome Storage
       await chrome.storage.local.remove([
         'vocabWords',
         'vocabGamification', 
         'vocabAnalytics'
       ]);
       
-      console.log('✅ Chrome Storage cleaned up');
+
     } catch (error) {
       console.error('Error cleaning up Chrome Storage:', error);
     }

@@ -61,15 +61,7 @@ class FastGamificationWidget {
     const accuracyEl = container.querySelector('.accuracy-rate');
 
     // ✅ THÊM: Debug logs
-    console.log('🔍 FastGamificationWidget updateExistingStructure:', {
-      data: data,
-      levelEl: !!levelEl,
-      xpEl: !!xpEl,
-      streakEl: !!streakEl,
-      accuracyEl: !!accuracyEl,
-      overallAccuracy: data?.overallAccuracy,
-      currentStreak: data?.currentStreak
-    });
+
 
     if (levelEl && data) {
       levelEl.textContent = data.level || 1;
@@ -86,7 +78,7 @@ class FastGamificationWidget {
     if (accuracyEl && data) {
       const accuracyValue = Math.round(data.overallAccuracy || 0);
       accuracyEl.textContent = `${accuracyValue}%`;
-      console.log('🔍 Updated accuracy display:', accuracyValue);
+
     }
   }
 
@@ -110,16 +102,10 @@ class FastGamificationWidget {
           analyticsData = await analytics.getAnalyticsData();
           
           // ✅ THÊM: Debug logs
-          console.log('🔍 FastGamificationWidget analytics data:', {
-            overallAccuracy: analyticsData?.overallAccuracy,
-            currentStreak: analyticsData?.currentStreak,
-            reviewSessions: analyticsData?.reviewSessions?.length,
-            hasAnalyticsStats: !!window.AnalyticsStats,
-            analyticsDataKeys: Object.keys(analyticsData || {})
-          });
+
         }
       } catch (analyticsError) {
-        console.warn('⚠️ Could not load analytics data for gamification widget:', analyticsError);
+        console.warn('Could not load analytics data for gamification widget:', analyticsError);
       }
 
       const processedData = {

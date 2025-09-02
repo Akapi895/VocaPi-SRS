@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "VocaPi - Test",
+  "name": "VocaPi - Vocabulary Master with Spaced Repetition",
   "version": "1.0.0",
-  "description": "Test extension",
+  "description": "Learn vocabulary efficiently with spaced repetition system, analytics, and gamification features.",
   
   "permissions": [
     "storage",
@@ -19,7 +19,7 @@
   
   "action": {
     "default_popup": "src/ui/html/popup.html",
-    "default_title": "VocaPi"
+    "default_title": "VocaPi - Vocabulary Master with Spaced Repetition"
   },
   
   "content_scripts": [
@@ -58,7 +58,6 @@
         "src/ui/js/analytics.js",
         "src/ui/js/analytics-dashboard.js",
         "src/ui/js/popup.js",
-        "src/ui/js/mock-chrome.js",
         "src/ui/html/review.html",
         "src/ui/html/analytics.html",
         "src/ui/css/review.css",
@@ -72,6 +71,7 @@
   
   "icons": {
     "16": "assets/icon16.png",
+    "32": "assets/icon32.png",
     "48": "assets/icon48.png",
     "128": "assets/icon128.png"
   }

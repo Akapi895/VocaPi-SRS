@@ -542,13 +542,7 @@ class VocabGamification {
             await window.GamificationStorage.saveData(this.data);
         }
         
-        console.log('🎮 Gamification updated:', { 
-            xpGained, 
-            level: this.data.level, 
-            totalXP: this.data.xp,
-            totalWords: this.data.stats.totalWords,
-            bestDayReviews: this.data.stats.bestDayReviews
-        });
+
     }
 
     /**
@@ -566,19 +560,9 @@ class VocabGamification {
         
         // Speed bonus (if answered quickly)
         const speedBonus = timeSpent < 2000 ? 3 : 0;
-        
         const totalXP = baseXP + qualityBonus + speedBonus;
         
-        console.log('🎮 XP calculation:', {
-            baseXP,
-            correctBonus: isCorrect ? 5 : 0,
-            qualityBonus,
-            speedBonus,
-            totalXP,
-            quality,
-            timeSpent
-        });
-        
+
         return totalXP;
     }
 
@@ -593,7 +577,7 @@ class VocabGamification {
         if (newLevel > this.data.level) {
             this.data.level = newLevel;
             this.data.currentTitle = this.getTitleForLevel(newLevel);
-            console.log(`🎉 Level up! Now level ${newLevel}: ${this.data.currentTitle}`);
+
         }
     }
 
@@ -619,7 +603,7 @@ class VocabGamification {
      * Check for achieved unlocked achievements
      */
     async checkAchievements() {
-        console.log('🏆 checkAchievements called');
+
         
         // Get current stats from analytics if available
         let analyticsData = null;
@@ -637,9 +621,6 @@ class VocabGamification {
             bestDayReviews: this.data.stats.bestDayReviews
         };
         
-        console.log('🏆 Current stats for achievement checking:', combinedStats);
-        console.log('🏆 Currently unlocked achievements:', this.data.unlockedAchievements);
-        
         const achievements = VocabGamification.ACHIEVEMENTS;
         const newAchievements = [];
         
@@ -647,22 +628,15 @@ class VocabGamification {
             const isAlreadyUnlocked = this.data.unlockedAchievements.includes(achievement.id);
             const conditionMet = achievement.condition(combinedStats);
             
-            console.log(`🏆 Achievement ${achievement.id}:`, {
-                name: achievement.name,
-                alreadyUnlocked: isAlreadyUnlocked,
-                conditionMet: conditionMet,
-                condition: achievement.condition.toString()
-            });
-            
             if (!isAlreadyUnlocked && conditionMet) {
                     this.data.unlockedAchievements.push(achievement.id);
                     this.addXP(achievement.xpReward);
                     newAchievements.push(achievement);
-                    console.log(`🏆 Achievement unlocked: ${achievement.name} (+${achievement.xpReward} XP)`);
+
             }
         });
         
-        console.log('🏆 New achievements unlocked:', newAchievements.length);
+
         return newAchievements;
     }
 
@@ -721,7 +695,7 @@ class VocabGamification {
         if (challenge.progress >= challenge.target && rules[challenge.type]()) {
             challenge.completed = true;
             this.addXP(challenge.xpReward);
-            console.log(`🎯 Daily challenge completed: ${challenge.name} (+${challenge.xpReward} XP)`);
+
         }
     }
 
@@ -737,23 +711,19 @@ class VocabGamification {
      * Update best day reviews from analytics data
      */
     async updateBestDayReviews() {
-        console.log('🔍 updateBestDayReviews called, analytics available:', !!this.analytics);
+
         
         if (!this.analytics) {
-            console.warn('⚠️ Analytics not available for best day calculation');
+            console.warn('Analytics not available for best day calculation');
             return;
         }
         
         try {
             const analyticsData = await this.analytics.getAnalyticsData();
-            console.log('📊 Analytics data for best day calculation:', {
-                hasDailyStats: !!analyticsData?.dailyStats,
-                dailyStatsKeys: analyticsData?.dailyStats ? Object.keys(analyticsData.dailyStats) : [],
-                totalWords: analyticsData?.totalWords
-            });
+
             
             if (!analyticsData?.dailyStats || Object.keys(analyticsData.dailyStats).length === 0) {
-                console.log('📊 No daily stats available for best day calculation');
+
                 return;
             }
             
@@ -763,7 +733,7 @@ class VocabGamification {
                 reviewsCount: day.reviewsCount || 0
             }));
             
-            console.log('📊 Reviews per day:', reviewsPerDay);
+
             
             // ✅ SỬA: Tính max reviews trong 1 ngày
             const maxReviewsInDay = Math.max(...dailyStats.map(day => day.reviewsCount || 0));
@@ -773,25 +743,19 @@ class VocabGamification {
             if (maxReviewsInDay > 0) {
                 this.data.stats.bestDayReviews = Math.max(this.data.stats.bestDayReviews, maxReviewsInDay);
                 
-                console.log('📊 Best day reviews calculation:', {
-                    maxReviewsInDay,
-                    previousBest,
-                    newBest: this.data.stats.bestDayReviews,
-                    dailyStatsCount: dailyStats.length,
-                    updated: previousBest !== this.data.stats.bestDayReviews
-                });
+
                 
                 // ✅ SỬA: Chỉ save nếu có thay đổi
                 if (previousBest !== this.data.stats.bestDayReviews && window.GamificationStorage) {
                     await window.GamificationStorage.saveData(this.data);
-                    console.log('💾 Best day reviews saved to storage');
+
                 }
             } else {
-                console.log('📊 No valid reviews found in daily stats');
+
             }
             
         } catch (error) {
-            console.error('❌ Failed to update best day reviews:', error);
+            console.error('Failed to update best day reviews:', error);
         }
     }
 
@@ -837,7 +801,7 @@ class VocabGamification {
     async getPlayerStats() {
         await this.initializeGamification();
         
-        console.log('🔍 getPlayerStats called, analytics available:', !!this.analytics);
+
         
         // ✅ THÊM: Luôn cập nhật bestDayReviews trước khi trả về stats
         await this.updateBestDayReviews();
@@ -863,12 +827,7 @@ class VocabGamification {
                 : 0
         };
         
-        console.log('📊 Player stats returned:', {
-            bestDayReviews: stats.bestDayReviews,
-            totalWords: stats.totalWords,
-            totalReviews: stats.totalReviews,
-            analyticsConnected: !!this.analytics
-        });
+
         
         return stats;
     }
@@ -887,8 +846,8 @@ class VocabGamification {
     async getAllAchievements() {
         await this.initializeGamification();
         
-        console.log('🏆 getAllAchievements called');
-        console.log('🔍 Current unlocked achievements:', this.data.unlockedAchievements);
+
+
         
         // ✅ THÊM: Check for new achievements before returning
         await this.checkAchievements();
@@ -912,20 +871,14 @@ class VocabGamification {
             bestDayReviews: this.data.stats.bestDayReviews
         };
         
-        console.log('🏆 Getting all achievements with stats:', combinedStats);
+
         
         const allAchievements = Object.values(achievements).map(achievement => {
             const isUnlocked = unlockedIds.includes(achievement.id);
             const canUnlock = !isUnlocked && achievement.condition(combinedStats);
             const progress = this.calculateAchievementProgress(achievement, combinedStats);
             
-            console.log(`🔍 Achievement ${achievement.id}:`, {
-                name: achievement.name,
-                unlocked: isUnlocked,
-                canUnlock: canUnlock,
-                progress: progress,
-                condition: achievement.condition(combinedStats)
-            });
+
             
             return {
                 ...achievement,
@@ -935,7 +888,7 @@ class VocabGamification {
             };
         });
         
-        console.log('🏆 Returning all achievements:', allAchievements.length);
+
         return allAchievements;
     }
 
@@ -1105,11 +1058,7 @@ class VocabGamification {
                 progress = 0;
         }
         
-        console.log(`🔍 Progress for ${achievement.id}:`, {
-            progress: progress,
-            stats: stats,
-            condition: achievement.condition(stats)
-        });
+
         
         return progress;
     }
@@ -1139,7 +1088,7 @@ class VocabGamification {
      */
     setAnalytics(analyticsInstance) {
         this.analytics = analyticsInstance;
-        console.log('🔗 Analytics connected to gamification:', !!this.analytics);
+
     }
 
     /**
@@ -1163,7 +1112,7 @@ class VocabGamification {
             await window.GamificationStorage.saveData(this.data);
         }
         
-        console.log('🏆 Force check completed, new achievements:', newAchievements.length);
+
         return newAchievements;
     }
 
@@ -1216,8 +1165,5 @@ if (typeof window !== 'undefined') {
   // Create and expose instance
   window.vocabGamification = new VocabGamification();
   
-  console.log('🎮 VocabGamification exposed on window object:', {
-    class: !!window.VocabGamification,
-    instance: !!window.vocabGamification
-  });
+
 }

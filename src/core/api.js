@@ -67,7 +67,7 @@ const DictionaryAPI = {
         };
       }
     } catch (error) {
-      console.log("⚠️ DictionaryAPI.getWordInfo failed:", error.message);
+      console.log("DictionaryAPI.getWordInfo failed:", error.message);
     }
     
     // Fallback
@@ -82,7 +82,6 @@ const DictionaryAPI = {
 // Expose to window for content scripts
 if (typeof window !== 'undefined') {
   window.DictionaryAPI = DictionaryAPI;
-  console.log("✅ DictionaryAPI exposed to window");
 }
 
 // No export needed for content scripts
@@ -129,7 +128,4 @@ const AudioPlayer = {
 // Expose to window for content scripts
 if (typeof window !== 'undefined') {
   window.AudioPlayer = AudioPlayer;
-  console.log("✅ AudioPlayer exposed to window");
 }
-
-// No export needed for content scripts

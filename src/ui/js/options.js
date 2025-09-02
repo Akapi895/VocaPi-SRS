@@ -5,7 +5,7 @@ class OptionsManager {
     }
 
     async init() {
-        console.log('OptionsManager initializing...');
+
         
         try {
             // Initialize EnvConfig
@@ -20,9 +20,9 @@ class OptionsManager {
             await this.loadCurrentSettings();
             this.setupEventListeners();
             this.updateDataStatus();
-            console.log('OptionsManager initialized successfully');
+
         } catch (error) {
-            console.error('❌ Failed to initialize Options Manager:', error);
+            console.error('Failed to initialize Options Manager:', error);
             this.showInitializationError(error);
         }
     }
@@ -115,7 +115,7 @@ class OptionsManager {
     }
 
     setupEventListeners() {
-        console.log('Setting up event listeners...');
+
         
         // Firebase configuration
         const saveBtn = document.getElementById('save-firebase-config');
@@ -218,7 +218,7 @@ class OptionsManager {
     }
 
     async backupData() {
-        console.log('Backing up data...');
+
         try {
             const data = await chrome.storage.local.get(null);
             const dataStr = JSON.stringify(data, null, 2);
@@ -241,7 +241,7 @@ class OptionsManager {
     }
 
     async restoreData() {
-        console.log('Restoring data...');
+
         const input = document.createElement('input');
         input.type = 'file';
         input.accept = '.json';
@@ -268,7 +268,7 @@ class OptionsManager {
     }
 
     async exportData() {
-        console.log('Exporting data...');
+
         await this.backupData();
     }
 
@@ -288,12 +288,12 @@ class OptionsManager {
     }
 
     async loadCurrentSettings() {
-        console.log('Loading current settings...');
+
         
         try {
             // Load Firebase config
             const config = await this.envConfig.loadConfig();
-            console.log('Loaded config:', config ? 'Config found' : 'No config found');
+
             
             if (config && config.firebase && config.firebase.apiKey) {
                 this.populateFirebaseFields(config.firebase);
@@ -341,7 +341,7 @@ class OptionsManager {
                 'compressionEnabled'
             ]);
             
-            console.log('Sync preferences:', result);
+
 
             const autoSyncEnabled = result.autoSyncEnabled !== false;
             
@@ -387,7 +387,7 @@ class OptionsManager {
     }
 
     async saveFirebaseConfig() {
-        console.log('Saving Firebase configuration...');
+
         
         try {
             this.showMessage('Saving configuration...', 'warning');
@@ -406,11 +406,7 @@ class OptionsManager {
                 appId: getElementValue('firebase-app-id')
             };
 
-            console.log('Firebase config to save:', {
-                apiKey: firebaseConfig.apiKey ? firebaseConfig.apiKey.substring(0, 10) + '...' : 'empty',
-                projectId: firebaseConfig.projectId || 'empty',
-                authDomain: firebaseConfig.authDomain || 'empty'
-            });
+
 
             // Basic validation
             if (!firebaseConfig.apiKey || !firebaseConfig.projectId) {
@@ -428,7 +424,7 @@ class OptionsManager {
     }
 
     async testFirebaseConnection() {
-        console.log('Testing Firebase connection...');
+
         
         try {
             this.showMessage('Testing connection...', 'warning');
@@ -442,11 +438,7 @@ class OptionsManager {
                 return;
             }
 
-            console.log('Testing Firebase with config:', {
-                apiKey: config.firebase.apiKey?.substring(0, 10) + '...',
-                projectId: config.firebase.projectId,
-                hasOtherFields: Object.keys(config.firebase).length
-            });
+
 
             // First try Firebase Auth API test
             await this.testFirebaseAuth(config.firebase);

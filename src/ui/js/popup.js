@@ -658,7 +658,7 @@ class VocabSRSPopup {
           const analytics = new window.VocabAnalytics();
           await analytics.ensureInitialized();
           exportData.analytics = await analytics.getAnalyticsData();
-          console.log('✅ Analytics data exported');
+
         }
       } catch (error) {
         console.warn('Failed to export analytics:', error);
@@ -675,7 +675,7 @@ class VocabSRSPopup {
             achievements: await gamification.getAllAchievements(),
             dailyChallenge: await gamification.getCurrentChallenge()
           };
-          console.log('✅ Gamification data exported');
+
         }
       } catch (error) {
         console.warn('Failed to export gamification:', error);
@@ -687,7 +687,7 @@ class VocabSRSPopup {
         if (typeof chrome.storage !== 'undefined' && chrome.storage.local) {
           const storageData = await chrome.storage.local.get(null);
           exportData.storage = storageData;
-          console.log('✅ Storage data exported');
+
         }
       } catch (error) {
         console.warn('Failed to export storage:', error);
@@ -826,7 +826,7 @@ class VocabSRSPopup {
               if (window.AnalyticsStorage) {
                 await window.AnalyticsStorage.saveData(mergedData);
                 importedAnalytics = true;
-                console.log('✅ Analytics data imported');
+
               }
             }
           } catch (error) {
@@ -855,7 +855,7 @@ class VocabSRSPopup {
                 if (window.GamificationStorage) {
                   await window.GamificationStorage.saveData(mergedStats);
                   importedGamification = true;
-                  console.log('✅ Gamification data imported');
+
                 }
               }
             }
@@ -878,7 +878,7 @@ class VocabSRSPopup {
               
               await chrome.storage.local.set(mergedStorage);
               importedStorage = true;
-              console.log('✅ Storage data imported');
+
             }
           } catch (error) {
             console.warn('Failed to import storage:', error);

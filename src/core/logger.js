@@ -75,5 +75,4 @@ const logger = new VocabLogger();
 if (typeof window !== 'undefined') {
   window.VocabLogger = VocabLogger;
   window.logger = logger;
-  console.log("✅ VocabLogger and logger exposed to window");
 }
