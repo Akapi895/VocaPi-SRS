@@ -14,9 +14,45 @@ class VocabSRSReview {
     this.timeTracker = new window.TimeTracker(30000);
     this.antiPaste = new window.AntiPasteGuard();
 
+    // ✅ THÊM: Tạo analytics và gamification instances
+    this.analytics = null;
+    this.gamification = null;
+    this.initAnalytics();
+    this.initGamification();
+
     this.init();
     this.timeTracker.setupWindowTracking();
     this.initSRSFallback();
+  }
+
+  // ✅ THÊM: Method để init analytics
+  async initAnalytics() {
+    try {
+      if (window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
+        this.analytics = new window.VocabAnalytics();
+        await this.analytics.ensureInitialized();
+        console.log('✅ VocabAnalytics initialized in constructor');
+      } else {
+        console.warn('⚠️ VocabAnalytics not available in constructor');
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize analytics in constructor:', error);
+    }
+  }
+
+  // ✅ THÊM: Method để init gamification
+  async initGamification() {
+    try {
+      if (window.VocabGamification && typeof window.VocabGamification === 'function') {
+        this.gamification = new window.VocabGamification();
+        await this.gamification.initializeGamification();
+        console.log('✅ Gamification initialized in review');
+      } else {
+        console.warn('⚠️ VocabGamification not available in review');
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize gamification in review:', error);
+    }
   }
 
   async init() {
@@ -24,7 +60,7 @@ class VocabSRSReview {
         if (window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
             this.analytics = new window.VocabAnalytics();
             await this.analytics.ensureInitialized();
-            await this.analytics.startSession();
+            // await this.analytics.startSession();
         }
     } catch (err) {
       console.warn('Analytics init failed:', err);
@@ -204,6 +240,85 @@ class VocabSRSReview {
             console.warn("Storage update failed, continuing with local data:", storageError);
         }
 
+        // ✅ SỬA: Tạo VocabAnalytics instance nếu chưa có
+        if (!this.analytics && window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
+          try {
+            this.analytics = new window.VocabAnalytics();
+            await this.analytics.ensureInitialized();
+            console.log('✅ VocabAnalytics instance created');
+          } catch (analyticsError) {
+            console.error('❌ Failed to create VocabAnalytics instance:', analyticsError);
+          }
+        }
+
+        // ✅ SỬA: Tạo Gamification instance nếu chưa có
+        if (!this.gamification && window.VocabGamification && typeof window.VocabGamification === 'function') {
+          try {
+            this.gamification = new window.VocabGamification();
+            await this.gamification.initializeGamification();
+            console.log('✅ Gamification instance created');
+          } catch (gamificationError) {
+            console.error('❌ Failed to create Gamification instance:', gamificationError);
+          }
+        }
+
+        // ✅ SỬA: Sử dụng instance đã tạo
+        if (this.analytics && typeof this.analytics.recordWordReview === 'function') {
+          try {
+            console.log('📊 Recording word review for analytics:', {
+              wordId: currentWord.id,
+              userAnswer: this.userAnswer || '(quality only)',
+              correctAnswer: currentWord.word,
+              quality: quality,
+              timeSpent: this.getResponseTime() || 0
+            });
+            
+            await this.analytics.recordWordReview(
+              currentWord.id,
+              this.userAnswer || '(quality only)',
+              currentWord.word,
+              quality,
+              this.getResponseTime() || 0
+            );
+            
+            console.log('✅ Analytics data recorded successfully');
+            
+            // ✅ THÊM: Gamification tracking
+            if (this.gamification && typeof this.gamification.handleWordReview === 'function') {
+              try {
+                const isCorrect = this.userAnswer.toLowerCase() === currentWord.word.toLowerCase();
+                await this.gamification.handleWordReview(
+                  currentWord.id,
+                  isCorrect,
+                  quality,
+                  this.getResponseTime() || 0
+                );
+                console.log('🎮 Gamification updated for review');
+              } catch (gamificationError) {
+                console.error('❌ Failed to update gamification:', gamificationError);
+              }
+            }
+            
+            // Dispatch event để dashboard refresh
+            const event = new CustomEvent('wordReviewed', {
+              detail: { 
+                wordId: currentWord.id, 
+                userAnswer: this.userAnswer || '(quality only)',
+                correctAnswer: currentWord.word,
+                quality: quality,
+                timeSpent: this.getResponseTime() || 0
+              }
+            });
+            window.dispatchEvent(event);
+            console.log('📡 Word reviewed event dispatched');
+            
+          } catch (analyticsError) {
+            console.error('❌ Failed to record analytics:', analyticsError);
+          }
+        } else {
+          console.warn('⚠️ VocabAnalytics not available for tracking');
+        }
+
         this.reviewStats.reviewed++;
         if (quality >= 3) this.reviewStats.correct++;
 
@@ -240,6 +355,31 @@ class VocabSRSReview {
     
     this.showFeedback(isCorrect, currentWord.word);
     this.pendingQuality = isCorrect ? (this.wasHintUsed ? 3 : 4) : 1;
+    
+    // ✅ THÊM: Record analytics data for answer check
+    if (window.VocabAnalytics && typeof window.VocabAnalytics.recordWordReview === 'function') {
+      try {
+        console.log('📊 Recording answer check for analytics:', {
+          wordId: currentWord.id,
+          userAnswer: userInput,
+          correctAnswer: currentWord.word,
+          isCorrect: isCorrect,
+          timeSpent: this.getResponseTime() || 0
+        });
+        
+        // Record as a review session (quality will be recorded later in submitQuality)
+        window.VocabAnalytics.recordWordReview(
+          currentWord.id,
+          userInput,
+          currentWord.word,
+          isCorrect ? 4 : 1, // Temporary quality
+          this.getResponseTime() || 0
+        );
+        
+      } catch (analyticsError) {
+        console.error('❌ Failed to record answer check:', analyticsError);
+      }
+    }
   }
 
   checkRetypeAnswer() {
@@ -253,6 +393,30 @@ class VocabSRSReview {
     
     if (retypeInput.toLowerCase() === correctWord.toLowerCase()) {
         const quality = this.wasSkipped ? 0 : 1;
+        
+        // ✅ THÊM: Record analytics data for retype
+        if (window.VocabAnalytics && typeof window.VocabAnalytics.recordWordReview === 'function') {
+          try {
+            console.log('📊 Recording retype for analytics:', {
+              wordId: this.currentWordData.id,
+              userAnswer: retypeInput,
+              correctAnswer: correctWord,
+              quality: quality,
+              timeSpent: this.getResponseTime() || 0
+            });
+            
+            window.VocabAnalytics.recordWordReview(
+              this.currentWordData.id,
+              retypeInput,
+              correctWord,
+              quality,
+              this.getResponseTime() || 0
+            );
+            
+          } catch (analyticsError) {
+            console.error('❌ Failed to record retype:', analyticsError);
+          }
+        }
         
         this.submitQuality(quality).then(() => {
             this.nextCard();
@@ -592,7 +756,15 @@ updateProgressInfo() {
 
   getResponseTime() {
     if (this.currentWordStartTime) {
-      return Date.now() - this.currentWordStartTime;
+      const timeSpent = Date.now() - this.currentWordStartTime;
+      console.log('⏱️ Response time calculated:', {
+        startTime: this.currentWordStartTime,
+        endTime: Date.now(),
+        timeSpent: timeSpent,
+        timeSpentSeconds: Math.round(timeSpent / 1000 * 100) / 100,
+        timeSpentMinutes: Math.round(timeSpent / 60000 * 100) / 100
+      });
+      return timeSpent;
     }
     return null;
   }

@@ -1,10 +1,8 @@
-import { VocabGamification } from "./gamification.js";
-
-export class FastGamificationWidget {
+class FastGamificationWidget {
   constructor() {
     this.cachedData = null;
-    this.loadStartTime = Date.now();
     this.isLoading = false;
+    this.cacheExpiry = 5 * 60 * 1000; // 5 minutes
   }
 
   render(container) {
@@ -51,14 +49,16 @@ export class FastGamificationWidget {
 
     try {
       const gamification = await this.getGamificationInstance();
-      const data = await gamification.getPlayerStats();
-      const challenge = await gamification.getCurrentChallenge();
+      const [data, challenge] = await Promise.all([
+        gamification.getPlayerStats(),
+        gamification.getCurrentChallenge()
+      ]);
 
       const processedData = {
         level: data?.level || 1,
         currentXP: data?.currentXP || 0,
         xpToNextLevel: data?.xpForNextLevel || 100,
-        xpPercentage: ((data?.currentXP || 0) / (data?.xpForNextLevel || 100)) * 100,
+        xpPercentage: Math.min(((data?.currentXP || 0) / (data?.xpForNextLevel || 100)) * 100, 100),
         challenge: challenge ? {
           icon: this.getChallengeIcon(challenge.type),
           progress: challenge.progress || 0,
@@ -81,7 +81,12 @@ export class FastGamificationWidget {
     if (window.gamificationInstance?.initialized) {
       return window.gamificationInstance;
     }
-    const gamification = new VocabGamification();
+    
+    if (!window.VocabGamification) {
+      throw new Error("VocabGamification not available");
+    }
+    
+    const gamification = new window.VocabGamification();
     await gamification.initializeGamification();
     window.gamificationInstance = gamification;
     return gamification;
@@ -93,22 +98,32 @@ export class FastGamificationWidget {
 
     widget.style.opacity = "1";
 
-    widget.querySelector(".mini-level").textContent = `Lvl ${data.level}`;
-    widget.querySelector(".mini-xp-fill").style.width = `${data.xpPercentage}%`;
-    widget.querySelector(".mini-xp").textContent = `${data.currentXP}/${data.xpToNextLevel}`;
+    const levelEl = widget.querySelector(".mini-level");
+    const xpFillEl = widget.querySelector(".mini-xp-fill");
+    const xpEl = widget.querySelector(".mini-xp");
+
+    if (levelEl) levelEl.textContent = `Lvl ${data.level}`;
+    if (xpFillEl) xpFillEl.style.width = `${data.xpPercentage}%`;
+    if (xpEl) xpEl.textContent = `${data.currentXP}/${data.xpToNextLevel}`;
 
     if (data.challenge) {
-      widget.querySelector(".mini-challenge-icon").textContent = data.challenge.icon;
-      widget.querySelector(".mini-challenge-progress").textContent =
-        `${data.challenge.progress}/${data.challenge.target}`;
-      widget.querySelector(".mini-challenge").style.opacity = "1";
+      const challengeEl = widget.querySelector(".mini-challenge");
+      const iconEl = widget.querySelector(".mini-challenge-icon");
+      const progressEl = widget.querySelector(".mini-challenge-progress");
+      
+      if (iconEl) iconEl.textContent = data.challenge.icon;
+      if (progressEl) progressEl.textContent = `${data.challenge.progress}/${data.challenge.target}`;
+      if (challengeEl) challengeEl.style.opacity = "1";
     }
   }
 
   showLoadingState(container) {
     const widget = container.querySelector(".mini-gamification-widget");
     if (widget) {
-      widget.innerHTML += `<div class="loading-overlay">Loading...</div>`;
+      const loadingEl = widget.querySelector(".loading-overlay");
+      if (!loadingEl) {
+        widget.innerHTML += `<div class="loading-overlay">Loading...</div>`;
+      }
     }
   }
 
@@ -124,9 +139,13 @@ export class FastGamificationWidget {
       const cached = localStorage.getItem("fastGamificationCache");
       if (cached) {
         const data = JSON.parse(cached);
-        if (Date.now() - data.timestamp < 5 * 60 * 1000) return data.content;
+        if (Date.now() - data.timestamp < this.cacheExpiry) {
+          return data.content;
+        }
       }
-    } catch {}
+    } catch (error) {
+      console.warn("Cache read error:", error);
+    }
     return null;
   }
 
@@ -136,11 +155,17 @@ export class FastGamificationWidget {
         content: data,
         timestamp: Date.now()
       }));
-    } catch {}
+    } catch (error) {
+      console.warn("Cache write error:", error);
+    }
   }
 
   clearCache() {
-    localStorage.removeItem("fastGamificationCache");
+    try {
+      localStorage.removeItem("fastGamificationCache");
+    } catch (error) {
+      console.warn("Cache clear error:", error);
+    }
     this.cachedData = null;
   }
 
@@ -153,4 +178,15 @@ export class FastGamificationWidget {
     };
     return icons[type] || "🎯";
   }
+}
+
+// Export for use in extension - Đảm bảo được expose đúng cách
+if (typeof window !== 'undefined') {
+  // Expose class
+  window.FastGamificationWidget = FastGamificationWidget;
+  
+  // Create and expose instance
+  window.fastGamificationWidget = new FastGamificationWidget();
+  
+  console.log('⚡ FastGamificationWidget exposed on window object');
 }

@@ -1,29 +1,38 @@
 function updateStreak(data) {
-  const yesterday = new Date();
-  yesterday.setDate(yesterday.getDate() - 1);
+  const now = new Date();
+  const today = now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
   const yesterdayStr = yesterday.toDateString();
 
-  if (data.dailyStats[yesterdayStr] || data.currentStreak === 0) {
-    data.currentStreak++;
+  const todayStats = data.dailyStats[today];
+  const yesterdayStats = data.dailyStats[yesterdayStr];
+  
+  // Kiểm tra điều kiện streak hôm nay
+  const hasEnoughReviewsToday = todayStats && todayStats.reviewsCount >= 5;
+  const hadEnoughReviewsYesterday = yesterdayStats && yesterdayStats.reviewsCount >= 5;
+  
+  if (hasEnoughReviewsToday) {
+    if (hadEnoughReviewsYesterday) {
+      // Tiếp tục streak
+      data.currentStreak++;
+    } else if (data.currentStreak === 0) {
+      // Bắt đầu streak mới
+      data.currentStreak = 1;
+    }
+    // Nếu hôm qua không đủ reviews nhưng hôm nay có, giữ nguyên streak
   } else {
-    data.currentStreak = 1;
+    // Hôm nay không đủ reviews, reset streak về 0
+    data.currentStreak = 0;
   }
 
+  // Cập nhật best streak
   if (data.currentStreak > data.bestStreak) {
     data.bestStreak = data.currentStreak;
   }
 }
 
-export async function recordWordReview(
-  data,
-  wordId,
-  userAnswer,
-  correctAnswer,
-  quality,
-  timeSpent,
-  gamification,
-  saveFn
-) {
+async function recordWordReview(data, wordId, userAnswer, correctAnswer, quality, timeSpent, gamification, saveFn) {
   const now = new Date();
   const today = now.toDateString();
   const isCorrect =
@@ -69,7 +78,7 @@ export async function recordWordReview(
   if (!dailyData.uniqueWords.includes(wordId))
     dailyData.uniqueWords.push(wordId);
 
-  // Cập nhật streak
+  // Cập nhật streak mỗi khi review để đảm bảo tính chính xác
   updateStreak(data);
 
   // Lưu lại session
@@ -83,26 +92,60 @@ export async function recordWordReview(
     timeSpent,
   });
 
-  // Giới hạn số session (tối đa 1000)
+  // Giới hạn số session (tối đa 1000) - tối ưu performance
   if (data.reviewSessions.length > 1000) {
     data.reviewSessions = data.reviewSessions.slice(-1000);
   }
 
+  // ✅ THÊM: Debug logs cho time
+  console.log('⏱️ Time debug:', {
+    originalTimeSpent: timeSpent,
+    timeSpentMinutes: Math.round(timeSpent / 60000 * 100) / 100,
+    currentTotalTime: data.totalTimeSpent,
+    newTotalTime: data.totalTimeSpent + Math.round(timeSpent / 60000 * 100) / 100
+  });
+  
+  // Update total time spent (in minutes)
+  const timeSpentMinutes = Math.round(timeSpent / 60000 * 100) / 100;
+  data.totalTimeSpent += timeSpentMinutes;
+  
   // Tổng thời gian + ngày review cuối
-  data.totalTimeSpent += timeSpent;
   data.lastReviewDate = now.toISOString();
 
   // Lưu vào storage
-  await saveFn("vocabAnalytics", data);
+  if (saveFn) {
+    try {
+      console.log('💾 Saving analytics data to storage:', data);
+      console.log('🔍 Data keys:', Object.keys(data));
+      console.log('🔍 Review sessions count:', data.reviewSessions?.length);
+      console.log('🔍 Daily stats:', data.dailyStats);
+      
+      // ✅ SỬA: Gọi saveFn với đúng tham số
+      await saveFn(data);
+      console.log('✅ Analytics data saved successfully');
+      
+      // ✅ THÊM: Verify data was saved
+      if (window.AnalyticsStorage) {
+        const savedData = await window.AnalyticsStorage.getData();
+        console.log('🔍 Verified saved data:', savedData);
+      }
+    } catch (error) {
+      console.error('❌ Failed to save analytics data:', error);
+    }
+  }
 
   // Gamification (nếu có)
-  if (gamification) {
-    await gamification.handleWordReview(
-      wordId,
-      isCorrect,
-      quality,
-      timeSpent
-    );
+  if (gamification && typeof gamification.handleWordReview === 'function') {
+    try {
+      await gamification.handleWordReview(
+        wordId,
+        isCorrect,
+        quality,
+        timeSpent
+      );
+    } catch (error) {
+      console.warn('Gamification update failed:', error);
+    }
   }
 
   console.log("📊 Word review recorded:", {
@@ -111,4 +154,9 @@ export async function recordWordReview(
     quality,
     timeSpent,
   });
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.recordWordReview = recordWordReview;
 }

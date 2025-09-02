@@ -1,7 +1,3 @@
-import { VocabGamification } from "./gamification.js";
-import { FastGamificationWidget } from "./fast-gamification.js";
-import { VocabAnalytics } from "../analytics/core/vocab-analytics.js";
-
 class GamificationUI {
   constructor() {
     this.gamification = null;
@@ -11,28 +7,55 @@ class GamificationUI {
 
   async init() {
     if (this.initialized) return;
+    
     try {
-      this.analytics = new VocabAnalytics();
-      await this.analytics.ensureInitialized();
+      // Wait for gamification components to be ready
+      if (!window.VocabGamification || !window.VocabAnalytics) {
+        await this.waitForComponents();
+      }
 
-      this.gamification =
-        this.analytics?.gamification ||
-        (this.analytics?.initGamification && (await this.analytics.initGamification(), this.analytics.gamification)) ||
-        (typeof VocabGamification !== "undefined" && new VocabGamification()) ||
-        (window?.VocabGamification && new window.VocabGamification());
+      // Try to get analytics instance
+      if (window.VocabAnalytics) {
+        this.analytics = new window.VocabAnalytics();
+        await this.analytics.ensureInitialized();
+      }
 
-      if (!this.gamification) throw new Error("Unable to initialize gamification system");
-      if (typeof this.gamification.initializeGamification === "function") await this.gamification.initializeGamification();
+      // Initialize gamification
+      this.gamification = await this.initializeGamification();
 
-      // Test
-      try { await this.gamification.getPlayerStats(); } 
-      catch { await this.gamification.initializeGamification(); }
+      if (!this.gamification) {
+        throw new Error("Unable to initialize gamification system");
+      }
 
       window.addEventListener("vocabAnalyticsUpdated", this.handleAnalyticsUpdate.bind(this));
       this.initialized = true;
+      console.log('🎮 GamificationUI initialized successfully');
     } catch (error) {
       console.error("❌ Gamification UI init failed:", error);
+      // Don't throw, just log the error
     }
+  }
+
+  async initializeGamification() {
+    // Try different initialization strategies
+    if (this.analytics?.gamification) {
+      return this.analytics.gamification;
+    }
+
+    if (this.analytics?.initGamification) {
+      await this.analytics.initGamification();
+      if (this.analytics.gamification) {
+        return this.analytics.gamification;
+      }
+    }
+
+    if (window.VocabGamification) {
+      const gamification = new window.VocabGamification();
+      await gamification.initializeGamification();
+      return gamification;
+    }
+
+    throw new Error("No gamification system available");
   }
 
   // --------- Rendering ---------
@@ -43,7 +66,7 @@ class GamificationUI {
     try {
       const [data, achievements, challenge] = await Promise.all([
         this.gamification.getPlayerStats(),
-        this.gamification.getAchievements(),
+        this.gamification.getUnlockedAchievements(),
         this.gamification.getCurrentChallenge()
       ]);
 
@@ -143,12 +166,13 @@ class GamificationUI {
   renderStatsGrid(data) {
     const stats = [
       { icon: "🎯", number: data.totalWords || 0, label: "Words Learned" },
-      { icon: "🔥", number: `${data.currentStreak || 0} day${data.currentStreak === 1 ? "" : "s"}`, label: "Current Streak" },
-      { icon: "⚡", number: data.totalXP || 0, label: "Total XP" },
+      { icon: "��", number: `${data.streakDays || 0} day${(data.streakDays || 0) === 1 ? "" : "s"}`, label: "Current Streak" },
+      { icon: "⚡", number: data.currentXP || 0, label: "Total XP" },
       { icon: "🏆", number: data.achievementCount || 0, label: "Achievements" },
-      { icon: "📈", number: `${Math.round((data.accuracy || 0) * 100)}%`, label: "Accuracy" },
-      { icon: "⭐", number: data.perfectSessions || 0, label: "Perfect Sessions" }
+      { icon: "��", number: `${data.accuracy || 0}%`, label: "Accuracy" },
+      { icon: "⭐", number: data.bestDayReviews || 0, label: "Best Day" }
     ];
+    
     return `<div class="stats-grid">${stats.map(s => `
       <div class="stat-card-gam">
         <div class="stat-icon">${s.icon}</div>
@@ -216,6 +240,41 @@ class GamificationUI {
     const diff = tomorrow - now, h = Math.floor(diff/36e5), m = Math.floor((diff%36e5)/6e4);
     return `${h}h ${m}m left`;
   }
+
+  async waitForComponents() {
+    return new Promise((resolve) => {
+      if (window.VocabGamification && window.VocabAnalytics) {
+        resolve();
+        return;
+      }
+
+      const checkComponents = () => {
+        if (window.VocabGamification && window.VocabAnalytics) {
+          resolve();
+        } else {
+          setTimeout(checkComponents, 100);
+        }
+      };
+
+      checkComponents();
+    });
+  }
 }
 
-export const gamificationUI = new GamificationUI();
+// Export for use in extension - Đảm bảo được expose đúng cách
+if (typeof window !== 'undefined') {
+  // Expose class
+  window.GamificationUI = GamificationUI;
+  
+  // Create and expose instance
+  window.gamificationUI = new GamificationUI();
+  
+  // Auto-initialize if not in content script context
+  if (!window.chrome || !chrome.runtime) {
+    document.addEventListener('DOMContentLoaded', () => {
+      window.gamificationUI.init();
+    });
+  }
+  
+  console.log('🎮 GamificationUI exposed on window object');
+}

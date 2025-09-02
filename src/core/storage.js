@@ -11,6 +11,7 @@ const VocabStorage = {
       if (response && response.success) {
         const words = response.words || [];
         console.log(`✅ [VocabStorage] Got ${words.length} words from Chrome Storage`);
+        console.log('📊 [VocabStorage] Sample words:', words.slice(0, 3).map(w => ({ id: w.id, word: w.word, srs: w.srs })));
         return words;
       }
       
@@ -232,7 +233,23 @@ const AnalyticsStorage = {
 
   async saveData(data) {
     try {
+      // ✅ SỬA: Kiểm tra data trước khi xử lý
+      if (!data || typeof data !== 'object') {
+        console.error('❌ Invalid data for saveData:', data);
+        throw new Error('Data must be an object');
+      }
+      
+      console.log('💾 AnalyticsStorage.saveData called with:', data);
+      console.log('🔍 Data type:', typeof data);
+      console.log('🔍 Data keys:', Object.keys(data));
+      
       await chrome.storage.local.set({ vocabAnalytics: data });
+      console.log('✅ Data saved to chrome.storage.local');
+      
+      // Verify save
+      const result = await chrome.storage.local.get(['vocabAnalytics']);
+      console.log('✅ Data saved, verification:', result.vocabAnalytics);
+      
       return true;
     } catch (error) {
       console.error('❌ [AnalyticsStorage] Error saving data:', error);

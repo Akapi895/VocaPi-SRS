@@ -1,22 +1,20 @@
-import { GamificationStorage } from "../../core/storage.js";
-
-export class VocabGamification {
+class VocabGamification {
     constructor() {
         this.initialized = false;
         this.data = {
-        level: 1,
-        xp: 0,
-        unlockedAchievements: [],
-        currentTitle: "Beginner",
-        dailyChallenge: null,
-        stats: {
-            totalWords: 0,
-            totalReviews: 0,
-            correctReviews: 0,
-            streakDays: 0,
-            qualitySum: 0,
-            bestDayReviews: 0
-        }
+            level: 1,
+            xp: 0,
+            unlockedAchievements: [],
+            currentTitle: "Beginner",
+            dailyChallenge: null,
+            stats: {
+                totalWords: 0,
+                totalReviews: 0,
+                correctReviews: 0,
+                streakDays: 0,
+                qualitySum: 0,
+                bestDayReviews: 0
+            }
         };
         this.analytics = null;
     }
@@ -151,16 +149,19 @@ export class VocabGamification {
         if (this.initialized) return;
 
         try {
-        const result = await GamificationStorage.getData();
-        if (result) {
-            this.data = { ...this.data, ...result };
-        }
+            // Try to get data from storage if available
+            if (window.GamificationStorage) {
+                const result = await window.GamificationStorage.getData();
+                if (result) {
+                    this.data = { ...this.data, ...result };
+                }
+            }
 
-        await this.ensureDailyChallenge();
-        this.initialized = true;
+            await this.ensureDailyChallenge();
+            this.initialized = true;
         } catch (error) {
-        console.error("❌ Gamification initialization error:", error);
-        this.initialized = true;
+            console.error("❌ Gamification initialization error:", error);
+            this.initialized = true; // Mark as initialized to prevent infinite retries
         }
     }
 
@@ -175,6 +176,12 @@ export class VocabGamification {
         if (isCorrect) this.data.stats.correctReviews++;
         this.data.stats.qualitySum += quality;
         
+        // Update word count from analytics
+        if (this.analytics) {
+            const analyticsData = await this.analytics.getAnalyticsData();
+            this.data.stats.totalWords = analyticsData?.totalWords || this.data.stats.totalWords;
+        }
+        
         // Award XP based on quality
         const xpGained = this.calculateReviewXP(quality, isCorrect, timeSpent);
         this.addXP(xpGained);
@@ -185,10 +192,17 @@ export class VocabGamification {
         // Check for new achievements
         await this.checkAchievements();
         
-        // Save changes
-        await GamificationStorage.saveData(this.data);
+        // Save changes if storage is available
+        if (window.GamificationStorage) {
+            await window.GamificationStorage.saveData(this.data);
+        }
         
-        console.log('🎮 Gamification updated:', { xpGained, level: this.data.level });
+        console.log('🎮 Gamification updated:', { 
+            xpGained, 
+            level: this.data.level, 
+            totalXP: this.data.xp,
+            totalWords: this.data.stats.totalWords
+        });
     }
 
     /**
@@ -207,7 +221,19 @@ export class VocabGamification {
         // Speed bonus (if answered quickly)
         const speedBonus = timeSpent < 2000 ? 3 : 0;
         
-        return baseXP + qualityBonus + speedBonus;
+        const totalXP = baseXP + qualityBonus + speedBonus;
+        
+        console.log('🎮 XP calculation:', {
+            baseXP,
+            correctBonus: isCorrect ? 5 : 0,
+            qualityBonus,
+            speedBonus,
+            totalXP,
+            quality,
+            timeSpent
+        });
+        
+        return totalXP;
     }
 
     /**
@@ -308,36 +334,35 @@ export class VocabGamification {
      * Update daily challenge progress
      */
     async updateDailyChallengeProgress(isCorrect, quality, timeSpent) {
-    const challenge = this.data.dailyChallenge;
-    if (!challenge || challenge.completed) return;
+        const challenge = this.data.dailyChallenge;
+        if (!challenge || challenge.completed) return;
 
-    // update progress
-    if (challenge.type === 'review-count') challenge.progress++;
-    if (challenge.type === 'accuracy') {
-        challenge.progress++;
-        challenge.accuracySum += isCorrect ? 1 : 0;
-    }
-    if (challenge.type === 'quality') {
-        challenge.progress++;
-        challenge.qualitySum += quality;
-    }
-    if (challenge.type === 'speed' && timeSpent <= challenge.maxTime) {
-        challenge.progress++;
-    }
+        // Update progress based on challenge type
+        if (challenge.type === 'review-count') {
+            challenge.progress++;
+        } else if (challenge.type === 'accuracy') {
+            challenge.progress++;
+            challenge.accuracySum += isCorrect ? 1 : 0;
+        } else if (challenge.type === 'quality') {
+            challenge.progress++;
+            challenge.qualitySum += quality;
+        } else if (challenge.type === 'speed' && timeSpent <= challenge.maxTime) {
+            challenge.progress++;
+        }
 
-    // check completion
-    const rules = {
-        'review-count': () => true,
-        'accuracy': () => (challenge.accuracySum / challenge.progress) >= challenge.minAccuracy,
-        'quality': () => (challenge.qualitySum / challenge.progress) >= challenge.minQuality,
-        'speed': () => true
-    };
+        // Check completion
+        const rules = {
+            'review-count': () => true,
+            'accuracy': () => (challenge.accuracySum / challenge.progress) >= challenge.minAccuracy,
+            'quality': () => (challenge.qualitySum / challenge.progress) >= challenge.minQuality,
+            'speed': () => true
+        };
 
-    if (challenge.progress >= challenge.target && rules[challenge.type]()) {
-        challenge.completed = true;
-        this.addXP(challenge.xpReward);
-        console.log(`🎯 Daily challenge completed: ${challenge.name} (+${challenge.xpReward} XP)`);
-    }
+        if (challenge.progress >= challenge.target && rules[challenge.type]()) {
+            challenge.completed = true;
+            this.addXP(challenge.xpReward);
+            console.log(`🎯 Daily challenge completed: ${challenge.name} (+${challenge.xpReward} XP)`);
+        }
     }
 
     /**
@@ -398,6 +423,22 @@ export class VocabGamification {
      */
     async updateWordCount(totalWords) {
         this.data.stats.totalWords = totalWords;
-        await GamificationStorage.saveData(this.data);
+        if (window.GamificationStorage) {
+            await window.GamificationStorage.saveData(this.data);
+        }
     }
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  // Expose class
+  window.VocabGamification = VocabGamification;
+  
+  // Create and expose instance
+  window.vocabGamification = new VocabGamification();
+  
+  console.log('🎮 VocabGamification exposed on window object:', {
+    class: !!window.VocabGamification,
+    instance: !!window.vocabGamification
+  });
 }

@@ -1,4 +1,5 @@
-export function getQualityDistribution(data) {
+// Analytics Stats Functions
+function getQualityDistribution(data) {
   const distribution = { 1:0, 2:0, 3:0, 4:0, 5:0 };
   data.reviewSessions.forEach(session => {
     if (session.quality && distribution[session.quality] !== undefined) {
@@ -8,7 +9,7 @@ export function getQualityDistribution(data) {
   return distribution;
 }
 
-export function getBestStudyTime(data) {
+function getBestStudyTime(data) {
   if (!data.reviewSessions.length) return null;
 
   const hourStats = {};
@@ -26,7 +27,7 @@ export function getBestStudyTime(data) {
   return 'Evening';
 }
 
-export function getMostActiveDay(data) {
+function getMostActiveDay(data) {
   const dayStats = {};
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -42,7 +43,7 @@ export function getMostActiveDay(data) {
   return mostActiveDay;
 }
 
-export function getAverageSessionLength(data) {
+function getAverageSessionLength(data) {
   if (!data.reviewSessions.length) return 0; // minutes
 
   const totalTime = data.reviewSessions.reduce((sum, s) => sum + s.timeSpent, 0);
@@ -51,14 +52,14 @@ export function getAverageSessionLength(data) {
   return Math.round(avgTimeMs / 60000); // minutes
 }
 
-export function getOverallAccuracy(data) {
+function getOverallAccuracy(data) {
   if (!data.reviewSessions.length) return 0;
 
   const correct = data.reviewSessions.filter(s => s.isCorrect).length;
   return Math.round((correct / data.reviewSessions.length) * 100); // %
 }
 
-export function getWeeklyProgress(data) {
+function getWeeklyProgress(data) {
   const progress = [];
   const today = new Date();
 
@@ -79,9 +80,19 @@ export function getWeeklyProgress(data) {
   return progress;
 }
 
-export async function getDashboardStats(data, gamification) {
+async function getDashboardStats(data, gamification) {
+  console.log('🔍 getDashboardStats called with data:', data);
+  console.log('🔍 Data keys:', Object.keys(data));
+  console.log('🔍 Review sessions:', data.reviewSessions?.length);
+  console.log('🔍 Daily stats:', data.dailyStats);
+  console.log('🔍 Total words:', data.totalWords);
+  console.log('🔍 Current streak:', data.currentStreak);
+  console.log('🔍 Gamification:', gamification);
+  
   const today = new Date().toDateString();
   const todayStats = data.dailyStats[today] || { reviewsCount:0, correctCount:0, timeSpent:0 };
+  
+  console.log('🔍 Today stats:', todayStats);
 
   // gamification
   let totalXP = 0, achievementCount = 0;
@@ -95,13 +106,25 @@ export async function getDashboardStats(data, gamification) {
     ? Math.round((todayStats.correctCount / todayStats.reviewsCount) * 100)
     : 0;
 
-  return {
-    totalWordsLearned: data.totalWords,
-    currentStreak: data.currentStreak,
-    totalTimeSpent: Math.round(data.totalTimeSpent / 60000), // minutes
-    todayAccuracy,
-    totalXP,
-    achievementCount,
+  // ✅ THÊM: Lấy gamification data
+  let gamificationData = null;
+  if (gamification && typeof gamification.getPlayerStats === 'function') {
+    try {
+      gamificationData = await gamification.getPlayerStats();
+      console.log('🎮 Gamification data:', gamificationData);
+    } catch (error) {
+      console.error('❌ Failed to get gamification data:', error);
+    }
+  }
+
+  // ✅ SỬA: Sử dụng gamification data cho XP và achievements
+  const result = {
+    totalWordsLearned: data.totalWords || 0,
+    currentStreak: data.currentStreak || 0,
+    totalTimeSpent: data.totalTimeSpent || 0,
+    todayAccuracy: todayAccuracy,
+    totalXP: gamificationData?.currentXP || 0, // ✅ Sử dụng gamification XP
+    achievementCount: gamificationData?.achievementCount || 0, // ✅ Sử dụng gamification achievements
     weeklyProgress: getWeeklyProgress(data),
     qualityDistribution: getQualityDistribution(data),
     bestStudyTime: getBestStudyTime(data),
@@ -109,9 +132,12 @@ export async function getDashboardStats(data, gamification) {
     avgSessionLength: getAverageSessionLength(data),
     overallAccuracy: getOverallAccuracy(data)
   };
+  
+  console.log('🔍 getDashboardStats result:', result);
+  return result;
 }
 
-export function getDifficultWords(data) {
+function getDifficultWords(data) {
   const difficult = [];
 
   Object.entries(data.wordsLearned).forEach(([wordId, w]) => {
@@ -131,4 +157,18 @@ export function getDifficultWords(data) {
 
   difficult.sort((a,b) => a.accuracy - b.accuracy);
   return difficult.slice(0,10);
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.AnalyticsStats = {
+    getQualityDistribution,
+    getBestStudyTime,
+    getMostActiveDay,
+    getAverageSessionLength,
+    getOverallAccuracy,
+    getWeeklyProgress,
+    getDashboardStats,
+    getDifficultWords
+  };
 }

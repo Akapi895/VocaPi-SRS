@@ -2640,3 +2640,65 @@ html, body {
     text-align: center;
   }
 }
+
+.achievements-section .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.xp-display {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 12px 20px;
+    border-radius: 12px;
+    color: white;
+    box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+}
+
+.xp-icon {
+    font-size: 24px;
+    animation: pulse 2s infinite;
+}
+
+.xp-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.xp-label {
+    font-size: 12px;
+    opacity: 0.9;
+    margin-bottom: 2px;
+}
+
+.xp-value {
+    font-size: 20px;
+    font-weight: bold;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.2);
+}
+
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+    .achievements-section .section-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: stretch;
+    }
+    
+    .xp-display {
+        justify-content: center;
+    }
+}

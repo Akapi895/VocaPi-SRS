@@ -1,6 +1,4 @@
-import { DashboardUI } from './ui-components.js';
-
-export class DashboardState {
+class DashboardState {
   constructor() {
     this.data = { stats: null, weeklyProgress: null, difficultWords: null };
   }
@@ -35,6 +33,13 @@ export class DashboardState {
 
   updateState(partialData) {
     this.data = { ...this.data, ...partialData };
-    if (this.data.stats) DashboardUI.renderOverviewStats(this.data.stats);
+    if (this.data.stats && window.DashboardUI) {
+      window.DashboardUI.renderOverviewStats(this.data.stats);
+    }
   }
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.DashboardState = DashboardState;
 }

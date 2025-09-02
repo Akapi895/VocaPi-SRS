@@ -11,3 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
   
   waitForReviewClasses();
 });
+
+console.log('🔍 Scripts loaded, checking VocabAnalytics:', {
+  VocabAnalytics: !!window.VocabAnalytics,
+  recordWordReview: !!(window.VocabAnalytics && window.VocabAnalytics.recordWordReview),
+  VocabAnalyticsType: typeof window.VocabAnalytics
+});

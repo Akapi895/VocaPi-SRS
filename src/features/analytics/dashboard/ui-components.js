@@ -1,5 +1,15 @@
-export class DashboardUI {
+class DashboardUI {
   renderOverviewStats(stats) {
+    console.log('🔍 renderOverviewStats called with stats:', stats);
+    console.log('🔍 Stats keys:', Object.keys(stats));
+    console.log('🔍 Total words learned:', stats.totalWordsLearned);
+    console.log('🔍 Current streak:', stats.currentStreak);
+    console.log('🔍 Total time spent (raw):', stats.totalTimeSpent);
+    console.log('🔍 Total time spent (formatted):', this.formatTime(stats.totalTimeSpent));
+    console.log('🔍 Today accuracy:', stats.todayAccuracy);
+    console.log('🔍 Total XP:', stats.totalXP); // ✅ Thêm debug cho XP
+    console.log('🔍 Achievement count:', stats.achievementCount); // ✅ Thêm debug cho achievements
+    
     const totalWordsEl = document.getElementById('total-words');
     const currentStreakEl = document.getElementById('current-streak');
     const totalTimeEl = document.getElementById('total-time');
@@ -85,8 +95,15 @@ export class DashboardUI {
   }
 
   formatTime(minutes) {
+    // ✅ SỬA: Kiểm tra nếu minutes quá lớn (có thể là milliseconds)
+    if (minutes > 10000) {
+      // Nếu quá lớn, có thể là milliseconds, convert sang minutes
+      minutes = Math.round(minutes / 60000 * 100) / 100;
+    }
+    
     const hrs = Math.floor(minutes / 60);
-    const mins = minutes % 60;
+    const mins = Math.round(minutes % 60);
+    
     if (hrs > 0) {
       return `${hrs}h ${mins}m`;
     }
@@ -118,76 +135,79 @@ export class DashboardUI {
     document.getElementById('error-message').textContent = message;
   }
 
-  loadAchievements(achievements) {
-    const container = document.getElementById('achievements-grid');
-    container.innerHTML = '';
-    
-    if (achievements.length === 0) {
-      container.innerHTML = `
-        <div class="achievement-card">
-          <div class="achievement-icon">🎯</div>
-          <div class="achievement-info">
-            <h4>Start Learning!</h4>
-            <p>Complete your first review session to unlock achievements</p>
+  async loadAchievements(achievements) {
+    try {
+      console.log('🏆 Loading achievements:', achievements);
+      
+      const container = document.getElementById('achievements-grid');
+      if (!container) {
+        console.warn('⚠️ achievements-grid container not found');
+        return;
+      }
+
+      container.innerHTML = '';
+      
+      if (!achievements || achievements.length === 0) {
+        container.innerHTML = `
+          <div class="achievement-card">
+            <div class="achievement-icon">🎯</div>
+            <div class="achievement-info">
+              <h4>Start Learning!</h4>
+              <p>Complete your first review session to unlock achievements</p>
+            </div>
           </div>
-        </div>
-      `;
-      return;
+        `;
+        return;
+      }
+      
+      // ✅ SỬA: Hiển thị achievements thật
+      achievements.forEach(achievement => {
+        const achievementCard = document.createElement('div');
+        achievementCard.className = 'achievement-card unlocked';
+        achievementCard.innerHTML = `
+          <div class="achievement-icon">${achievement.icon}</div>
+          <div class="achievement-info">
+            <h4>${achievement.name}</h4>
+            <p>${achievement.description}</p>
+            <div class="achievement-xp">+${achievement.xpReward} XP</div>
+          </div>
+        `;
+        container.appendChild(achievementCard);
+      });
+      
+      console.log(`✅ Loaded ${achievements.length} achievements`);
+    } catch (error) {
+      console.error('❌ Error loading achievements:', error);
     }
-    
-    achievements.forEach(achievement => {
-      const achievementCard = document.createElement('div');
-      achievementCard.className = 'achievement-card';
-      achievementCard.innerHTML = `
-        <div class="achievement-icon">${achievement.icon}</div>
-        <div class="achievement-info">
-          <h4>${achievement.name}</h4>
-          <p>${achievement.description}</p>
-          <div class="achievement-xp">+${achievement.xp} XP</div>
-        </div>
-      `;
-      container.appendChild(achievementCard);
-    });
   }
   
   async loadDifficultWords(difficultWords) {
-    const container = document.getElementById('difficult-words-list');
-    container.innerHTML = '';
-    
-    if (difficultWords.length === 0) {
-      container.innerHTML = `
-        <div class="difficult-word-item">
-          <div class="word-info">
-            <div class="word-name">Great job! 🎉</div>
-            <div class="word-stats">No words are giving you trouble right now</div>
-          </div>
-        </div>
-      `;
-      return;
-    }
-    
     try {
-      const wordPromises = difficultWords.slice(0, 8).map(stat =>
-        window.VocabUtils.VocabStorage.getWord(stat.wordId).then(word => ({ word, stat }))
-      );
-      const wordsData = await Promise.all(wordPromises);
+      const container = document.getElementById('difficult-words-list');
+      if (!container) return;
 
-      wordsData.forEach(({ word, stat }) => {
-        if (!word) return;
+      if (!difficultWords || difficultWords.length === 0) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <p>No difficult words found. Great job!</p>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = '';
+      difficultWords.slice(0, 10).forEach(word => {
         const wordItem = document.createElement('div');
         wordItem.className = 'difficult-word-item';
-        const difficultyLevel = stat.difficultyScore > 0.7 ? 'high' : 'medium';
-        const difficultyText = stat.difficultyScore > 0.7 ? 'Very Hard' : 'Hard';
-        
         wordItem.innerHTML = `
           <div class="word-info">
-            <div class="word-name">${word.word}</div>
+            <div class="word-name">${word.wordId || 'Unknown'}</div>
             <div class="word-stats">
-              ${stat.attempts} attempts • ${Math.round(stat.avgQuality * 10) / 10} avg quality
+              ${word.reviewCount || 0} attempts • ${word.averageQuality || 0} avg quality
             </div>
           </div>
-          <div class="difficulty-badge difficulty-${difficultyLevel}">
-            ${difficultyText}
+          <div class="difficulty-badge difficulty-${word.accuracy < 50 ? 'high' : 'medium'}">
+            ${word.accuracy < 50 ? 'High' : 'Medium'} difficulty
           </div>
         `;
         container.appendChild(wordItem);
@@ -197,40 +217,108 @@ export class DashboardUI {
     }
   }
 
-  loadLearningPatterns(stats, weeklyData) {
-    console.log('📊 Loading learning patterns with real data:', { stats, weeklyData });
-    
-    const bestStudyTime = stats.bestStudyTime || 'No data yet';
-    document.getElementById('best-study-time').textContent = bestStudyTime;
+  loadLearningPatterns(dashboardStats, weeklyProgress) {
+    try {
+      console.log('📊 Loading learning patterns with real data:', { dashboardStats, weeklyProgress });
+      
+      const bestStudyTime = dashboardStats.bestStudyTime || 'No data yet';
+      const bestStudyTimeEl = document.getElementById('best-study-time');
+      if (bestStudyTimeEl) bestStudyTimeEl.textContent = bestStudyTime;
 
-    const dayTotals = weeklyData.reduce((acc, day) => {
-      const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' });
-      acc[dayName] = (acc[dayName] || 0) + day.words;
-      return acc;
-    }, {});
-    
-    const hasWeeklyActivity = Object.values(dayTotals).some(total => total > 0);
-    const mostActiveDay = hasWeeklyActivity 
-      ? Object.entries(dayTotals).sort(([,a], [,b]) => b - a)[0]?.[0] 
-      : 'No activity yet';
-    document.getElementById('most-active-day').textContent = mostActiveDay;
+      const dayTotals = weeklyProgress.reduce((acc, day) => {
+        const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' });
+        acc[dayName] = (acc[dayName] || 0) + day.words;
+        return acc;
+      }, {});
+      
+      const hasWeeklyActivity = Object.values(dayTotals).some(total => total > 0);
+      const mostActiveDay = hasWeeklyActivity 
+        ? Object.entries(dayTotals).sort(([,a], [,b]) => b - a)[0]?.[0] 
+        : 'No activity yet';
+      
+      const mostActiveDayEl = document.getElementById('most-active-day');
+      if (mostActiveDayEl) mostActiveDayEl.textContent = mostActiveDay;
 
-    const avgSessionDisplay = stats.avgSessionLength || 'No sessions yet';
-    document.getElementById('avg-session-length').textContent = avgSessionDisplay;
+      const avgSessionDisplay = dashboardStats.avgSessionLength || 'No sessions yet';
+      const avgSessionEl = document.getElementById('avg-session-length');
+      if (avgSessionEl) avgSessionEl.textContent = avgSessionDisplay;
 
-    const totalQualities = Object.values(stats.qualityDistribution || {});
-    const totalReviews = totalQualities.reduce((sum, count) => sum + count, 0);
-    const weightedScore = Object.entries(stats.qualityDistribution || {})
-      .reduce((sum, [quality, count]) => sum + (parseInt(quality) * count), 0);
-    
-    const overallAccuracy = totalReviews > 0 
-      ? Math.round((weightedScore / (totalReviews * 5)) * 100)
-      : 0;
-    
-    const accuracyDisplay = totalReviews > 0 
-      ? `${overallAccuracy}%`
-      : 'No reviews yet';
-    
-    document.getElementById('overall-accuracy').textContent = accuracyDisplay;
+      const totalQualities = Object.values(dashboardStats.qualityDistribution || {});
+      const totalReviews = totalQualities.reduce((sum, count) => sum + count, 0);
+      const weightedScore = Object.entries(dashboardStats.qualityDistribution || {})
+        .reduce((sum, [quality, count]) => sum + (parseInt(quality) * count), 0);
+      
+      const overallAccuracy = totalReviews > 0 
+        ? Math.round((weightedScore / (totalReviews * 5)) * 100)
+        : 0;
+      
+      const accuracyDisplay = totalReviews > 0 
+        ? `${overallAccuracy}%`
+        : 'No reviews yet';
+      
+      const overallAccuracyEl = document.getElementById('overall-accuracy');
+      if (overallAccuracyEl) overallAccuracyEl.textContent = accuracyDisplay;
+    } catch (error) {
+      console.error('Error loading learning patterns:', error);
+    }
   }
+
+  showEmptyState(stats) {
+    const container = document.querySelector('.analytics-container') || document.body;
+    const emptyDiv = document.createElement('div');
+    emptyDiv.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>📊 No Analytics Data Yet</h3>
+        <p>Complete some word reviews to see your learning analytics!</p>
+      </div>
+    `;
+    container.appendChild(emptyDiv);
+  }
+
+  showFallbackAnalytics() {
+    const container = document.querySelector('.analytics-container') || document.body;
+    const fallbackDiv = document.createElement('div');
+    fallbackDiv.innerHTML = `
+      <div style="text-align: center; padding: 40px; color: #666;">
+        <h3>📊 Analytics Unavailable</h3>
+        <p>Please try refreshing the page or contact support if the issue persists.</p>
+      </div>
+    `;
+    container.appendChild(fallbackDiv);
+  }
+
+  loadAchievements(achievements) {
+    // Implementation for loading achievements
+    console.log('Loading achievements:', achievements);
+  }
+
+  loadDifficultWords(difficultWords) {
+    // Implementation for loading difficult words
+    console.log('Loading difficult words:', difficultWords);
+  }
+
+  loadLearningPatterns(dashboardStats, weeklyProgress) {
+    // Implementation for loading learning patterns
+    console.log('Loading learning patterns:', { dashboardStats, weeklyProgress });
+  }
+
+  updateXPDisplay(xpValue) {
+    const totalXpEl = document.getElementById('total-xp');
+    if (totalXpEl) {
+      totalXpEl.textContent = (xpValue || 0).toLocaleString();
+      
+      // Thêm animation khi XP thay đổi
+      totalXpEl.style.transform = 'scale(1.1)';
+      setTimeout(() => {
+        totalXpEl.style.transform = 'scale(1)';
+      }, 200);
+      
+      console.log('XP display updated:', xpValue);
+    }
+  }
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.DashboardUI = DashboardUI;
 }

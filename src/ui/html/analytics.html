@@ -94,12 +94,15 @@
             <div class="section-header">
                 <h3>🏆 Recent Achievements</h3>
                 <div class="xp-display">
-                    <span class="xp-label">Total XP:</span>
-                    <span class="xp-value" id="total-xp">0</span>
+                    <div class="xp-icon">⚡</div>
+                    <div class="xp-info">
+                        <div class="xp-label">Total XP</div>
+                        <div class="xp-value" id="total-xp">0</div>
+                    </div>
                 </div>
             </div>
             <div class="achievements-grid" id="achievements-grid">
-                <!-- Achievements will be loaded dynamically -->
+                <!-- Achievements will be loaded here -->
             </div>
         </div>
 
@@ -171,14 +174,24 @@
     <!-- Core Dependencies -->
     <script src="../../core/utils.js"></script>
     
-    <!-- Analytics -->
-    <script src="../js/analytics.entry.js"></script>
+    <!-- Core Analytics - Load TRƯỚC mock -->
+    <script src="../../core/storage.js"></script>
+    <script src="../../features/analytics/core/word-tracking.js"></script>
+    <script src="../../features/analytics/core/stats.js"></script>
+    <script src="../../features/analytics/core/vocab-analytics.js"></script>
     
-    <!-- Gamification -->
-    <script src="../../features/gamification/index.js"></script>
-    <script src="../js/gamificationUI.js"></script>
+    <!-- ✅ THÊM: Gamification scripts -->
+    <script src="../../features/gamification/gamification.js"></script>
+    <script src="../../features/gamification/gamificationUI.js"></script>
+    <script src="../../features/gamification/fast-gamification.js"></script>
     
-    <!-- Dashboard -->
+    <!-- Dashboard Components -->
+    <script src="../../features/analytics/dashboard/state.js"></script>
+    <script src="../../features/analytics/dashboard/charts.js"></script>
+    <script src="../../features/analytics/dashboard/handlers.js"></script>
+    <script src="../../features/analytics/dashboard/ui-components.js"></script>
+    
+    <!-- Main Dashboard -->
     <script src="../js/analytics-dashboard.js"></script>
 </body>
 </html>

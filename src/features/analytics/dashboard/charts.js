@@ -1,6 +1,7 @@
-export class DashboardCharts {
+class DashboardCharts {
   constructor() {
     this.charts = {};
+    this.textChartWrappers = new Map(); // Cache text chart wrappers
   }
 
   destroyChart(key) {
@@ -8,6 +9,17 @@ export class DashboardCharts {
       this.charts[key].destroy();
       delete this.charts[key];
     }
+  }
+
+  // Cleanup all charts and text wrappers
+  destroyAll() {
+    Object.keys(this.charts).forEach(key => this.destroyChart(key));
+    this.textChartWrappers.forEach(wrapper => {
+      if (wrapper && wrapper.parentNode) {
+        wrapper.parentNode.removeChild(wrapper);
+      }
+    });
+    this.textChartWrappers.clear();
   }
 
   getChartOptions() {
@@ -113,7 +125,7 @@ export class DashboardCharts {
     }
   }
 
-  // Fallback
+  // Optimized text chart creation with caching
   createTextBasedWeeklyChart(weeklyData) {
     const canvas = document.getElementById('weekly-progress-chart');
     if (!canvas) {
@@ -123,12 +135,13 @@ export class DashboardCharts {
     
     const container = canvas.parentElement;
     
-    // Get or create wrapper for text chart
-    let textWrapper = container.querySelector('.text-chart-wrapper');
+    // Use cached wrapper or create new one
+    let textWrapper = this.textChartWrappers.get('weekly');
     if (!textWrapper) {
       textWrapper = document.createElement('div');
       textWrapper.className = 'text-chart-wrapper';
       container.appendChild(textWrapper);
+      this.textChartWrappers.set('weekly', textWrapper);
     }
     
     // Use provided data or fallback to default
@@ -331,4 +344,21 @@ export class DashboardCharts {
     
     console.log('📊 Text-based quality distribution chart created/updated');
   }
+
+  getDefaultWeeklyProgress() {
+    return [
+      { day: 'Mon', words: 0, time: 0 },
+      { day: 'Tue', words: 0, time: 0 },
+      { day: 'Wed', words: 0, time: 0 },
+      { day: 'Thu', words: 0, time: 0 },
+      { day: 'Fri', words: 0, time: 0 },
+      { day: 'Sat', words: 0, time: 0 },
+      { day: 'Sun', words: 0, time: 0 }
+    ];
+  }
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.DashboardCharts = DashboardCharts;
 }

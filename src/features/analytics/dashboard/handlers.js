@@ -1,6 +1,3 @@
-import { DashboardUI } from './ui-components.js';
-import { DashboardCharts } from './charts.js';
-
 function debounce(fn, delay) {
   let timer;
   return (...args) => {
@@ -9,20 +6,22 @@ function debounce(fn, delay) {
   };
 }
 
-export class DashboardHandlers {
+class DashboardHandlers {
   constructor(dashboard) {
     this.dashboard = dashboard;
-    this.charts = new DashboardCharts();
+    this.charts = new window.DashboardCharts();
+    this.boundHandleAnalyticsUpdate = this.handleAnalyticsUpdate.bind(this);
+    this.boundHandleRefresh = this.handleRefresh.bind(this);
   }
 
   bindEvents() {
     window.addEventListener('vocabAnalyticsUpdated',
-      debounce(event => this.handleAnalyticsUpdate(event), 250)
+      debounce(this.boundHandleAnalyticsUpdate, 250)
     );
 
     const actions = {
       'back-to-main': () => history.back(),
-      'refresh-analytics': () => this.dashboard.loadDashboard(),
+      'refresh-analytics': this.boundHandleRefresh,
       'retry-analytics': () => this.dashboard.init()
     };
 
@@ -30,6 +29,14 @@ export class DashboardHandlers {
       const el = document.getElementById(id);
       if (el) el.addEventListener('click', handler);
     });
+  }
+
+  // Cleanup method to prevent memory leaks
+  cleanup() {
+    window.removeEventListener('vocabAnalyticsUpdated', this.boundHandleAnalyticsUpdate);
+    if (this.charts) {
+      this.charts.destroyAll();
+    }
   }
 
   async handleAnalyticsUpdate(event) {
@@ -41,11 +48,14 @@ export class DashboardHandlers {
         window.VocabAnalytics.getDifficultWords().catch(() => [])
       ]);
 
-      DashboardUI.renderOverviewStats(stats);
+      if (window.DashboardUI) {
+        window.DashboardUI.renderOverviewStats(stats);
+        window.DashboardUI.loadLearningPatterns(stats, weeklyProgress);
+        window.DashboardUI.renderDifficultWords(difficultWords);
+      }
+      
       this.charts.updateWeeklyChart(weeklyProgress);
       this.charts.updateQualityChart(stats.qualityDistribution || {});
-      DashboardUI.loadLearningPatterns(stats, weeklyProgress);
-      DashboardUI.renderDifficultWords(difficultWords);
     } catch (error) {
       console.warn('⚠️ Failed to update dashboard:', error);
     }
@@ -55,4 +65,9 @@ export class DashboardHandlers {
     console.log('🔄 Refreshing dashboard');
     await this.dashboard.loadDashboard();
   }
+}
+
+// Export for use in extension
+if (typeof window !== 'undefined') {
+  window.DashboardHandlers = DashboardHandlers;
 }
