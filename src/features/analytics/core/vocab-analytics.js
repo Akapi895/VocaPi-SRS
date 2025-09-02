@@ -162,8 +162,8 @@ class VocabAnalytics {
 
   async getDifficultWords() {
     return this._withInit(async () => {
-      if (window.AnalyticsStats) {
-        return await window.AnalyticsStats.getDifficultWords(this.data);
+      if (window.AnalyticsStats && window.AnalyticsStats.getDifficultWords) {
+        return window.AnalyticsStats.getDifficultWords(this.data);
       }
       return [];
     });

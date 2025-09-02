@@ -1,15 +1,5 @@
 class DashboardUI {
   renderOverviewStats(stats) {
-    console.log('🔍 renderOverviewStats called with stats:', stats);
-    console.log('🔍 Stats keys:', Object.keys(stats));
-    console.log('🔍 Total words learned:', stats.totalWordsLearned);
-    console.log('🔍 Current streak:', stats.currentStreak);
-    console.log('🔍 Total time spent (raw):', stats.totalTimeSpent);
-    console.log('🔍 Total time spent (formatted):', this.formatTime(stats.totalTimeSpent));
-    console.log('🔍 Today accuracy:', stats.todayAccuracy);
-    console.log('🔍 Total XP:', stats.totalXP); // ✅ Thêm debug cho XP
-    console.log('🔍 Achievement count:', stats.achievementCount); // ✅ Thêm debug cho achievements
-    
     const totalWordsEl = document.getElementById('total-words');
     const currentStreakEl = document.getElementById('current-streak');
     const totalTimeEl = document.getElementById('total-time');
@@ -183,83 +173,132 @@ class DashboardUI {
   
   async loadDifficultWords(difficultWords) {
     try {
+      console.log('🔍 Loading difficult words:', difficultWords);
+      
       const container = document.getElementById('difficult-words-list');
-      if (!container) return;
+      if (!container) {
+        console.warn('⚠️ difficult-words-list container not found');
+        return;
+      }
 
       if (!difficultWords || difficultWords.length === 0) {
         container.innerHTML = `
           <div class="empty-state">
-            <p>No difficult words found. Great job!</p>
+            <div class="empty-icon">🎯</div>
+            <h4>No Difficult Words!</h4>
+            <p>Great job! You're mastering all your vocabulary words.</p>
           </div>
         `;
         return;
       }
 
       container.innerHTML = '';
-      difficultWords.slice(0, 10).forEach(word => {
+      
+      difficultWords.forEach((word, index) => {
         const wordItem = document.createElement('div');
-        wordItem.className = 'difficult-word-item';
+        wordItem.className = `difficult-word-item difficulty-${word.difficulty}`;
         wordItem.innerHTML = `
-          <div class="word-info">
-            <div class="word-name">${word.wordId || 'Unknown'}</div>
-            <div class="word-stats">
-              ${word.reviewCount || 0} attempts • ${word.averageQuality || 0} avg quality
+          <div class="word-rank">#${index + 1}</div>
+          <div class="word-content">
+            <div class="word-header">
+              <div class="word-name">${word.word || word.wordId || 'Unknown'}</div>
+              <div class="difficulty-badge difficulty-${word.difficulty}">
+                ${word.difficulty === 'high' ? 'High' : word.difficulty === 'medium' ? 'Medium' : 'Low'} difficulty
+              </div>
             </div>
-          </div>
-          <div class="difficulty-badge difficulty-${word.accuracy < 50 ? 'high' : 'medium'}">
-            ${word.accuracy < 50 ? 'High' : 'Medium'} difficulty
+            <div class="word-meaning">${word.meaning || 'No meaning available'}</div>
+            <div class="word-stats">
+              <div class="stat-item">
+                <span class="stat-label">Accuracy:</span>
+                <span class="stat-value accuracy-${word.accuracy < 50 ? 'low' : word.accuracy < 70 ? 'medium' : 'high'}">
+                  ${word.accuracy}%
+                </span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Reviews:</span>
+                <span class="stat-value">${word.reviewCount}</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Avg Quality:</span>
+                <span class="stat-value">${word.averageQuality}/5</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-label">Correct:</span>
+                <span class="stat-value">${word.correctCount}/${word.reviewCount}</span>
+              </div>
+            </div>
+            ${word.lastReviewed ? `
+              <div class="last-reviewed">
+                Last reviewed: ${new Date(word.lastReviewed).toLocaleDateString()}
+              </div>
+            ` : ''}
           </div>
         `;
         container.appendChild(wordItem);
       });
+      
+      console.log(`✅ Loaded ${difficultWords.length} difficult words`);
     } catch (error) {
-      console.error('Error loading difficult words:', error);
+      console.error('❌ Error loading difficult words:', error);
+      const container = document.getElementById('difficult-words-list');
+      if (container) {
+        container.innerHTML = `
+          <div class="error-state">
+            <div class="error-icon">⚠️</div>
+            <p>Failed to load difficult words</p>
+            <small>${error.message}</small>
+          </div>
+        `;
+      }
     }
   }
 
+  // ✅ SỬA: Chỉ giữ lại 1 method loadLearningPatterns
   loadLearningPatterns(dashboardStats, weeklyProgress) {
     try {
       console.log('📊 Loading learning patterns with real data:', { dashboardStats, weeklyProgress });
       
+      // ✅ SỬA: Best Study Time
       const bestStudyTime = dashboardStats.bestStudyTime || 'No data yet';
       const bestStudyTimeEl = document.getElementById('best-study-time');
-      if (bestStudyTimeEl) bestStudyTimeEl.textContent = bestStudyTime;
+      if (bestStudyTimeEl) {
+        bestStudyTimeEl.textContent = bestStudyTime;
+        console.log(' Best study time:', bestStudyTime);
+      }
 
-      const dayTotals = weeklyProgress.reduce((acc, day) => {
-        const dayName = new Date(day.date).toLocaleDateString('en-US', { weekday: 'long' });
-        acc[dayName] = (acc[dayName] || 0) + day.words;
-        return acc;
-      }, {});
-      
-      const hasWeeklyActivity = Object.values(dayTotals).some(total => total > 0);
-      const mostActiveDay = hasWeeklyActivity 
-        ? Object.entries(dayTotals).sort(([,a], [,b]) => b - a)[0]?.[0] 
-        : 'No activity yet';
-      
+      // ✅ SỬA: Most Active Day - sử dụng data từ dashboardStats
+      const mostActiveDay = dashboardStats.mostActiveDay || 'No activity yet';
       const mostActiveDayEl = document.getElementById('most-active-day');
-      if (mostActiveDayEl) mostActiveDayEl.textContent = mostActiveDay;
+      if (mostActiveDayEl) {
+        mostActiveDayEl.textContent = mostActiveDay;
+        console.log(' Most active day:', mostActiveDay);
+      }
 
-      const avgSessionDisplay = dashboardStats.avgSessionLength || 'No sessions yet';
+      // ✅ SỬA: Average Session Length
+      const avgSessionLength = dashboardStats.avgSessionLength || 0;
+      const avgSessionDisplay = avgSessionLength > 0 
+        ? `${avgSessionLength} min` 
+        : 'No sessions yet';
       const avgSessionEl = document.getElementById('avg-session-length');
-      if (avgSessionEl) avgSessionEl.textContent = avgSessionDisplay;
+      if (avgSessionEl) {
+        avgSessionEl.textContent = avgSessionDisplay;
+        console.log('⚡ Average session length:', avgSessionDisplay);
+      }
 
-      const totalQualities = Object.values(dashboardStats.qualityDistribution || {});
-      const totalReviews = totalQualities.reduce((sum, count) => sum + count, 0);
-      const weightedScore = Object.entries(dashboardStats.qualityDistribution || {})
-        .reduce((sum, [quality, count]) => sum + (parseInt(quality) * count), 0);
-      
-      const overallAccuracy = totalReviews > 0 
-        ? Math.round((weightedScore / (totalReviews * 5)) * 100)
-        : 0;
-      
-      const accuracyDisplay = totalReviews > 0 
-        ? `${overallAccuracy}%`
+      // ✅ SỬA: Overall Accuracy
+      const overallAccuracy = dashboardStats.overallAccuracy || 0;
+      const accuracyDisplay = overallAccuracy > 0 
+        ? `${overallAccuracy}%` 
         : 'No reviews yet';
-      
       const overallAccuracyEl = document.getElementById('overall-accuracy');
-      if (overallAccuracyEl) overallAccuracyEl.textContent = accuracyDisplay;
+      if (overallAccuracyEl) {
+        overallAccuracyEl.textContent = accuracyDisplay;
+        console.log('🎯 Overall accuracy:', accuracyDisplay);
+      }
+
+      console.log('✅ Learning patterns loaded successfully');
     } catch (error) {
-      console.error('Error loading learning patterns:', error);
+      console.error('❌ Error loading learning patterns:', error);
     }
   }
 
@@ -285,21 +324,6 @@ class DashboardUI {
       </div>
     `;
     container.appendChild(fallbackDiv);
-  }
-
-  loadAchievements(achievements) {
-    // Implementation for loading achievements
-    console.log('Loading achievements:', achievements);
-  }
-
-  loadDifficultWords(difficultWords) {
-    // Implementation for loading difficult words
-    console.log('Loading difficult words:', difficultWords);
-  }
-
-  loadLearningPatterns(dashboardStats, weeklyProgress) {
-    // Implementation for loading learning patterns
-    console.log('Loading learning patterns:', { dashboardStats, weeklyProgress });
   }
 
   updateXPDisplay(xpValue) {

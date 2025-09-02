@@ -75,6 +75,20 @@ class AnalyticsDashboard {
     return required.every(component => window[component]) && hasAnalytics;
   }
 
+  async initGamificationUI() {
+    try {
+      if (window.GamificationUI && typeof window.GamificationUI === 'function') {
+        this.gamificationUI = new window.GamificationUI();
+        await this.gamificationUI.init();
+        console.log('✅ GamificationUI initialized');
+      } else {
+        console.warn('⚠️ GamificationUI not available');
+      }
+    } catch (error) {
+      console.error('❌ Failed to initialize GamificationUI:', error);
+    }
+  }
+
   initializeComponents() {
     try {
       // Check if components exist before initializing
@@ -128,6 +142,8 @@ class AnalyticsDashboard {
         console.log('✅ Gamification connected to analytics');
       }
 
+      await this.initGamificationUI();
+
       // Load initial data
       await this.loadDashboard();
 
@@ -135,9 +151,6 @@ class AnalyticsDashboard {
       if (this.handlers && typeof this.handlers.bindEvents === 'function') {
         this.handlers.bindEvents();
       }
-
-      // Thêm vào constructor hoặc init()
-      // window.addEventListener('wordReviewed', this.handleWordReview.bind(this)); // Moved to constructor
 
       console.log('✅ Analytics Dashboard initialized');
     } catch (error) {
@@ -192,6 +205,8 @@ class AnalyticsDashboard {
       if (this.ui && typeof this.ui.showLoading === 'function') {
         this.ui.showLoading();
       }
+
+      await this.renderGamificationDashboard();
 
       // Get analytics instance
       const analyticsInstance = window.vocabAnalytics || window.VocabAnalyticsInstance;
@@ -273,6 +288,44 @@ class AnalyticsDashboard {
     }
   }
 
+  async renderGamificationDashboard() {
+    try {
+      const container = document.getElementById('gamification-dashboard');
+      if (!container) {
+        console.warn('⚠️ gamification-dashboard container not found');
+        return;
+      }
+
+      if (this.gamificationUI && typeof this.gamificationUI.renderDashboard === 'function') {
+        await this.gamificationUI.renderDashboard(container);
+        console.log('✅ Gamification dashboard rendered');
+      } else {
+        // Fallback gamification display
+        container.innerHTML = `
+          <div class="gamification-placeholder">
+            <div class="placeholder-content">
+              <div class="placeholder-icon">🎮</div>
+              <h3>Gamification Dashboard</h3>
+              <p>Complete some word reviews to unlock gamification data!</p>
+            </div>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error('❌ Error rendering gamification dashboard:', error);
+      const container = document.getElementById('gamification-dashboard');
+      if (container) {
+        container.innerHTML = `
+          <div class="gamification-error">
+            <span class="error-icon">⚠️</span>
+            <p>Unable to load gamification data</p>
+            <small>${error.message}</small>
+          </div>
+        `;
+      }
+    }
+  }
+
   checkDataAvailability(dashboardStats, weeklyProgress) {
     return (
       (dashboardStats && dashboardStats.totalWordsLearned > 0) ||
@@ -306,6 +359,13 @@ class AnalyticsDashboard {
 
   async renderDashboardData(dashboardStats, weeklyProgress, difficultWords, achievements = []) {
     try {
+      console.log('🔍 renderDashboardData called with:', {
+        dashboardStats,
+        weeklyProgress: weeklyProgress?.length,
+        difficultWords: difficultWords?.length,
+        achievements: achievements?.length
+      });
+
       // Check if UI methods exist before calling
       if (this.ui && typeof this.ui.renderOverviewStats === 'function') {
         this.ui.renderOverviewStats(dashboardStats);
@@ -332,9 +392,19 @@ class AnalyticsDashboard {
         this.ui.loadDifficultWords(difficultWords);
       }
       
+      // ✅ THÊM: Debug cho learning patterns
       if (this.ui && typeof this.ui.loadLearningPatterns === 'function') {
+        console.log('🔍 Calling loadLearningPatterns with:', {
+          bestStudyTime: dashboardStats.bestStudyTime,
+          mostActiveDay: dashboardStats.mostActiveDay,
+          avgSessionLength: dashboardStats.avgSessionLength,
+          overallAccuracy: dashboardStats.overallAccuracy
+        });
         this.ui.loadLearningPatterns(dashboardStats, weeklyProgress);
+      } else {
+        console.warn('⚠️ loadLearningPatterns method not available');
       }
+      
     } catch (error) {
       console.error('❌ Error rendering dashboard data:', error);
     }

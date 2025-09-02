@@ -10,7 +10,7 @@ function getQualityDistribution(data) {
 }
 
 function getBestStudyTime(data) {
-  if (!data.reviewSessions.length) return null;
+  if (!data.reviewSessions || data.reviewSessions.length === 0) return 'No data yet';
 
   const hourStats = {};
   data.reviewSessions.forEach(session => {
@@ -19,15 +19,20 @@ function getBestStudyTime(data) {
   });
 
   const [bestHour] = Object.entries(hourStats)
-    .sort(([,a],[,b]) => b - a)[0] || [0];
+    .sort(([,a],[,b]) => b - a)[0] || [12];
 
-  if (bestHour < 6) return 'Early Morning';
-  if (bestHour < 12) return 'Morning';
-  if (bestHour < 18) return 'Afternoon';
-  return 'Evening';
+  // ✅ CẢI THIỆN: Phân loại thời gian chi tiết hơn
+  if (bestHour >= 5 && bestHour < 8) return 'Early Morning (5-8 AM)';
+  if (bestHour >= 8 && bestHour < 12) return 'Morning (8-12 PM)';
+  if (bestHour >= 12 && bestHour < 14) return 'Lunch Time (12-2 PM)';
+  if (bestHour >= 14 && bestHour < 18) return 'Afternoon (2-6 PM)';
+  if (bestHour >= 18 && bestHour < 22) return 'Evening (6-10 PM)';
+  return 'Night (10 PM-5 AM)';
 }
 
 function getMostActiveDay(data) {
+  if (!data.dailyStats || Object.keys(data.dailyStats).length === 0) return 'No activity yet';
+
   const dayStats = {};
   const dayNames = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -44,19 +49,28 @@ function getMostActiveDay(data) {
 }
 
 function getAverageSessionLength(data) {
-  if (!data.reviewSessions.length) return 0; // minutes
+  if (!data.reviewSessions || data.reviewSessions.length === 0) return 0;
 
-  const totalTime = data.reviewSessions.reduce((sum, s) => sum + s.timeSpent, 0);
-  const avgTimeMs = totalTime / data.reviewSessions.length;
+  // ✅ CẢI THIỆN: Tính session length dựa trên daily stats thay vì individual reviews
+  const dailyStats = Object.values(data.dailyStats || {});
+  if (dailyStats.length === 0) return 0;
 
+  const totalTime = dailyStats.reduce((sum, day) => sum + (day.timeSpent || 0), 0);
+  const totalSessions = dailyStats.reduce((sum, day) => sum + (day.reviewsCount || 0), 0);
+  
+  if (totalSessions === 0) return 0;
+  
+  const avgTimeMs = totalTime / totalSessions;
   return Math.round(avgTimeMs / 60000); // minutes
 }
 
 function getOverallAccuracy(data) {
-  if (!data.reviewSessions.length) return 0;
+  if (!data.reviewSessions || data.reviewSessions.length === 0) return 0;
 
   const correct = data.reviewSessions.filter(s => s.isCorrect).length;
-  return Math.round((correct / data.reviewSessions.length) * 100); // %
+  const total = data.reviewSessions.length;
+  
+  return Math.round((correct / total) * 100); // %
 }
 
 function getWeeklyProgress(data) {
@@ -94,6 +108,19 @@ async function getDashboardStats(data, gamification) {
   
   console.log('🔍 Today stats:', todayStats);
 
+  // ✅ THÊM: Debug cho learning patterns
+  const bestStudyTime = getBestStudyTime(data);
+  const mostActiveDay = getMostActiveDay(data);
+  const avgSessionLength = getAverageSessionLength(data);
+  const overallAccuracy = getOverallAccuracy(data);
+  
+  console.log('🔍 Learning patterns calculated:', {
+    bestStudyTime,
+    mostActiveDay,
+    avgSessionLength,
+    overallAccuracy
+  });
+
   // gamification
   let totalXP = 0, achievementCount = 0;
   if (gamification) {
@@ -127,36 +154,65 @@ async function getDashboardStats(data, gamification) {
     achievementCount: gamificationData?.achievementCount || 0, // ✅ Sử dụng gamification achievements
     weeklyProgress: getWeeklyProgress(data),
     qualityDistribution: getQualityDistribution(data),
-    bestStudyTime: getBestStudyTime(data),
-    mostActiveDay: getMostActiveDay(data),
-    avgSessionLength: getAverageSessionLength(data),
-    overallAccuracy: getOverallAccuracy(data)
+    bestStudyTime: bestStudyTime,
+    mostActiveDay: mostActiveDay,
+    avgSessionLength: avgSessionLength,
+    overallAccuracy: overallAccuracy
   };
   
   console.log('🔍 getDashboardStats result:', result);
   return result;
 }
 
-function getDifficultWords(data) {
+async function getDifficultWords(data) {
   const difficult = [];
 
-  Object.entries(data.wordsLearned).forEach(([wordId, w]) => {
-    const accuracy = w.reviewCount > 0 ? (w.correctCount / w.reviewCount) * 100 : 0;
-    const avgQuality = w.averageQuality || 0;
+  // ✅ SỬA: Lấy thông tin từ vựng từ VocabStorage
+  if (!window.VocabStorage) {
+    console.warn('⚠️ VocabStorage not available for difficult words');
+    return [];
+  }
 
-    if (w.reviewCount >= 3 && (accuracy < 70 || avgQuality < 3)) {
-      difficult.push({
-        wordId,
-        accuracy: Math.round(accuracy),
-        averageQuality: Number(avgQuality.toFixed(1)),
-        reviewCount: w.reviewCount,
-        lastReviewed: w.lastReviewed
-      });
-    }
-  });
+  try {
+    const allWords = await window.VocabStorage.getAllWords();
+    const wordsMap = new Map(allWords.map(word => [word.id, word]));
 
-  difficult.sort((a,b) => a.accuracy - b.accuracy);
-  return difficult.slice(0,10);
+    Object.entries(data.wordsLearned || {}).forEach(([wordId, w]) => {
+      const word = wordsMap.get(wordId);
+      if (!word) return; // Skip if word not found
+
+      const accuracy = w.reviewCount > 0 ? (w.correctCount / w.reviewCount) * 100 : 0;
+      const avgQuality = w.averageQuality || 0;
+
+      // ✅ SỬA: Điều kiện linh hoạt hơn
+      if (w.reviewCount >= 2 && (accuracy < 80 || avgQuality < 3.5)) {
+        difficult.push({
+          wordId,
+          word: word.word,
+          meaning: word.meaning,
+          accuracy: Math.round(accuracy),
+          averageQuality: Number(avgQuality.toFixed(1)),
+          reviewCount: w.reviewCount,
+          correctCount: w.correctCount || 0,
+          lastReviewed: w.lastReviewed,
+          difficulty: accuracy < 50 ? 'high' : accuracy < 70 ? 'medium' : 'low'
+        });
+      }
+    });
+
+    // ✅ SỬA: Sắp xếp theo độ khó và số lần review
+    difficult.sort((a, b) => {
+      if (a.accuracy !== b.accuracy) {
+        return a.accuracy - b.accuracy; // Accuracy thấp hơn = khó hơn
+      }
+      return b.reviewCount - a.reviewCount; // Review nhiều hơn = ưu tiên
+    });
+
+    return difficult.slice(0, 10);
+  } catch (error) {
+    console.error('❌ Error getting difficult words:', error);
+    return [];
+  }
 }
 
 // Export for use in extension
