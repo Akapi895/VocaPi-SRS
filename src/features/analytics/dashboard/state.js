@@ -13,7 +13,7 @@ class DashboardState {
       this.data = { stats, weeklyProgress, difficultWords };
       return this.data;
     } catch (err) {
-      console.error('❌ Failed to load initial state:', err);
+      console.error('Failed to load initial state:', err);
       return this.data;
     }
   }
@@ -26,7 +26,7 @@ class DashboardState {
       this.data = { stats, weeklyProgress, difficultWords };
       return this.data;
     } catch (error) {
-      console.error('⚠️ Error refreshing dashboard state:', error);
+      console.error('Error refreshing dashboard state:', error);
       return this.data;
     }
   }

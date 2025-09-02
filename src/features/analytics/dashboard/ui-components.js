@@ -12,7 +12,7 @@ class DashboardUI {
       if (stats.totalReviews && stats.totalReviews !== value) {
         totalWordsEl.title = `${value} unique words, ${stats.totalReviews} total reviews`;
       }
-      console.log('Total words updated:', value);
+
     }
 
     if (currentStreakEl) {
@@ -22,7 +22,7 @@ class DashboardUI {
     if (totalTimeEl) {
       const value = stats.totalTimeSpent || 0;
       totalTimeEl.textContent = this.formatTime(value);
-      console.log('Total time updated:', value, 'formatted:', this.formatTime(value));
+
     }
 
     if (todayAccuracyEl) {
@@ -32,7 +32,7 @@ class DashboardUI {
     if (totalXpEl) {
       const value = stats.totalXP || 0;
       totalXpEl.textContent = value.toLocaleString();
-      console.log('Total XP updated:', value);
+
     }
   }
 
@@ -63,7 +63,7 @@ class DashboardUI {
       if (hintEl) hintEl.remove();
     }
 
-    console.log('Current streak updated:', streakText);
+
   }
 
   updateAccuracyUI(el, accuracyValue) {
@@ -81,18 +81,15 @@ class DashboardUI {
       accuracyContainer.classList.add('accuracy-needs-work');
     }
 
-    console.log('Today accuracy updated:', accuracyText);
+
   }
 
   formatTime(minutes) {
-    // ✅ SỬA: Đảm bảo minutes là số và hợp lệ
     if (typeof minutes !== 'number' || isNaN(minutes)) {
       minutes = 0;
     }
     
-    // ✅ SỬA: Kiểm tra nếu minutes quá lớn (có thể là milliseconds)
     if (minutes > 10000) {
-      // Nếu quá lớn, có thể là milliseconds, convert sang minutes
       minutes = Math.round(minutes / 60000 * 100) / 100;
     }
     
@@ -132,21 +129,16 @@ class DashboardUI {
 
   async loadAchievements(achievements) {
     try {
-      console.log('🏆 loadAchievements called with:', achievements);
-      console.log('🏆 Achievements type:', typeof achievements);
-      console.log('🏆 Achievements length:', achievements?.length);
-      console.log('🏆 Achievements array:', achievements);
       
       const container = document.getElementById('achievements-grid');
       if (!container) {
-        console.warn('⚠️ achievements-grid container not found');
+        console.warn('achievements-grid container not found');
         return;
       }
 
       container.innerHTML = '';
       
       if (!achievements || achievements.length === 0) {
-        console.log('🏆 No achievements to display, showing placeholder');
         container.innerHTML = `
           <div class="achievement-card">
             <div class="achievement-icon">🎯</div>
@@ -159,21 +151,11 @@ class DashboardUI {
         return;
       }
       
-      console.log('🏆 Rendering achievements:', achievements.length);
-      
-      // ✅ SỬA: Hiển thị tất cả achievements (unlocked và locked)
       achievements.forEach((achievement, index) => {
-        console.log(`🏆 Rendering achievement ${index + 1}:`, {
-          id: achievement.id,
-          name: achievement.name,
-          unlocked: achievement.unlocked,
-          progress: achievement.progress
-        });
         
         const achievementCard = document.createElement('div');
         achievementCard.className = `achievement-card ${achievement.unlocked ? 'unlocked' : 'locked'} rarity-${achievement.rarity || 'common'}`;
         
-        // ✅ THÊM: Progress bar cho achievements chưa unlock
         const progressBar = !achievement.unlocked ? `
           <div class="achievement-progress">
             <div class="progress-bar">
@@ -183,7 +165,6 @@ class DashboardUI {
           </div>
         ` : '';
         
-        // ✅ THÊM: Rarity badge
         const rarityBadge = achievement.rarity ? `
           <div class="rarity-badge rarity-${achievement.rarity}">${achievement.rarity.toUpperCase()}</div>
         ` : '';
@@ -204,20 +185,16 @@ class DashboardUI {
         container.appendChild(achievementCard);
       });
       
-      const unlockedCount = achievements.filter(a => a.unlocked).length;
-      console.log(`✅ Loaded ${achievements.length} achievements (${unlockedCount} unlocked)`);
     } catch (error) {
-      console.error('❌ Error loading achievements:', error);
+      console.error('Error loading achievements:', error);
     }
   }
   
   async loadDifficultWords(difficultWords) {
     try {
-      console.log('🔍 Loading difficult words:', difficultWords);
-      
       const container = document.getElementById('difficult-words-list');
       if (!container) {
-        console.warn('⚠️ difficult-words-list container not found');
+        console.warn('difficult-words-list container not found');
         return;
       }
 
@@ -277,9 +254,8 @@ class DashboardUI {
         container.appendChild(wordItem);
       });
       
-      console.log(`✅ Loaded ${difficultWords.length} difficult words`);
     } catch (error) {
-      console.error('❌ Error loading difficult words:', error);
+      console.error('Error loading difficult words:', error);
       const container = document.getElementById('difficult-words-list');
       if (container) {
         container.innerHTML = `
@@ -293,28 +269,20 @@ class DashboardUI {
     }
   }
 
-  // ✅ SỬA: Chỉ giữ lại 1 method loadLearningPatterns
   loadLearningPatterns(dashboardStats, weeklyProgress) {
     try {
-      console.log('📊 Loading learning patterns with real data:', { dashboardStats, weeklyProgress });
-      
-      // ✅ SỬA: Best Study Time
       const bestStudyTime = dashboardStats.bestStudyTime || 'No data yet';
       const bestStudyTimeEl = document.getElementById('best-study-time');
       if (bestStudyTimeEl) {
         bestStudyTimeEl.textContent = bestStudyTime;
-        console.log(' Best study time:', bestStudyTime);
       }
 
-      // ✅ SỬA: Most Active Day - sử dụng data từ dashboardStats
       const mostActiveDay = dashboardStats.mostActiveDay || 'No activity yet';
       const mostActiveDayEl = document.getElementById('most-active-day');
       if (mostActiveDayEl) {
         mostActiveDayEl.textContent = mostActiveDay;
-        console.log(' Most active day:', mostActiveDay);
       }
 
-      // ✅ SỬA: Average Session Length
       const avgSessionLength = dashboardStats.avgSessionLength || 0;
       const avgSessionDisplay = avgSessionLength > 0 
         ? `${avgSessionLength} min` 
@@ -322,10 +290,8 @@ class DashboardUI {
       const avgSessionEl = document.getElementById('avg-session-length');
       if (avgSessionEl) {
         avgSessionEl.textContent = avgSessionDisplay;
-        console.log('⚡ Average session length:', avgSessionDisplay);
       }
 
-      // ✅ SỬA: Overall Accuracy
       const overallAccuracy = dashboardStats.overallAccuracy || 0;
       const accuracyDisplay = overallAccuracy > 0 
         ? `${overallAccuracy}%` 
@@ -333,12 +299,9 @@ class DashboardUI {
       const overallAccuracyEl = document.getElementById('overall-accuracy');
       if (overallAccuracyEl) {
         overallAccuracyEl.textContent = accuracyDisplay;
-        console.log('🎯 Overall accuracy:', accuracyDisplay);
       }
-
-      console.log('✅ Learning patterns loaded successfully');
     } catch (error) {
-      console.error('❌ Error loading learning patterns:', error);
+      console.error('Error loading learning patterns:', error);
     }
   }
 
@@ -377,7 +340,7 @@ class DashboardUI {
         totalXpEl.style.transform = 'scale(1)';
       }, 200);
       
-      console.log('XP display updated:', xpValue);
+
     }
   }
 }

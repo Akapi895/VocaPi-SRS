@@ -32,17 +32,12 @@ class DashboardHandlers {
   }
 
   goBackToMain() {
-    // ✅ SỬA: Mở popup chính thay vì sử dụng history.back()
     try {
-      // Đóng cửa sổ analytics hiện tại
       window.close();
-      
-      // Mở popup chính
       chrome.action.openPopup();
     } catch (error) {
-      console.warn('⚠️ Could not open popup, trying alternative method:', error);
+      console.warn('Could not open popup, trying alternative method:', error);
       
-      // Fallback: Sử dụng chrome.tabs để mở popup
       try {
         chrome.tabs.create({
           url: chrome.runtime.getURL('src/ui/html/popup.html'),
@@ -50,8 +45,7 @@ class DashboardHandlers {
         });
         window.close();
       } catch (fallbackError) {
-        console.error('❌ Failed to open popup:', fallbackError);
-        // Last resort: sử dụng history.back()
+        console.error('Failed to open popup:', fallbackError);
         history.back();
       }
     }
@@ -66,7 +60,6 @@ class DashboardHandlers {
   }
 
   async handleAnalyticsUpdate(event) {
-    console.log('📊 Dashboard received update event', event.detail);
     try {
       const [stats, weeklyProgress, difficultWords] = await Promise.all([
         window.VocabAnalytics.getDashboardStats().catch(() => ({})),
@@ -83,12 +76,11 @@ class DashboardHandlers {
       this.charts.updateWeeklyChart(weeklyProgress);
       this.charts.updateQualityChart(stats.qualityDistribution || {});
     } catch (error) {
-      console.warn('⚠️ Failed to update dashboard:', error);
+      console.warn('Failed to update dashboard:', error);
     }
   }
 
   async handleRefresh() {
-    console.log('🔄 Refreshing dashboard');
     await this.dashboard.loadDashboard();
   }
 }

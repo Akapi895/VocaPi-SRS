@@ -1,4 +1,4 @@
-// Mock Chrome API for browser testing
+
 if (typeof chrome === 'undefined') {
     window.chrome = {
         storage: {
@@ -25,7 +25,6 @@ if (typeof chrome === 'undefined') {
                                 callback(result);
                             }
                         } catch (error) {
-                            console.error('Mock chrome storage error:', error);
                             callback({});
                         }
                     }, 10);
@@ -38,7 +37,6 @@ if (typeof chrome === 'undefined') {
                             }
                             if (callback) callback();
                         } catch (error) {
-                            console.error('Mock chrome storage set error:', error);
                             if (callback) callback();
                         }
                     }, 10);
@@ -47,8 +45,6 @@ if (typeof chrome === 'undefined') {
         },
         runtime: {
             sendMessage: function(message, callback) {
-                // Mock runtime.sendMessage for testing
-                console.log('Mock chrome.runtime.sendMessage:', message);
                 if (callback) {
                     setTimeout(() => {
                         callback({ success: false, error: 'Mock: Not implemented' });
@@ -61,9 +57,8 @@ if (typeof chrome === 'undefined') {
         },
         tabs: {
             create: function(options) {
-                console.log('Mock chrome.tabs.create:', options);
             }
         }
     };
-    console.log('📦 Mock Chrome storage initialized');
+
 }

@@ -33,14 +33,14 @@ class VocabSRSPopup {
         const container = document.getElementById('gamification-widget');
         if (container) {
           this.fastGamificationWidget.render(container);
-          console.log('✅ FastGamificationWidget initialized in popup');
+
         }
       } else {
-        console.warn('⚠️ FastGamificationWidget not available, using fallback');
+        console.warn('FastGamificationWidget not available, using fallback');
         this.updateGamificationFallback();
       }
     } catch (error) {
-      console.error('❌ Failed to initialize gamification widget:', error);
+      console.error('Failed to initialize gamification widget:', error);
       this.updateGamificationFallback();
     }
   }
@@ -57,20 +57,17 @@ class VocabSRSPopup {
           gamification.getCurrentChallenge()
         ]);
 
-        // ✅ THÊM: Lấy analytics data để có overallAccuracy
         let analyticsData = null;
         try {
           if (window.VocabAnalytics) {
             const analytics = new window.VocabAnalytics();
             await analytics.ensureInitialized();
             analyticsData = await analytics.getAnalyticsData();
-            console.log('🔍 Popup fallback analytics data:', analyticsData);
           }
         } catch (analyticsError) {
-          console.warn('⚠️ Could not load analytics data in popup fallback:', analyticsError);
+          console.warn('Could not load analytics data in popup fallback:', analyticsError);
         }
 
-        // ✅ THÊM: Merge analytics data vào playerStats
         const mergedStats = {
           ...playerStats,
           overallAccuracy: analyticsData?.overallAccuracy || 0,
@@ -78,10 +75,9 @@ class VocabSRSPopup {
         };
 
         this.updateGamificationDisplay(mergedStats, challenge);
-        console.log('✅ Gamification fallback data loaded with analytics');
       }
     } catch (error) {
-      console.error('❌ Failed to load gamification fallback data:', error);
+      console.error('Failed to load gamification fallback data:', error);
     }
   }
 
@@ -91,16 +87,7 @@ class VocabSRSPopup {
     const streakEl = document.querySelector('.study-streak');
     const accuracyEl = document.querySelector('.accuracy-rate');
 
-    // ✅ THÊM: Debug logs
-    console.log('🔍 Popup updateGamificationDisplay:', {
-      playerStats: playerStats,
-      levelEl: !!levelEl,
-      xpEl: !!xpEl,
-      streakEl: !!streakEl,
-      accuracyEl: !!accuracyEl,
-      overallAccuracy: playerStats?.overallAccuracy,
-      currentStreak: playerStats?.currentStreak
-    });
+
 
     if (levelEl && playerStats) {
       levelEl.textContent = playerStats.level || 1;
@@ -117,7 +104,7 @@ class VocabSRSPopup {
     if (accuracyEl && playerStats) {
       const accuracyValue = Math.round(playerStats.overallAccuracy || 0);
       accuracyEl.textContent = `${accuracyValue}%`;
-      console.log('🔍 Popup updated accuracy display:', accuracyValue);
+
     }
   }
 
@@ -247,14 +234,11 @@ class VocabSRSPopup {
     bindIf('back-from-list', 'click', () => this.showMainScreen());
     bindIf('retry-btn', 'click', () => this.loadStats());
     
-    // ✅ THÊM: Listen for analytics updates to refresh gamification
     window.addEventListener('vocabAnalyticsUpdated', () => {
-      console.log('📊 Popup received analytics update, refreshing gamification');
       this.refreshGamificationData();
     });
 
     window.addEventListener('wordReviewed', () => {
-      console.log('📊 Popup received word review event, refreshing gamification');
       this.refreshGamificationData();
     });
     
@@ -284,7 +268,7 @@ class VocabSRSPopup {
         await this.updateGamificationFallback();
       }
     } catch (error) {
-      console.error('❌ Failed to refresh gamification data:', error);
+      console.error('Failed to refresh gamification data:', error);
     }
   }
 
@@ -457,7 +441,6 @@ class VocabSRSPopup {
     }
 
     wordList.innerHTML = words.map(word => {
-      // ✅ THÊM: Kiểm tra xem từ có đến due không
       const isDue = this.isWordDue(word);
       const dueClass = isDue ? 'word-item-due' : '';
       const dueTitle = isDue ? 'This word is due for review - complete your review to see details' : '';
@@ -489,11 +472,9 @@ class VocabSRSPopup {
     });
   }
 
-  // ✅ THÊM: Method để kiểm tra xem từ có đến due không
   isWordDue(word) {
     try {
       if (!word || !word.srs || !word.srs.nextReview) {
-        // Từ mới chưa có SRS data
         return word.srs && word.srs.repetitions > 0 ? false : true;
       }
       
@@ -501,7 +482,6 @@ class VocabSRSPopup {
       const now = new Date();
       return nextReview <= now;
     } catch (dateError) {
-      // Nếu có lỗi parse date, coi như due
       return true;
     }
   }
@@ -738,7 +718,7 @@ class VocabSRSPopup {
       
       this.showMessage(`✅ Export successful! Exported: ${exportedItems.join(', ')}`, 'export');
       
-      // ✅ SỬA: Đảm bảo quay về main screen sau export để hiển thị quick actions
+    
       this.showMainScreen();
       
     } catch (error) {
@@ -965,14 +945,14 @@ class VocabSRSPopup {
       if (importedGamification) importResults.push('✅ Gamification data imported');
       if (importedStorage) importResults.push('✅ Storage data imported');
       
-      // ✅ SỬA: Show import results với push notification
+
       if (importResults.length === 0) {
         this.showMessage('No data was imported. Please check the file format.', 'warning');
       } else {
         this.showMessage(`✅ Import successful! ${importResults.join(', ')}`, 'import');
       }
 
-      // ✅ SỬA: Đảm bảo quay về main screen sau import để hiển thị quick actions
+
       this.showMainScreen();
       await this.loadStats();
     } catch (err) {
@@ -1014,11 +994,7 @@ class VocabSRSPopup {
     this.getEl('error-message').textContent = message;
   }
 
-  // ✅ CẢI THIỆN: Method để hiển thị push message với styling đẹp như toast
   showMessage(message, type = 'info') {
-    console.log(`Message [${type}]: ${message}`);
-    
-    // Tạo toast container nếu chưa có
     let toastContainer = document.getElementById('popup-toast-container');
     if (!toastContainer) {
       toastContainer = document.createElement('div');
@@ -1036,12 +1012,11 @@ class VocabSRSPopup {
       document.body.appendChild(toastContainer);
     }
     
-    // Tạo toast element
     const toast = document.createElement('div');
     toast.className = 'popup-toast';
     toast.setAttribute('data-type', type);
     
-    // Tạo icon dựa trên type
+
     const icons = {
       success: '✅',
       error: '❌',
@@ -1051,7 +1026,7 @@ class VocabSRSPopup {
       info: 'ℹ️'
     };
     
-    // Tạo content với icon và message
+
     toast.innerHTML = `
       <div class="popup-toast-content">
         <div class="popup-toast-icon">${icons[type] || icons.info}</div>
@@ -1060,7 +1035,7 @@ class VocabSRSPopup {
       </div>
     `;
     
-    // Apply styling
+
     toast.style.cssText = `
       display: flex;
       align-items: center;
@@ -1077,7 +1052,7 @@ class VocabSRSPopup {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     `;
     
-    // Set border color based on type
+
     const borderColors = {
       success: '#10b981',
       error: '#ef4444',
@@ -1089,16 +1064,16 @@ class VocabSRSPopup {
     
     toast.style.borderLeft = `4px solid ${borderColors[type] || borderColors.info}`;
     
-    // Add to container
+
     toastContainer.appendChild(toast);
     
-    // Show animation
+
     setTimeout(() => {
       toast.style.transform = 'translateX(0)';
       toast.style.opacity = '1';
     }, 100);
     
-    // Auto-hide after 4 seconds
+
     setTimeout(() => {
       if (toast && toast.parentNode) {
         toast.style.transform = 'translateX(400px)';

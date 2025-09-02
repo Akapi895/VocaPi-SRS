@@ -23,7 +23,6 @@ const uiScripts = [
 ];
 
 async function loadScripts() {
-  // Load core scripts
   for (const script of coreScripts) {
     try {
       await loadScript(script);
@@ -32,7 +31,6 @@ async function loadScripts() {
     }
   }
   
-  // Load analytics scripts
   for (const script of analyticsScripts) {
     try {
       await loadScript(script);
@@ -41,7 +39,6 @@ async function loadScripts() {
     }
   }
   
-  // Load gamification scripts
   for (const script of gamificationScripts) {
     try {
       await loadScript(script);
@@ -50,7 +47,6 @@ async function loadScripts() {
     }
   }
   
-  // Load UI scripts
   for (const script of uiScripts) {
     try {
       await loadScript(script);

@@ -234,10 +234,7 @@ class DashboardCharts {
       </div>
     `;
     
-    // Hide the canvas since we're using text version
     canvas.style.display = 'none';
-    
-    console.log('📊 Text-based weekly progress chart created/updated');
   }
   
   createTextBasedQualityChart(qualityData) {
@@ -339,10 +336,7 @@ class DashboardCharts {
       </div>
     `;
     
-    // Hide the canvas since we're using text version
     canvas.style.display = 'none';
-    
-    console.log('📊 Text-based quality distribution chart created/updated');
   }
 
   getDefaultWeeklyProgress() {
