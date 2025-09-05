@@ -34,7 +34,7 @@ We do NOT collect:
 ## Data Storage and Processing
 
 ### Local Storage Only
-- All your vocabulary data is stored locally on your device using IndexedDB
+- All your vocabulary data is stored locally on your device
 - No data is transmitted to external servers
 - Your data remains private and under your control
 
@@ -50,8 +50,8 @@ We do NOT collect:
 - Only the word you're adding is sent to this API
 - No personal information is shared with this service
 
-### Optional Firebase Integration
-- VocaPi includes optional Firebase integration for data synchronization
+### Optional Firebase Integration (not developed yet)
+- VocaPi includes optional Firebase integration for data synchronization 
 - This feature is disabled by default
 - You must explicitly configure and enable it
 - When enabled, your vocabulary data may be synced to your personal Firebase account
