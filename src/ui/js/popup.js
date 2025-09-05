@@ -201,6 +201,7 @@ class VocabSRSPopup {
       }
 
       const reviewBtn = document.getElementById('start-review-btn');
+      const analyticsBtn = document.getElementById('view-analytics-btn');
       
       if (reviewBtn) {
         if (dueWords.length === 0) {
@@ -209,6 +210,18 @@ class VocabSRSPopup {
         } else {
           reviewBtn.disabled = false;
           reviewBtn.innerHTML = '<span class="btn-icon">🔄</span>Start Review';
+        }
+      }
+      
+      if (analyticsBtn) {
+        if (allWords.length === 0) {
+          analyticsBtn.disabled = true;
+          analyticsBtn.innerHTML = '<span class="btn-icon">📊</span>No data yet';
+          analyticsBtn.title = 'Add some words to view analytics';
+        } else {
+          analyticsBtn.disabled = false;
+          analyticsBtn.innerHTML = '<span class="btn-icon">📊</span>Analytics';
+          analyticsBtn.title = 'View learning analytics';
         }
       }
       
@@ -607,6 +620,15 @@ class VocabSRSPopup {
   }
 
   openAnalytics() {
+    // Check if there are any words before opening analytics
+    const totalWordsEl = document.getElementById('total-words');
+    const totalWords = totalWordsEl ? parseInt(totalWordsEl.textContent) || 0 : 0;
+    
+    if (totalWords === 0) {
+      this.showMessage('Add some words first to view analytics!', 'warning');
+      return;
+    }
+    
     chrome.runtime.sendMessage({ action: 'openAnalyticsWindow' });
   }
 
@@ -803,6 +825,40 @@ class VocabSRSPopup {
             if (!saveResponse.success) {
               throw new Error(saveResponse.error || 'Failed to save imported words');
             }
+            
+            // Update analytics data to reflect new words
+            if (window.VocabAnalytics) {
+              try {
+                const analytics = new window.VocabAnalytics();
+                await analytics.ensureInitialized();
+                const currentData = await analytics.getAnalyticsData();
+                
+                // Add new words to analytics
+                const updatedData = { ...currentData };
+                existingWords.forEach(word => {
+                  if (!updatedData.wordsLearned[word.id]) {
+                    updatedData.wordsLearned[word.id] = {
+                      firstReviewed: word.createdAt || new Date().toISOString(),
+                      reviewCount: word.srs?.repetitions || 0,
+                      correctCount: word.srs?.repetitions || 0,
+                      totalTimeSpent: 0,
+                      averageQuality: word.srs?.easeFactor ? Math.min(5, Math.max(1, word.srs.easeFactor)) : 3,
+                      lastReviewed: word.lastModified || word.createdAt || new Date().toISOString()
+                    };
+                  }
+                });
+                
+                // Update total words count
+                updatedData.totalWords = Object.keys(updatedData.wordsLearned).length;
+                
+                // Save updated analytics
+                if (window.AnalyticsStorage) {
+                  await window.AnalyticsStorage.saveData(updatedData);
+                }
+              } catch (error) {
+                console.warn('Failed to update analytics with new words:', error);
+              }
+            }
           }
         }
         
@@ -813,12 +869,34 @@ class VocabSRSPopup {
               const analytics = new window.VocabAnalytics();
               await analytics.ensureInitialized();
               
-              // Merge analytics data
+              // Get current analytics data
               const currentData = await analytics.getAnalyticsData();
+              
+              // Merge analytics data properly
               const mergedData = {
                 ...currentData,
-                ...importData.analytics,
-                // Preserve some current data
+                // Merge wordsLearned (combine both datasets)
+                wordsLearned: {
+                  ...(currentData.wordsLearned || {}),
+                  ...(importData.analytics.wordsLearned || {})
+                },
+                // Merge dailyStats (combine both datasets)
+                dailyStats: {
+                  ...(currentData.dailyStats || {}),
+                  ...(importData.analytics.dailyStats || {})
+                },
+                // Merge reviewSessions (combine arrays)
+                reviewSessions: [
+                  ...(currentData.reviewSessions || []),
+                  ...(importData.analytics.reviewSessions || [])
+                ],
+                // Update totalWords count
+                totalWords: (currentData.totalWords || 0) + (importData.analytics.totalWords || 0),
+                // Keep the higher values for streaks and best stats
+                currentStreak: Math.max(currentData.currentStreak || 0, importData.analytics.currentStreak || 0),
+                bestStreak: Math.max(currentData.bestStreak || 0, importData.analytics.bestStreak || 0),
+                // Keep the most recent dates
+                lastReviewDate: importData.analytics.lastReviewDate || currentData.lastReviewDate,
                 lastImportDate: new Date().toISOString()
               };
               
@@ -826,7 +904,6 @@ class VocabSRSPopup {
               if (window.AnalyticsStorage) {
                 await window.AnalyticsStorage.saveData(mergedData);
                 importedAnalytics = true;
-
               }
             }
           } catch (error) {
@@ -930,6 +1007,40 @@ class VocabSRSPopup {
           if (!saveResponse.success) {
             throw new Error(saveResponse.error || 'Failed to save imported words');
           }
+          
+          // Update analytics data to reflect new words
+          if (window.VocabAnalytics) {
+            try {
+              const analytics = new window.VocabAnalytics();
+              await analytics.ensureInitialized();
+              const currentData = await analytics.getAnalyticsData();
+              
+              // Add new words to analytics
+              const updatedData = { ...currentData };
+              existingWords.forEach(word => {
+                if (!updatedData.wordsLearned[word.id]) {
+                  updatedData.wordsLearned[word.id] = {
+                    firstReviewed: word.createdAt || new Date().toISOString(),
+                    reviewCount: word.srs?.repetitions || 0,
+                    correctCount: word.srs?.repetitions || 0,
+                    totalTimeSpent: 0,
+                    averageQuality: word.srs?.easeFactor ? Math.min(5, Math.max(1, word.srs.easeFactor)) : 3,
+                    lastReviewed: word.lastModified || word.createdAt || new Date().toISOString()
+                  };
+                }
+              });
+              
+              // Update total words count
+              updatedData.totalWords = Object.keys(updatedData.wordsLearned).length;
+              
+              // Save updated analytics
+              if (window.AnalyticsStorage) {
+                await window.AnalyticsStorage.saveData(updatedData);
+              }
+            } catch (error) {
+              console.warn('Failed to update analytics with new words:', error);
+            }
+          }
         }
       } else {
         throw new Error('Invalid file format: expected complete data export or array of words');
@@ -955,6 +1066,11 @@ class VocabSRSPopup {
 
       this.showMainScreen();
       await this.loadStats();
+      
+      // Trigger analytics refresh event
+      if (window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('analyticsUpdated'));
+      }
     } catch (err) {
       this.hideLoading();
       console.error('Import error:', err);

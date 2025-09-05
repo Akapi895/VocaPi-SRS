@@ -42,11 +42,16 @@ function getMostActiveDay(data) {
     dayStats[dayName] = (dayStats[dayName] || 0) + (data.dailyStats[dateStr].reviewsCount || 0);
   });
 
-  const [mostActiveDay] = Object.entries(dayStats)
-    .sort(([,a],[,b]) => b - a)[0] || ['Monday'];
-
+  const sortedDays = Object.entries(dayStats)
+    .sort(([,a],[,b]) => b - a);
+  
+  // If no data, return default
+  if (sortedDays.length === 0) return 'Monday';
+  
+  const [mostActiveDay] = sortedDays[0];
   return mostActiveDay;
 }
+
 
 function getAverageSessionLength(data) {
   if (!data.reviewSessions || data.reviewSessions.length === 0) return 0;

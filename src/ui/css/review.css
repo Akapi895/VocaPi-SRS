@@ -334,7 +334,7 @@ body {
 
 /* Auto-submit indicator */
 .quality-btn.suggested::after {
-    content: " (Auto-submit in 3s)";
+    /* content: " (Auto-submit in 3s)"; */
     font-size: 0.8em;
     opacity: 0.8;
 }

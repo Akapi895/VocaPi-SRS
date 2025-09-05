@@ -1,24 +1,35 @@
 function updateStreak(data) {
   const now = new Date();
   const today = now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const yesterdayStr = yesterday.toDateString();
-
+  
   const todayStats = data.dailyStats[today];
-  const yesterdayStats = data.dailyStats[yesterdayStr];
-  
   const hasEnoughReviewsToday = todayStats && todayStats.reviewsCount >= 5;
-  const hadEnoughReviewsYesterday = yesterdayStats && yesterdayStats.reviewsCount >= 5;
   
-  if (hasEnoughReviewsToday) {
-    if (hadEnoughReviewsYesterday) {
-      data.currentStreak++;
-    } else if (data.currentStreak === 0) {
-      data.currentStreak = 1;
-    }
-  } else {
+  // Check if streak has already been updated for today
+  const streakUpdatedToday = data.lastStreakUpdateDate === today;
+  
+  // Check if there's a gap of more than 1 day since last streak update
+  let hasGap = false;
+  if (data.lastStreakUpdateDate) {
+    const lastUpdateDate = new Date(data.lastStreakUpdateDate);
+    const daysDiff = Math.floor((now - lastUpdateDate) / (1000 * 60 * 60 * 24));
+    hasGap = daysDiff > 1;
+  }
+  
+  if (hasGap) {
+    // Reset streak if there's a gap of more than 1 day
     data.currentStreak = 0;
+  }
+  
+  if (!streakUpdatedToday) {
+    if (hasEnoughReviewsToday) {
+      // If today has enough reviews, increment streak
+      data.currentStreak++;
+    } else {
+      // If today doesn't have enough reviews, reset streak to 0
+      data.currentStreak = 0;
+    }
+    data.lastStreakUpdateDate = today;
   }
 
   if (data.currentStreak > data.bestStreak) {
@@ -108,6 +119,7 @@ async function recordWordReview(data, wordId, userAnswer, correctAnswer, quality
     }
   }
 }
+
 
 if (typeof window !== 'undefined') {
   window.recordWordReview = recordWordReview;
