@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VocaPi - Vocabulary Master with Spaced Repetition",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Learn vocabulary efficiently with spaced repetition system, analytics, and gamification features.",
   
   "permissions": [
