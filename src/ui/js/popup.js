@@ -738,7 +738,7 @@ class VocabSRSPopup {
       if (exportData.gamification) exportedItems.push('gamification data');
       if (exportData.storage) exportedItems.push('storage data');
       
-      this.showMessage(`✅ Export successful! Exported: ${exportedItems.join(', ')}`, 'export');
+      this.showMessage('✅ Export successful!');
       
     
       this.showMainScreen();
@@ -1060,7 +1060,7 @@ class VocabSRSPopup {
       if (importResults.length === 0) {
         this.showMessage('No data was imported. Please check the file format.', 'warning');
       } else {
-        this.showMessage(`✅ Import successful! ${importResults.join(', ')}`, 'import');
+        this.showMessage('✅ Import successful!');
       }
 
 

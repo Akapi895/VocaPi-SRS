@@ -73,7 +73,6 @@ class VocabSRSReview {
         window.ReviewUI.loadCurrentCard.call(this);
         
     } catch (err) {
-        console.error('Failed to load review data:', err);
         window.ReviewUI.showError('Could not load review data. Please try again.');
     }
 
@@ -154,13 +153,13 @@ class VocabSRSReview {
         e.preventDefault();
         
         if (this.pendingQuality !== null) {
-          // Trường hợp 1-3: Đang trong retype flow, không cho chọn quality
+          // In retype flow, quality selection disabled
           return;
         } else if (e.key >= '0' && e.key <= '2') {
-          // Trường hợp 4: Không cho chọn quality thấp khi đã trả lời đúng
+          // Low quality selection disabled for correct answers
           return;
         } else {
-          // Trường hợp 4: Chỉ cho chọn quality 3,4,5
+          // Only allow quality 3,4,5
           this.submitQuality(parseInt(e.key, 10));
         }
       }
@@ -177,7 +176,6 @@ class VocabSRSReview {
   }
   
   nextCard() {
-    // Clear pending quality when moving to next card
     this.pendingQuality = null;
     this.wasSkipped = false;
     
@@ -194,7 +192,6 @@ class VocabSRSReview {
     const currentWord = this.currentReviewWords[this.currentWordIndex];
     if (!currentWord) return;
 
-    // Store current quality for streak calculation
     this.lastQuality = quality;
 
     try {
@@ -302,17 +299,9 @@ class VocabSRSReview {
           }
         }
 
-         // Only update stats for quality >= 3 (immediate completion)
-         // For quality < 3, stats will be updated in saveReviewData()
          if (quality >= 3) {
            this.reviewStats.reviewed++;
            this.reviewStats.correct++;
-           console.log('DEBUG: submitQuality - Quality >= 3, updated stats immediately:', {
-             reviewed: this.reviewStats.reviewed,
-             correct: this.reviewStats.correct
-           });
-         } else {
-           console.log('DEBUG: submitQuality - Quality < 3, stats will be updated in saveReviewData()');
          }
 
          this.updateProgressInfo();
@@ -345,7 +334,6 @@ class VocabSRSReview {
          }
         
     } catch (error) {
-        console.error("Error updating review:", error);
         if (window.ReviewUI && window.ReviewUI.showError) {
             window.ReviewUI.showError(`Failed to update review: ${error.message}`);
         }
@@ -373,8 +361,6 @@ class VocabSRSReview {
     
     this.showFeedback(isCorrect, currentWord.word);
     
-    // Don't record analytics in checkAnswer for retype flow
-    // Analytics will be recorded in checkRetypeAnswer with correct quality
     if (this.pendingQuality === null && window.VocabAnalytics && typeof window.VocabAnalytics.recordWordReview === 'function') {
       try {
         window.VocabAnalytics.recordWordReview(
@@ -390,16 +376,14 @@ class VocabSRSReview {
     }
   }
 
-  checkRetypeAnswer() {
+  async checkRetypeAnswer() {
     const retypeInput = this.getEl('retype-input').value.trim();
     const currentWord = this.currentReviewWords[this.currentWordIndex];
     
     if (!currentWord) {
-        console.error('No current word found');
         return;
     }
     
-    // Use wordType if word is invalid (like "nan"), otherwise use word
     const correctWord = (currentWord.word && currentWord.word !== 'nan' && currentWord.word.length > 1) 
       ? currentWord.word 
       : (currentWord.wordType || currentWord.word);
@@ -409,38 +393,20 @@ class VocabSRSReview {
         return;
     }
     
-    console.log('Retype check:', {
-      retypeInput: retypeInput,
-      correctWord: correctWord,
-      currentWord: currentWord.word,
-      wordType: currentWord.wordType,
-      match: retypeInput.toLowerCase() === correctWord.toLowerCase()
-    });
     
     if (retypeInput.toLowerCase() === correctWord.toLowerCase()) {
-        // Lấy quality đã được set từ checkAnswer() hoặc skipWord()
         const quality = this.pendingQuality !== null ? this.pendingQuality : (this.wasSkipped ? 0 : 1);
         
-        console.log('=== DEBUG: Retype success ===');
-        console.log('Retype success:', {
-          pendingQuality: this.pendingQuality,
-          wasSkipped: this.wasSkipped,
-          finalQuality: quality,
-          currentStats: { ...this.reviewStats }
-        });
-        
         // Save the review data with the quality
-        this.saveReviewData(currentWord, quality);
+        await this.saveReviewData(currentWord, quality);
         
-        // Clear pending quality after successful retype
         this.pendingQuality = null;
         this.wasSkipped = false;
         
-        // Check if this is the last word before proceeding
         const isLastWord = (this.currentWordIndex === this.currentReviewWords.length - 1);
         
         if (isLastWord) {
-          this.completeReview();
+          await this.completeReview();
         } else {
           this.nextCard();
         }
@@ -456,14 +422,11 @@ class VocabSRSReview {
   }
 
   skipWord() {
-    console.log('=== DEBUG: skipWord called ===');
-    console.log('Current stats before skip:', { ...this.reviewStats });
     
     this.wasSkipped = true;
     this.userAnswer = '(skipped)';
     this.isAnswerRevealed = true;
 
-    // Set pending quality for retype flow
     this.pendingQuality = 0;
 
     window.ReviewUI.toggleSection('#input-section', false);
@@ -485,7 +448,6 @@ class VocabSRSReview {
 
     window.ReviewUI.toggleSection('.quality-buttons', false);
 
-    console.log('DEBUG: skipWord - will show retype section in 3 seconds');
     setTimeout(() => this.showRetypeSection(), 3000);
     setTimeout(() => this.playCurrentAudio(), 300);
   }
@@ -494,7 +456,6 @@ class VocabSRSReview {
     window.ReviewUI.toggleSection('.quality-buttons', false);
     window.ReviewUI.toggleSection('#retype-section', true);
     
-    // Hide continue button when showing retype section
     const continueBtn = document.getElementById('continue-to-next-btn');
     if (continueBtn) {
       continueBtn.remove();
@@ -515,13 +476,6 @@ class VocabSRSReview {
 
   async saveReviewData(currentWord, quality) {
     try {
-      console.log('=== DEBUG: saveReviewData called ===');
-      console.log('Input data:', {
-        word: currentWord.word,
-        quality: quality,
-        currentSRS: currentWord.srs,
-        currentStats: { ...this.reviewStats }
-      });
       
       // Update SRS data
       if (window.AdvancedSRSAlgorithm && typeof window.AdvancedSRSAlgorithm === 'function') {
@@ -535,11 +489,6 @@ class VocabSRSReview {
         const responseTime = this.getResponseTime();
         const srsResult = advancedSRS.calculateNextReview(currentWord, quality, responseTime, userStats);
         
-        console.log('SRS result:', {
-          inputQuality: quality,
-          srsResult: srsResult
-        });
-        
         if (!currentWord.srs) currentWord.srs = {};
         Object.assign(currentWord.srs, srsResult);
         
@@ -551,12 +500,6 @@ class VocabSRSReview {
           oldSRS,
           quality
         );
-        
-        console.log('Fallback SRS result:', {
-          inputQuality: quality,
-          oldSRS: oldSRS,
-          newSRS: currentWord.srs
-        });
       }
 
       // Save to storage
@@ -572,23 +515,11 @@ class VocabSRSReview {
       currentWord.srs.lastReview = new Date().toISOString();
       currentWord.srs.lastQuality = quality;
 
-      // Update review stats - FIXED LOGIC
-      // For retype flow, this is the first time we're counting this word
       this.reviewStats.reviewed++;
       
-      // Only count as correct if quality >= 3 (successful recall)
       if (quality >= 3) {
         this.reviewStats.correct++;
-        console.log('DEBUG: Quality >= 3, counting as correct');
-      } else {
-        console.log('DEBUG: Quality < 3, NOT counting as correct');
       }
-
-      console.log('DEBUG: Updated stats:', {
-        reviewed: this.reviewStats.reviewed,
-        correct: this.reviewStats.correct,
-        accuracy: this.reviewStats.reviewed > 0 ? (this.reviewStats.correct / this.reviewStats.reviewed * 100).toFixed(1) + '%' : '0%'
-      });
 
       // Update session stats display
       window.ReviewUI.updateSessionStats.call(this);
@@ -598,14 +529,54 @@ class VocabSRSReview {
         this.timeTracker.updateActiveTimeDisplay();
       }
 
-      console.log('Review data saved:', {
-        word: currentWord.word,
-        quality: quality,
-        lastQuality: currentWord.srs?.lastQuality,
-        nextReview: currentWord.srs?.nextReview,
-        lastReview: currentWord.srs?.lastReview,
-        finalSRS: currentWord.srs
-      });
+      if (!this.analytics && window.VocabAnalytics && typeof window.VocabAnalytics === 'function') {
+        try {
+          this.analytics = new window.VocabAnalytics();
+          await this.analytics.ensureInitialized();
+        } catch (analyticsError) {
+          console.error('Failed to create VocabAnalytics instance in saveReviewData:', analyticsError);
+        }
+      }
+
+      if (this.analytics && typeof this.analytics.recordWordReview === 'function') {
+        try {
+          await this.analytics.recordWordReview(
+            currentWord.id,
+            this.userAnswer || '(quality only)',
+            currentWord.word,
+            quality,
+            this.getResponseTime() || 0
+          );
+          
+          if (this.gamification && typeof this.gamification.handleWordReview === 'function') {
+            try {
+              const isCorrect = (this.userAnswer || '').toLowerCase() === currentWord.word.toLowerCase();
+              await this.gamification.handleWordReview(
+                currentWord.id,
+                isCorrect,
+                quality,
+                this.getResponseTime() || 0
+              );
+            } catch (gamificationError) {
+              console.error('Failed to update gamification in saveReviewData:', gamificationError);
+            }
+          }
+          
+          const event = new CustomEvent('wordReviewed', {
+            detail: { 
+              wordId: currentWord.id, 
+              userAnswer: this.userAnswer || '(quality only)',
+              correctAnswer: currentWord.word,
+              quality: quality,
+              timeSpent: this.getResponseTime() || 0
+            }
+          });
+          window.dispatchEvent(event);
+          
+        } catch (analyticsError) {
+          console.error('Failed to record analytics in saveReviewData:', analyticsError);
+        }
+      }
 
       // Dispatch event to update popup
       window.dispatchEvent(new CustomEvent('wordUpdated', {
@@ -639,16 +610,13 @@ class VocabSRSReview {
 
     try {
       if (window.AudioPlayer && window.AudioPlayer.playAudio) {
-        // Use wordType if word is invalid (like "nan"), otherwise use word
         const textToSpeak = (currentWord.word && currentWord.word !== 'nan' && currentWord.word.length > 1) 
           ? currentWord.word 
           : (currentWord.wordType || currentWord.word);
         
-        // Always try to play audio, even if audioUrl is empty (will fallback to TTS)
         await window.AudioPlayer.playAudio(textToSpeak, currentWord.audioUrl || '');
       }
     } catch (error) {
-      console.error("Audio playback failed:", error);
       if (window.ReviewUI && window.ReviewUI.showError) {
         window.ReviewUI.showError("Failed to play audio. Please try again later.");
       }
@@ -663,7 +631,6 @@ class VocabSRSReview {
     
     if (confirm(msg)) {
       await this.completeReview();
-      // Clear pending quality after completing review
       this.pendingQuality = null;
     }
   }
@@ -685,19 +652,11 @@ class VocabSRSReview {
 }
     
   async completeReview() {
-    // If we're in retype section, save the current word with pending quality
-    // But only if it hasn't been saved yet (check if pendingQuality is not null)
     if (this.pendingQuality !== null && this.currentReviewWords[this.currentWordIndex]) {
       const currentWord = this.currentReviewWords[this.currentWordIndex];
-      console.log('Saving pending word before ending review:', {
-        word: currentWord.word,
-        quality: this.pendingQuality
-      });
       
-      // Save the review data with pending quality
       await this.saveReviewData(currentWord, this.pendingQuality);
       
-      // Clear pending quality after saving
       this.pendingQuality = null;
     }
     
@@ -706,23 +665,16 @@ class VocabSRSReview {
 
     const timeData = this.timeTracker.finalizeTimeTracking();
     
-    document.getElementById('final-reviewed-count').textContent = this.reviewStats.reviewed;
+    const reviewed = this.reviewStats?.reviewed || 0;
+    document.getElementById('final-reviewed-count').textContent = reviewed;
+    
     document.getElementById('final-accuracy-rate').textContent =
         `${window.calculateAccuracy ? window.calculateAccuracy(this.reviewStats.reviewed, this.reviewStats.correct) : 
         Math.round((this.reviewStats.correct / this.reviewStats.reviewed) * 100)}%`;
 
-    // Use currentWordIndex to calculate remaining words
-    // currentWordIndex represents the next word to be reviewed
-    const remaining = Math.max(0, this.currentReviewWords.length - this.currentWordIndex);
+    const remaining = Math.max(0, this.currentReviewWords.length - this.reviewStats.reviewed);
     document.getElementById('remaining-words-count').textContent = remaining;
 
-    console.log('Complete review debug:', {
-      totalWords: this.currentReviewWords.length,
-      reviewed: this.reviewStats.reviewed,
-      currentWordIndex: this.currentWordIndex,
-      remaining: remaining,
-      pendingQuality: this.pendingQuality
-    });
 
     const header = document.querySelector('.complete-header h2');
     const text = document.querySelector('.complete-header p');
@@ -845,22 +797,21 @@ class VocabSRSReview {
     if (!qualityButtonsContainer) return;
 
     if (this.wasSkipped) {
-        // Trường hợp 1: Skip word = Quality 0 → retype section
+        // Skip word = Quality 0 → retype section
         qualityButtonsContainer.style.display = 'none';
-        console.log('DEBUG: suggestQuality - Word was skipped, will show retype section');
         setTimeout(() => {
             this.showRetypeSection();
         }, 3000);
         
     } else if (this.pendingQuality !== null) {
-        // Trường hợp 1-3: Quality đã được set tự động → retype section
+        // Quality set automatically → retype section
         qualityButtonsContainer.style.display = 'none';
         setTimeout(() => {
             this.showRetypeSection();
         }, 2000);
         
     } else {
-        // Trường hợp 4: User chọn quality 3,4,5 → không retype
+        // User selects quality 3,4,5 → no retype
         qualityButtonsContainer.style.display = 'block';
         this.disableQualityButtons([0, 1, 2]);
         this.highlightQualityButtons([3, 4, 5]);
@@ -956,12 +907,9 @@ updateProgressInfo() {
         window.close();
         
     } catch (error) {
-        console.error('Error closing review window:', error);
-        
         try {
             window.close();
         } catch (fallbackError) {
-            console.error('Fallback close also failed:', fallbackError);
             alert('Please close this window manually. Your progress has been saved.');
         }
     }
