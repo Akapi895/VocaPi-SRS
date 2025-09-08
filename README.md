@@ -173,7 +173,6 @@ src/
 
 - Use Chrome DevTools for extension debugging
 - Check service worker logs in `chrome://extensions/`
-- Monitor IndexedDB in Application tab
 
 ## Troubleshooting
 
