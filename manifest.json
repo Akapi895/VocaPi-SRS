@@ -18,7 +18,7 @@
   },
   
   "action": {
-    "default_popup": "src/ui/html/popup.html",
+    "default_popup": "popup.html",
     "default_title": "VocaPi - Vocabulary Master with Spaced Repetition"
   },
   
@@ -26,28 +26,20 @@
     {
       "matches": ["<all_urls>"],
       "js": [
-        "src/core/utils.js",
-        "src/core/text.js",
-        "src/core/api.js",
-        "src/core/storage.js",
-        "src/ui/js/addModal.js",
         "src/content/index.js"
       ],
-      "css": ["src/ui/css/addModal.css"],
       "run_at": "document_idle"
     }
   ],
   
-  "options_page": "src/ui/html/options.html",
+  "options_page": "options.html",
   
   "web_accessible_resources": [
     {
       "resources": [
-        "src/ui/html/review.html",
-        "src/ui/html/analytics.html",
-        "src/ui/css/review.css",
-        "src/ui/css/analytics.css",
-        "src/ui/css/addModal.css"
+        "review.html",
+        "analytics.html",
+        "assets/*"
       ],
       "matches": ["<all_urls>"]
     }
