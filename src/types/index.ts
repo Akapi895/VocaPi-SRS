@@ -5,7 +5,9 @@ export interface VocabWord {
     word: string;
     meaning: string;
     example?: string;
-    phonetic?: string;
+    phonetic: string;
+    pronunUrl: string;
+    wordType: 'noun' | 'verb' | 'adjective' | 'adverb' | 'idiom' | 'phrase' | 'other';
     audioUrl?: string;
     createdAt: number;
     updatedAt: number;
@@ -148,7 +150,7 @@ export interface VocabWord {
   }
   
   // Utility types
-  export type QualityRating = 1 | 2 | 3 | 4 | 5;
+  export type QualityRating = 0 | 1 | 2 | 3 | 4 | 5;
   
   export type ReviewStatus = 'new' | 'learning' | 'review' | 'graduated';
   

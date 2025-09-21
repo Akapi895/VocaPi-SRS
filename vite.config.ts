@@ -23,12 +23,12 @@ export default defineConfig({
     outDir: 'dist',
     rollupOptions: {
       input: {
-        popup: resolve(__dirname, 'src/popup/index.html'),
-        options: resolve(__dirname, 'src/options/index.html'),
-        review: resolve(__dirname, 'src/review/index.html'),
-        analytics: resolve(__dirname, 'src/analytics/index.html'),
-        content: resolve(__dirname, 'src/content/index.ts'),
-        serviceWorker: resolve(__dirname, 'src/service-worker/index.ts')
+        popup: resolve(process.cwd(), 'src/popup/index.html'),
+        options: resolve(process.cwd(), 'src/options/index.html'),
+        review: resolve(process.cwd(), 'src/review/index.html'),
+        analytics: resolve(process.cwd(), 'src/analytics/index.html'),
+        content: resolve(process.cwd(), 'src/content/index.ts'),
+        serviceWorker: resolve(process.cwd(), 'src/service-worker/index.ts')
       },
       output: {
         entryFileNames: (chunkInfo) => {
@@ -42,7 +42,7 @@ export default defineConfig({
         },
         chunkFileNames: 'assets/[name]-[hash].js',
         assetFileNames: (assetInfo) => {
-          if (assetInfo.name?.endsWith('.html')) {
+          if (assetInfo.name && assetInfo.name.indexOf('.html') !== -1) {
             return assetInfo.name
           }
           return 'assets/[name]-[hash].[ext]'
@@ -52,7 +52,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
+      '@': resolve(process.cwd(), 'src')
     }
   }
 })

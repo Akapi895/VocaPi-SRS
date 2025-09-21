@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
-import { useChromeMessages } from '@/hooks/useChromeMessages';
-import { VocabWord, QualityRating } from '@/types';
+// import { useChromeMessages } from '@/hooks/useChromeMessages';
+import { VocabWord } from '@/types';
 import { 
   BookOpen, 
   Play, 
@@ -9,30 +9,30 @@ import {
   Settings, 
   Upload, 
   Download,
-  HelpCircle,
   ArrowLeft,
-  Lightbulb,
   Volume2,
-  Check,
-  SkipForward,
   Search,
   Trophy,
   Zap,
   Target,
-  TrendingUp
+  TrendingUp,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 const Popup: React.FC = () => {
-  const { data, loading, error, updateWord, updateGamification, updateAnalytics } = useChromeStorage();
-  const { getSelectedText, showAddModal } = useChromeMessages();
+  const { data, loading, error, updateSettings, saveData } = useChromeStorage();
   
-  const [currentScreen, setCurrentScreen] = useState<'main' | 'review' | 'wordList' | 'complete'>('main');
-  const [reviewWords, setReviewWords] = useState<VocabWord[]>([]);
-  const [currentWordIndex, setCurrentWordIndex] = useState(0);
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [userAnswer, setUserAnswer] = useState('');
-  const [showHint, setShowHint] = useState(false);
-  const [reviewStats, setReviewStats] = useState({ correct: 0, total: 0 });
+  const [currentScreen, setCurrentScreen] = useState<'main' | 'wordList'>('main');
+  const [wordHighlightingEnabled, setWordHighlightingEnabled] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Load settings on component mount
+  useEffect(() => {
+    if (data?.settings) {
+      setWordHighlightingEnabled(data.settings.notifications); // Using notifications as proxy for word highlighting
+    }
+  }, [data?.settings]);
 
   // Get words due for review
   const getDueWords = (): VocabWord[] => {
@@ -41,82 +41,172 @@ const Popup: React.FC = () => {
     return data.vocabWords.filter(word => word.nextReview <= now);
   };
 
-  // Start review session
-  const startReview = () => {
-    const dueWords = getDueWords();
-    if (dueWords.length === 0) {
-      alert('No words due for review!');
-      return;
+  // Filter words based on search term
+  const getFilteredWords = (): VocabWord[] => {
+    if (!data) return [];
+    if (!searchTerm.trim()) return data.vocabWords;
+    
+    const term = searchTerm.toLowerCase();
+    return data.vocabWords.filter(word => 
+      word.word.toLowerCase().includes(term) || 
+      word.meaning.toLowerCase().includes(term) ||
+      (word.example && word.example.toLowerCase().includes(term))
+    );
+  };
+
+
+
+
+  // Toggle word highlighting feature
+  const toggleWordHighlighting = async () => {
+    const newValue = !wordHighlightingEnabled;
+    setWordHighlightingEnabled(newValue);
+    await updateSettings({ notifications: newValue });
+    
+    // Send message to all tabs to update content script
+    try {
+      const tabs = await chrome.tabs.query({});
+      const promises = tabs.map(async (tab) => {
+        if (tab.id) {
+          try {
+            await chrome.tabs.sendMessage(tab.id, {
+              type: 'TOGGLE_WORD_HIGHLIGHTING',
+              data: { enabled: newValue }
+            });
+          } catch (error) {
+            // Ignore errors for tabs that don't have content script
+            console.log(`Tab ${tab.id} doesn't have content script or failed to send message`);
+          }
+        }
+      });
+      
+      await Promise.allSettled(promises);
+    } catch (error) {
+      console.error('Failed to update content scripts:', error);
     }
-    setReviewWords(dueWords);
-    setCurrentWordIndex(0);
-    setCurrentScreen('review');
-    setShowAnswer(false);
-    setUserAnswer('');
-    setShowHint(false);
-    setReviewStats({ correct: 0, total: 0 });
   };
 
-  // Handle answer submission
-  const handleAnswerSubmit = () => {
-    if (!userAnswer.trim()) return;
-    
-    const currentWord = reviewWords[currentWordIndex];
-    const isCorrect = userAnswer.toLowerCase().trim() === currentWord.word.toLowerCase();
-    
-    setShowAnswer(true);
-    setReviewStats(prev => ({
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      total: prev.total + 1
-    }));
+  // Play audio pronunciation
+  const playAudio = async (word: string) => {
+    try {
+      const vw = data?.vocabWords.find(w => w.word.toLowerCase() === word.toLowerCase());
+      const anyVw = vw as any;
+      const pronunUrl: string | undefined =
+        anyVw?.pronunUrl || anyVw?.audioUrl || anyVw?.audio || undefined;
+
+      if (pronunUrl && pronunUrl.trim() !== '') {
+        try {
+          // Add timeout to prevent hanging
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 8000);
+          
+          const res = await fetch(pronunUrl, { 
+            signal: controller.signal,
+            method: 'GET'
+          });
+          clearTimeout(timeoutId);
+
+          if (res.ok) {
+            const blob = await res.blob();
+            const objectUrl = URL.createObjectURL(blob);
+            
+            try {
+              const audio = new Audio(objectUrl);
+              await audio.play();
+              audio.onended = () => URL.revokeObjectURL(objectUrl);
+              return; // Success, no need for TTS fallback
+            } catch (playError) {
+              URL.revokeObjectURL(objectUrl);
+              console.log('Audio playback failed, falling back to TTS');
+            }
+          }
+        } catch (fetchError) {
+          console.log('Audio fetch failed, falling back to TTS');
+        }
+      }
+    } catch (error) {
+      console.log('Audio processing error, falling back to TTS');
+    }
+
+    // Fallback: Web Speech API (TTS)
+    if ('speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel(); 
+        const utterance = new SpeechSynthesisUtterance(word);
+        utterance.lang = 'en-US';
+        utterance.rate = 0.85;
+        utterance.volume = 0.8;
+        window.speechSynthesis.speak(utterance);
+      } catch (ttsError) {
+        console.log('Text-to-speech also failed:', ttsError);
+      }
+    }
   };
 
-  // Handle quality rating
-  const handleQualityRating = async (quality: QualityRating) => {
-    const currentWord = reviewWords[currentWordIndex];
+  // Export data
+  const handleExportData = () => {
+    if (!data) return;
     
-    // Update word with SRS algorithm
-    const updatedWord = {
-      ...currentWord,
-      quality,
-      repetitions: currentWord.repetitions + 1,
-      lastReviewTime: Date.now(),
-      totalReviews: currentWord.totalReviews + 1,
-      correctReviews: currentWord.correctReviews + (quality >= 3 ? 1 : 0)
+    const exportData = {
+      vocabWords: data.vocabWords,
+      gamification: data.gamification,
+      analytics: data.analytics,
+      settings: data.settings,
+      exportDate: new Date().toISOString(),
+      version: '1.0'
     };
-
-    // Simple SRS calculation (you can replace with your advanced algorithm)
-    let newInterval = currentWord.interval;
-    if (quality >= 3) {
-      newInterval = Math.min(currentWord.interval * 2, 365);
-    } else {
-      newInterval = 1;
-    }
-
-    updatedWord.interval = newInterval;
-    updatedWord.nextReview = Date.now() + (newInterval * 24 * 60 * 60 * 1000);
-
-    await updateWord(currentWord.id, updatedWord);
-
-    // Move to next word or complete review
-    if (currentWordIndex < reviewWords.length - 1) {
-      setCurrentWordIndex(prev => prev + 1);
-      setShowAnswer(false);
-      setUserAnswer('');
-      setShowHint(false);
-    } else {
-      setCurrentScreen('complete');
-    }
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vocab-srs-backup-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
-  // Add word from selected text
-  const handleAddWord = async () => {
-    const selectedText = await getSelectedText();
-    if (selectedText) {
-      await showAddModal(selectedText);
-    } else {
-      await showAddModal();
-    }
+  // Import data
+  const handleImportData = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      
+      try {
+        const text = await file.text();
+        const importData = JSON.parse(text);
+        
+        // Validate import data
+        if (!importData.vocabWords || !Array.isArray(importData.vocabWords)) {
+          alert('Invalid file format. Please select a valid VocaPi backup file.');
+          return;
+        }
+        
+        // Confirm import
+        const confirmed = confirm(
+          `This will import ${importData.vocabWords.length} words and replace your current data. Are you sure?`
+        );
+        
+        if (confirmed) {
+          await saveData({
+            vocabWords: importData.vocabWords,
+            gamification: importData.gamification || data?.gamification,
+            analytics: importData.analytics || data?.analytics,
+            settings: importData.settings || data?.settings
+          });
+          alert('Data imported successfully!');
+          window.location.reload();
+        }
+      } catch (error) {
+        console.error('Import failed:', error);
+        alert('Failed to import data. Please check the file format.');
+      }
+    };
+    input.click();
   };
 
   if (loading) {
@@ -148,7 +238,6 @@ const Popup: React.FC = () => {
   }
 
   const dueWords = getDueWords();
-  const currentWord = reviewWords[currentWordIndex];
 
   return (
     <div className="w-96 h-[600px] bg-white flex flex-col">
@@ -163,10 +252,19 @@ const Popup: React.FC = () => {
             <p className="text-sm opacity-90">Spaced Repetition Learning</p>
           </div>
           <button 
-            className="p-2 hover:bg-primary-700 rounded-lg transition-colors"
-            title="Keyboard Shortcuts (Alt+H)"
+            onClick={toggleWordHighlighting}
+            className={`p-2 rounded-lg transition-colors ${
+              wordHighlightingEnabled 
+                ? 'bg-primary-700 hover:bg-primary-800' 
+                : 'hover:bg-primary-700'
+            }`}
+            title={wordHighlightingEnabled ? "Disable word highlighting" : "Enable word highlighting"}
           >
-            <HelpCircle className="w-4 h-4" />
+            {wordHighlightingEnabled ? (
+              <Eye className="w-4 h-4" />
+            ) : (
+              <EyeOff className="w-4 h-4" />
+            )}
           </button>
         </div>
       </div>
@@ -219,7 +317,7 @@ const Popup: React.FC = () => {
           {/* Action Buttons */}
           <div className="space-y-2">
             <button 
-              onClick={startReview}
+              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}
               className="btn btn-primary w-full btn-lg"
               disabled={dueWords.length === 0}
             >
@@ -253,15 +351,16 @@ const Popup: React.FC = () => {
               <Settings className="w-4 h-4" />
             </button>
             <button 
-              onClick={handleAddWord}
+              onClick={handleExportData}
               className="btn btn-outline btn-sm p-2"
-              title="Add word from selection"
+              title="Export vocabulary data"
             >
               <Download className="w-4 h-4" />
             </button>
             <button 
+              onClick={handleImportData}
               className="btn btn-outline btn-sm p-2"
-              title="Import vocabulary"
+              title="Import vocabulary data"
             >
               <Upload className="w-4 h-4" />
             </button>
@@ -269,119 +368,6 @@ const Popup: React.FC = () => {
         </div>
       )}
 
-      {/* Review Screen */}
-      {currentScreen === 'review' && currentWord && (
-        <div className="flex-1 flex flex-col">
-          {/* Review Header */}
-          <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <button 
-                onClick={() => setCurrentScreen('main')}
-                className="btn btn-text btn-sm"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Back
-              </button>
-              <div className="text-sm text-gray-600">
-                {currentWordIndex + 1} / {reviewWords.length}
-              </div>
-            </div>
-          </div>
-
-          {/* Flashcard */}
-          <div className="flex-1 p-4 space-y-4">
-            <div className="card p-6 text-center min-h-[200px] flex flex-col justify-center">
-              <div className="text-2xl font-semibold mb-2">
-                {currentWord.meaning}
-              </div>
-              {showHint && (
-                <div className="text-sm text-gray-600 mb-4">
-                  {currentWord.example}
-                </div>
-              )}
-              
-              {!showAnswer ? (
-                <div className="space-y-4">
-                  <button 
-                    onClick={() => setShowHint(!showHint)}
-                    className="btn btn-outline btn-sm"
-                  >
-                    <Lightbulb className="w-4 h-4" />
-                    {showHint ? 'Hide' : 'Show'} Hint
-                  </button>
-                  
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">What is the English word?</div>
-                    <input 
-                      type="text"
-                      value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleAnswerSubmit()}
-                      className="input w-full"
-                      placeholder="Type your answer..."
-                      autoFocus
-                    />
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={handleAnswerSubmit}
-                        className="btn btn-primary flex-1"
-                      >
-                        <Check className="w-4 h-4" />
-                        Check Answer
-                      </button>
-                      <button 
-                        onClick={() => handleQualityRating(0)}
-                        className="btn btn-outline"
-                      >
-                        <SkipForward className="w-4 h-4" />
-                        Skip
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <span className="text-gray-600">Your answer:</span>
-                      <span className={`ml-2 font-medium ${userAnswer.toLowerCase() === currentWord.word.toLowerCase() ? 'text-green-600' : 'text-red-600'}`}>
-                        {userAnswer}
-                      </span>
-                    </div>
-                    <div className="text-sm">
-                      <span className="text-gray-600">Correct answer:</span>
-                      <span className="ml-2 font-medium text-green-600">{currentWord.word}</span>
-                    </div>
-                    {currentWord.phonetic && (
-                      <div className="text-sm text-gray-500">
-                        {currentWord.phonetic}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="text-sm text-gray-600">How difficult was this word?</div>
-                    <div className="grid grid-cols-3 gap-1">
-                      {[0, 1, 2, 3, 4, 5].map(quality => (
-                        <button
-                          key={quality}
-                          onClick={() => handleQualityRating(quality as QualityRating)}
-                          className={`btn btn-sm p-2 text-xs ${
-                            quality <= 2 ? 'btn-danger' : 
-                            quality === 3 ? 'btn-warning' : 'btn-success'
-                          }`}
-                        >
-                          {quality}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Word List Screen */}
       {currentScreen === 'wordList' && (
@@ -405,16 +391,27 @@ const Popup: React.FC = () => {
               <input 
                 type="text"
                 placeholder="Search words..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
                 className="input pl-10"
               />
             </div>
             
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {data?.vocabWords.map((word) => (
+              {getFilteredWords().map((word) => (
                 <div key={word.id} className="card p-3">
                   <div className="flex justify-between items-start">
-                    <div>
-                      <div className="font-medium">{word.word}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <div className="font-medium">{word.word}</div>
+                        <button 
+                          onClick={() => playAudio(word.word)}
+                          className="p-1 hover:bg-gray-100 rounded"
+                          title="Play Audio"
+                        >
+                          <Volume2 className="w-3 h-3 text-gray-500" />
+                        </button>
+                      </div>
                       <div className="text-sm text-gray-600">{word.meaning}</div>
                       {word.example && (
                         <div className="text-xs text-gray-500 mt-1">{word.example}</div>
@@ -426,41 +423,16 @@ const Popup: React.FC = () => {
                   </div>
                 </div>
               ))}
+              {getFilteredWords().length === 0 && (
+                <div className="text-center text-gray-500 py-8">
+                  No words found matching "{searchTerm}"
+                </div>
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Review Complete Screen */}
-      {currentScreen === 'complete' && (
-        <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-xl font-bold mb-4">Review Complete!</h2>
-          
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div className="card p-3">
-              <div className="text-2xl font-bold text-primary-600">
-                {reviewStats.total}
-              </div>
-              <div className="text-xs text-gray-600">words reviewed</div>
-            </div>
-            <div className="card p-3">
-              <div className="text-2xl font-bold text-green-600">
-                {Math.round((reviewStats.correct / reviewStats.total) * 100)}%
-              </div>
-              <div className="text-xs text-gray-600">accuracy</div>
-            </div>
-          </div>
-          
-          <button 
-            onClick={() => setCurrentScreen('main')}
-            className="btn btn-primary"
-          >
-            <Check className="w-4 h-4" />
-            Finish
-          </button>
-        </div>
-      )}
     </div>
   );
 };

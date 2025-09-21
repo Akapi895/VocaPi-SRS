@@ -2,7 +2,7 @@
 import { VocabWord, GamificationData, AnalyticsData, Settings } from '@/types';
 
 // Initialize service worker
-chrome.runtime.onInstalled.addListener(() => {
+chrome.runtime.onInstalled.addListener(async () => {
   console.log('VocaPi extension installed');
   
   // Create context menu
@@ -17,6 +17,25 @@ chrome.runtime.onInstalled.addListener(() => {
     delayInMinutes: 1,
     periodInMinutes: 24 * 60 // 24 hours
   });
+  
+  // Inject content script into all existing tabs
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.id && tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        try {
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            files: ['src/content/index.ts']
+          });
+        } catch (error) {
+          console.log(`Failed to inject content script into tab ${tab.id}:`, error);
+        }
+      }
+    }
+  } catch (error) {
+    console.error('Failed to inject content scripts:', error);
+  }
 });
 
 // Handle context menu clicks
@@ -77,7 +96,7 @@ chrome.notifications.onClicked.addListener(() => {
 });
 
 // Handle messages from popup/content scripts
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   switch (message.type) {
     case 'GET_DATA':
       handleGetData(sendResponse);
@@ -293,6 +312,23 @@ chrome.storage.onChanged.addListener((changes, namespace) => {
   if (namespace === 'local') {
     // Handle storage changes if needed
     console.log('Storage changed:', changes);
+  }
+});
+
+// Handle new tab creation
+chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && 
+      !tab.url.startsWith('chrome://') && 
+      !tab.url.startsWith('chrome-extension://') &&
+      !tab.url.startsWith('moz-extension://')) {
+    try {
+      await chrome.scripting.executeScript({
+        target: { tabId },
+        files: ['src/content/index.js']
+      });
+    } catch (error) {
+      console.log(`Failed to inject content script into new tab ${tabId}:`, error);
+    }
   }
 });
 

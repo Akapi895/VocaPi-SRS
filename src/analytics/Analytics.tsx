@@ -52,14 +52,21 @@ const Analytics: React.FC = () => {
   const gamification = data?.gamification || {} as GamificationData;
   const words = data?.vocabWords || [];
 
-  // Calculate additional stats
+  // Calculate real-time stats from actual data
+  const totalWords = words.length;
   const totalStudyTime = analytics.totalStudyTime || 0;
-  const averageSessionTime = analytics.averageSessionTime || 0;
-  const accuracy = analytics.accuracy || 0;
-  const currentStreak = analytics.currentStreak || 0;
-  const longestStreak = analytics.longestStreak || 0;
+  const averageSessionTime = analytics.averageSessionTime || (totalStudyTime / Math.max(totalWords / 5, 1));
+  
+  // Calculate accuracy from word data
+  const wordsWithReviews = words.filter((w: VocabWord) => w.totalReviews > 0);
+  const totalCorrectReviews = wordsWithReviews.reduce((sum: number, w: VocabWord) => sum + w.correctReviews, 0);
+  const totalReviews = wordsWithReviews.reduce((sum: number, w: VocabWord) => sum + w.totalReviews, 0);
+  const accuracy = totalReviews > 0 ? Math.round((totalCorrectReviews / totalReviews) * 100) : 0;
+  
+  const currentStreak = gamification.streak || 0;
+  const longestStreak = analytics.longestStreak || Math.max(currentStreak, analytics.currentStreak || 0);
 
-  // Get words by difficulty
+  // Get words by difficulty (based on repetitions and success rate)
   const wordsByDifficulty = {
     new: words.filter((w: VocabWord) => w.repetitions === 0).length,
     learning: words.filter((w: VocabWord) => w.repetitions > 0 && w.repetitions < 5).length,
@@ -70,16 +77,165 @@ const Analytics: React.FC = () => {
   const now = Date.now();
   const dueWords = words.filter((w: VocabWord) => w.nextReview <= now).length;
 
-  // Calculate weekly progress (mock data for now)
-  const weeklyProgress = [
-    { day: 'Mon', words: 15, time: 25 },
-    { day: 'Tue', words: 22, time: 35 },
-    { day: 'Wed', words: 18, time: 30 },
-    { day: 'Thu', words: 25, time: 40 },
-    { day: 'Fri', words: 20, time: 32 },
-    { day: 'Sat', words: 12, time: 20 },
-    { day: 'Sun', words: 8, time: 15 }
-  ];
+  // Calculate weekly progress from real data
+  const getWeeklyProgress = () => {
+    const today = new Date();
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
+    
+    const weeklyData = [];
+    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    
+    for (let i = 0; i < 7; i++) {
+      const currentDay = new Date(weekStart);
+      currentDay.setDate(weekStart.getDate() + i);
+      const dayStart = currentDay.getTime();
+      const dayEnd = dayStart + (24 * 60 * 60 * 1000);
+      
+      // Count words added on this day
+      const wordsAddedToday = words.filter((w: VocabWord) => 
+        w.createdAt >= dayStart && w.createdAt < dayEnd
+      ).length;
+      
+      // Count words reviewed on this day (estimate from lastReviewTime)
+      const wordsReviewedToday = words.filter((w: VocabWord) => 
+        w.lastReviewTime && w.lastReviewTime >= dayStart && w.lastReviewTime < dayEnd
+      ).length;
+      
+      // Estimate study time (5 minutes per review + 3 minutes per new word)
+      const estimatedTime = (wordsReviewedToday * 5) + (wordsAddedToday * 3);
+      
+      weeklyData.push({
+        day: dayNames[i],
+        words: wordsAddedToday + wordsReviewedToday,
+        time: estimatedTime,
+        added: wordsAddedToday,
+        reviewed: wordsReviewedToday
+      });
+    }
+    
+    return weeklyData;
+  };
+
+  const weeklyProgress = getWeeklyProgress();
+
+  // Get difficult words (low success rate)
+  const getDifficultWords = () => {
+    return words
+      .filter((w: VocabWord) => w.totalReviews >= 3) // Only words with enough reviews
+      .map((w: VocabWord) => ({
+        ...w,
+        successRate: w.totalReviews > 0 ? (w.correctReviews / w.totalReviews) * 100 : 0
+      }))
+      .filter((w: any) => w.successRate < 70) // Less than 70% success rate
+      .sort((a: any, b: any) => a.successRate - b.successRate) // Sort by difficulty
+      .slice(0, 6);
+  };
+
+  // Get study patterns
+  const getStudyPatterns = () => {
+    const hourCounts = new Array(24).fill(0);
+    const dayCounts = new Array(7).fill(0);
+    
+    words.forEach((w: VocabWord) => {
+      if (w.createdAt) {
+        const date = new Date(w.createdAt);
+        hourCounts[date.getHours()]++;
+        dayCounts[date.getDay()]++;
+      }
+      if (w.lastReviewTime) {
+        const date = new Date(w.lastReviewTime);
+        hourCounts[date.getHours()]++;
+        dayCounts[date.getDay()]++;
+      }
+    });
+    
+    const bestHour = hourCounts.indexOf(Math.max(...hourCounts));
+    const bestDay = dayCounts.indexOf(Math.max(...dayCounts));
+    
+    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    
+    return {
+      bestStudyTime: `${bestHour}:00 - ${bestHour + 1}:00`,
+      mostActiveDay: dayNames[bestDay],
+      totalSessions: Math.floor(totalWords / 5) || 1 // Estimate
+    };
+  };
+
+  const studyPatterns = getStudyPatterns();
+  const difficultWords = getDifficultWords();
+
+  // Enhanced gamification system
+  const getAchievements = () => {
+    const achievements = [];
+    
+    // Word count achievements
+    if (totalWords >= 1) achievements.push({ icon: '🌱', name: 'First Word', description: 'Added your first word to the dictionary', unlocked: true });
+    if (totalWords >= 10) achievements.push({ icon: '📚', name: 'Bookworm', description: 'Collected 10 words', unlocked: true });
+    if (totalWords >= 50) achievements.push({ icon: '🏆', name: 'Vocabulary Builder', description: 'Built a vocabulary of 50 words', unlocked: true });
+    if (totalWords >= 100) achievements.push({ icon: '🎓', name: 'Scholar', description: 'Mastered 100 words', unlocked: true });
+    if (totalWords >= 250) achievements.push({ icon: '👑', name: 'Word Master', description: 'Conquered 250 words', unlocked: true });
+    if (totalWords >= 500) achievements.push({ icon: '⚡', name: 'Vocabulary Legend', description: 'Achieved legendary status with 500 words', unlocked: true });
+    
+    // Streak achievements
+    if (currentStreak >= 3) achievements.push({ icon: '🔥', name: 'On Fire', description: '3-day learning streak', unlocked: true });
+    if (currentStreak >= 7) achievements.push({ icon: '⭐', name: 'Week Warrior', description: '7-day learning streak', unlocked: true });
+    if (currentStreak >= 30) achievements.push({ icon: '💎', name: 'Diamond Dedication', description: '30-day learning streak', unlocked: true });
+    if (currentStreak >= 100) achievements.push({ icon: '🌟', name: 'Centurion', description: '100-day learning streak', unlocked: true });
+    
+    // Accuracy achievements
+    if (accuracy >= 70) achievements.push({ icon: '🎯', name: 'Sharp Shooter', description: '70% accuracy achieved', unlocked: true });
+    if (accuracy >= 85) achievements.push({ icon: '🏹', name: 'Precision Master', description: '85% accuracy achieved', unlocked: true });
+    if (accuracy >= 95) achievements.push({ icon: '🔍', name: 'Perfect Precision', description: '95% accuracy achieved', unlocked: true });
+    
+    // Study time achievements
+    const studyHours = Math.floor(totalStudyTime / (1000 * 60 * 60));
+    if (studyHours >= 1) achievements.push({ icon: '⏰', name: 'Time Keeper', description: 'Studied for 1 hour total', unlocked: true });
+    if (studyHours >= 10) achievements.push({ icon: '📖', name: 'Dedicated Learner', description: '10 hours of study time', unlocked: true });
+    if (studyHours >= 50) achievements.push({ icon: '🧠', name: 'Brain Trainer', description: '50 hours of study time', unlocked: true });
+    
+    // Special achievements
+    if (wordsByDifficulty.review >= 20) achievements.push({ icon: '🎪', name: 'Review Master', description: '20 words in review phase', unlocked: true });
+    if (weeklyProgress.reduce((sum, day) => sum + day.words, 0) >= 30) achievements.push({ icon: '💪', name: 'Weekly Champion', description: 'Studied 30+ words this week', unlocked: true });
+    
+    return achievements;
+  };
+
+  const achievements = getAchievements();
+
+  // Calculate next level progress
+  const getNextLevelProgress = () => {
+    const currentLevel = gamification.level || 1;
+    const currentXP = gamification.xp || 0;
+    const xpForCurrentLevel = (currentLevel - 1) * 100;
+    const xpForNextLevel = currentLevel * 100;
+    const progressXP = currentXP - xpForCurrentLevel;
+    const neededXP = xpForNextLevel - xpForCurrentLevel;
+    const progressPercentage = Math.min((progressXP / neededXP) * 100, 100);
+    
+    return {
+      currentLevel,
+      nextLevel: currentLevel + 1,
+      progressXP,
+      neededXP,
+      progressPercentage,
+      remainingXP: neededXP - progressXP
+    };
+  };
+
+  const levelProgress = getNextLevelProgress();
+
+  // Get user rank based on total words
+  const getUserRank = () => {
+    if (totalWords < 10) return { name: 'Beginner', icon: '🌱', color: 'text-green-600' };
+    if (totalWords < 50) return { name: 'Learner', icon: '📚', color: 'text-blue-600' };
+    if (totalWords < 100) return { name: 'Scholar', icon: '🎓', color: 'text-purple-600' };
+    if (totalWords < 250) return { name: 'Expert', icon: '🏆', color: 'text-yellow-600' };
+    if (totalWords < 500) return { name: 'Master', icon: '👑', color: 'text-orange-600' };
+    return { name: 'Legend', icon: '⚡', color: 'text-red-600' };
+  };
+
+  const userRank = getUserRank();
 
   const formatTime = (minutes: number) => {
     if (minutes < 60) return `${minutes}m`;
@@ -222,36 +378,61 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Gamification Stats */}
+        {/* Enhanced Gamification Stats */}
         <div className="card p-6 mb-8">
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <Trophy className="w-5 h-5 text-yellow-600" />
             Gamification Progress
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {/* User Rank */}
+          <div className="mb-6 text-center">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-2 rounded-full">
+              <span className="text-2xl">{userRank.icon}</span>
+              <span className={`font-bold ${userRank.color}`}>{userRank.name}</span>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <span className="text-2xl font-bold text-white">{gamification.level || 1}</span>
+              <div className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-3 relative">
+                <span className="text-2xl font-bold text-white">{levelProgress.currentLevel}</span>
               </div>
-              <h3 className="font-semibold text-gray-900">Level</h3>
+              <h3 className="font-semibold text-gray-900">Level {levelProgress.currentLevel}</h3>
               <p className="text-sm text-gray-600">Current level</p>
             </div>
             
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Zap className="w-8 h-8 text-white" />
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Zap className="w-10 h-10 text-white" />
               </div>
               <h3 className="font-semibold text-gray-900">{gamification.xp || 0}</h3>
               <p className="text-sm text-gray-600">Experience Points</p>
             </div>
             
             <div className="text-center">
-              <div className="w-16 h-16 bg-gradient-to-r from-green-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Activity className="w-8 h-8 text-white" />
+              <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Activity className="w-10 h-10 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">{gamification.streak || 0}</h3>
+              <h3 className="font-semibold text-gray-900">{currentStreak}</h3>
               <p className="text-sm text-gray-600">Day Streak</p>
+            </div>
+          </div>
+          
+          {/* Level Progress Bar */}
+          <div className="mb-4">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Level {levelProgress.currentLevel}</span>
+              <span>{levelProgress.remainingXP} XP to Level {levelProgress.nextLevel}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-3">
+              <div 
+                className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
+                style={{ width: `${levelProgress.progressPercentage}%` }}
+              ></div>
+            </div>
+            <div className="text-center text-sm text-gray-600 mt-1">
+              {levelProgress.progressXP} / {levelProgress.neededXP} XP
             </div>
           </div>
         </div>
@@ -274,11 +455,23 @@ const Analytics: React.FC = () => {
                     <div className="text-sm text-gray-600">{day.words} words</div>
                     <div className="text-sm text-gray-600">•</div>
                     <div className="text-sm text-gray-600">{day.time} min</div>
+                    {day.added > 0 && (
+                      <>
+                        <div className="text-sm text-gray-600">•</div>
+                        <div className="text-sm text-green-600">+{day.added} new</div>
+                      </>
+                    )}
+                    {day.reviewed > 0 && (
+                      <>
+                        <div className="text-sm text-gray-600">•</div>
+                        <div className="text-sm text-blue-600">{day.reviewed} reviewed</div>
+                      </>
+                    )}
                   </div>
                   <div className="w-full bg-gray-200 rounded-full h-2">
                     <div 
                       className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
-                      style={{ width: `${(day.words / 25) * 100}%` }}
+                      style={{ width: `${Math.min((day.words / Math.max(...weeklyProgress.map(d => d.words), 1)) * 100, 100)}%` }}
                     ></div>
                   </div>
                 </div>
@@ -298,11 +491,15 @@ const Analytics: React.FC = () => {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Best Study Time</span>
-                <span className="font-medium">{analytics.bestStudyTime || 'Not available'}</span>
+                <span className="font-medium">{studyPatterns.bestStudyTime}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Most Active Day</span>
-                <span className="font-medium">{analytics.mostActiveDay || 'Not available'}</span>
+                <span className="font-medium">{studyPatterns.mostActiveDay}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600">Total Sessions</span>
+                <span className="font-medium">{studyPatterns.totalSessions}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-gray-600">Average Session</span>
@@ -314,33 +511,59 @@ const Analytics: React.FC = () => {
           <div className="card p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Award className="w-5 h-5 text-orange-600" />
-              Achievements
+              Achievements ({achievements.filter(a => a.unlocked).length})
             </h3>
             
-            <div className="space-y-3">
-              {gamification.achievements?.length > 0 ? (
-                gamification.achievements.map((achievement: any, index: number) => (
-                  <div key={index} className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+            <div className="space-y-3 max-h-80 overflow-y-auto">
+              {achievements.length > 0 ? (
+                achievements.map((achievement: any, index: number) => (
+                  <div key={index} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+                    achievement.unlocked 
+                      ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' 
+                      : 'bg-gray-50 border border-gray-200 opacity-60'
+                  }`}>
                     <div className="text-2xl">{achievement.icon}</div>
-                    <div>
-                      <div className="font-medium text-gray-900">{achievement.name}</div>
-                      <div className="text-sm text-gray-600">{achievement.description}</div>
+                    <div className="flex-1">
+                      <div className={`font-medium ${achievement.unlocked ? 'text-gray-900' : 'text-gray-500'}`}>
+                        {achievement.name}
+                      </div>
+                      <div className={`text-sm ${achievement.unlocked ? 'text-gray-600' : 'text-gray-400'}`}>
+                        {achievement.description}
+                      </div>
                     </div>
+                    {achievement.unlocked && (
+                      <div className="text-green-600">
+                        <Award className="w-4 h-4" />
+                      </div>
+                    )}
                   </div>
                 ))
               ) : (
                 <div className="text-center py-8 text-gray-500">
                   <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>No achievements yet</p>
-                  <p className="text-sm">Keep learning to unlock achievements!</p>
+                  <p>Start learning to unlock achievements!</p>
                 </div>
               )}
+            </div>
+            
+            {/* Achievement Progress */}
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="flex justify-between text-sm text-gray-600 mb-2">
+                <span>Achievement Progress</span>
+                <span>{achievements.filter(a => a.unlocked).length} / {achievements.length}</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full transition-all duration-300"
+                  style={{ width: `${achievements.length > 0 ? (achievements.filter(a => a.unlocked).length / achievements.length) * 100 : 0}%` }}
+                ></div>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Difficult Words */}
-        {analytics.difficultWords && analytics.difficultWords.length > 0 && (
+        {difficultWords.length > 0 && (
           <div className="card p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Target className="w-5 h-5 text-red-600" />
@@ -348,12 +571,15 @@ const Analytics: React.FC = () => {
             </h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {analytics.difficultWords.slice(0, 6).map((word: VocabWord, index: number) => (
+              {difficultWords.map((word: any, index: number) => (
                 <div key={index} className="p-4 bg-red-50 rounded-lg border border-red-200">
                   <div className="font-medium text-gray-900">{word.word}</div>
                   <div className="text-sm text-gray-600">{word.meaning}</div>
                   <div className="text-xs text-red-600 mt-2">
-                    Accuracy: {Math.round((word.correctReviews / word.totalReviews) * 100)}%
+                    Success rate: {Math.round(word.successRate)}%
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {word.totalReviews} reviews • {word.correctReviews} correct
                   </div>
                 </div>
               ))}
