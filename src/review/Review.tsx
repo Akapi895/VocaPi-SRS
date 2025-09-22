@@ -37,6 +37,96 @@ import {
 const Review: React.FC = () => {
   const { data, loading, error, updateWord, updateAnalytics, updateGamification } = useChromeStorage();
   
+  // Anti-paste handler with user feedback
+  const handleAntiPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    // Show user feedback that paste is not allowed
+    const input = e.target as HTMLInputElement;
+    const originalPlaceholder = input.placeholder;
+    const originalClassList = input.className;
+    
+    // Visual feedback
+    input.placeholder = "❌ Paste not allowed - Type manually";
+    input.className = `${originalClassList} border-red-300 bg-red-50`;
+    
+    // Reset after 2 seconds
+    setTimeout(() => {
+      input.placeholder = originalPlaceholder;
+      input.className = originalClassList;
+    }, 2000);
+  };
+
+  // Anti-context menu handler (right-click menu)
+  const handleContextMenu = (e: React.MouseEvent<HTMLInputElement>) => {
+    e.preventDefault(); // Disable right-click context menu
+  };
+
+  // Enhanced input change handler with paste detection
+  const handleInputChange = (
+    e: React.ChangeEvent<HTMLInputElement>, 
+    setter: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    const newValue = e.target.value;
+    const oldValue = e.target.dataset.oldValue || '';
+    
+    // Detect potential paste (large text input at once)
+    if (newValue.length - oldValue.length > 3) {
+      // Likely a paste operation - reject it
+      e.target.value = oldValue;
+      setter(oldValue);
+      
+      // Show feedback
+      const originalPlaceholder = e.target.placeholder;
+      e.target.placeholder = "❌ Please type manually";
+      setTimeout(() => {
+        e.target.placeholder = originalPlaceholder;
+      }, 2000);
+      return;
+    }
+    
+    // Store old value for next comparison
+    e.target.dataset.oldValue = newValue;
+    setter(newValue);
+  };
+
+  // Handle keyboard events to prevent paste shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Prevent Ctrl+V (paste), Ctrl+Shift+V (paste without formatting)
+    if (e.ctrlKey && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault();
+      const input = e.target as HTMLInputElement;
+      const originalPlaceholder = input.placeholder;
+      input.placeholder = "❌ Paste shortcut disabled";
+      setTimeout(() => {
+        input.placeholder = originalPlaceholder;
+      }, 2000);
+      return;
+    }
+    
+    // Prevent other paste-related shortcuts
+    if (e.ctrlKey && e.shiftKey && (e.key === 'v' || e.key === 'V')) {
+      e.preventDefault();
+      return;
+    }
+    
+    // Allow normal typing but prevent some cheating methods
+    if (e.ctrlKey && (e.key === 'a' || e.key === 'A')) {
+      // Prevent select all to avoid copy-paste workflows
+      e.preventDefault();
+      return;
+    }
+  };
+  
+  // Calculate display time for session stats
+  const getDisplayTime = (): number => {
+    // If session is complete and totalTime is available, use it
+    if (sessionComplete && sessionStats.totalTime > 0) {
+      return Math.round(sessionStats.totalTime / 1000 / 60);
+    }
+    // Otherwise calculate from current time
+    return calculateSessionDuration(sessionStats.startTime);
+  };
+  
   const [reviewWords, setReviewWords] = useState<VocabWord[]>([]);
   const [currentWordIndex, setCurrentWordIndex] = useState(0);
   const [showAnswer, setShowAnswer] = useState(false);
@@ -240,7 +330,10 @@ const Review: React.FC = () => {
         // Update session stats and complete session atomically
         setSessionStats(prev => ({ ...prev, totalTime }));
         console.log('Setting sessionComplete to true');
-        setSessionComplete(true);
+        // Use setTimeout to ensure sessionStats is updated before marking complete
+        setTimeout(() => {
+          setSessionComplete(true);
+        }, 0);
       }
     } catch (error) {
       console.error('Error processing quality rating:', error);
@@ -476,12 +569,19 @@ const Review: React.FC = () => {
                     <input 
                       type="text"
                       value={userAnswer}
-                      onChange={(e) => setUserAnswer(e.target.value)}
+                      onChange={(e) => handleInputChange(e, setUserAnswer)}
                       onKeyPress={(e) => e.key === 'Enter' && handleAnswerSubmit()}
+                      onKeyDown={handleKeyDown}
+                      onPaste={handleAntiPaste}
+                      onContextMenu={handleContextMenu}
+                      onDrop={(e) => e.preventDefault()} // Prevent drag & drop
+                      onDragOver={(e) => e.preventDefault()}
                       className="input text-lg text-center max-w-md mx-auto"
                       placeholder="Type your answer..."
                       autoFocus
                       disabled={isPaused}
+                      autoComplete="off" // Disable autocomplete
+                      spellCheck={false} // Disable spell check suggestions
                     />
                     <div className="flex gap-3 justify-center">
                       <button 
@@ -642,11 +742,18 @@ const Review: React.FC = () => {
                       <input 
                         type="text"
                         value={retryAnswer}
-                        onChange={(e) => setRetryAnswer(e.target.value)}
+                        onChange={(e) => handleInputChange(e, setRetryAnswer)}
                         onKeyPress={(e) => e.key === 'Enter' && handleRetrySubmit()}
+                        onKeyDown={handleKeyDown}
+                        onPaste={handleAntiPaste}
+                        onContextMenu={handleContextMenu}
+                        onDrop={(e) => e.preventDefault()} // Prevent drag & drop
+                        onDragOver={(e) => e.preventDefault()}
                         className="input text-lg text-center max-w-md mx-auto"
                         placeholder="Type the word again..."
                         autoFocus
+                        autoComplete="off" // Disable autocomplete
+                        spellCheck={false} // Disable spell check suggestions
                       />
                       <button 
                         onClick={handleRetrySubmit}
@@ -698,7 +805,7 @@ const Review: React.FC = () => {
               </div>
               <div className="card p-4 text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {calculateSessionDuration(sessionStats.startTime)}m
+                  {getDisplayTime()}m
                 </div>
                 <div className="text-sm text-gray-600">Time Spent</div>
               </div>
@@ -729,7 +836,7 @@ const Review: React.FC = () => {
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
                   <div className="text-3xl font-bold text-purple-600 mb-2">
-                    {calculateSessionDuration(sessionStats.startTime)}m
+                    {getDisplayTime()}m
                   </div>
                   <div className="text-sm text-gray-600">Time Spent</div>
                 </div>
