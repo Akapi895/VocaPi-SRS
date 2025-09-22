@@ -1,6 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
-import { VocabWord, QualityRating, ReviewSession } from '@/types';
+import { VocabWord, QualityRating } from '@/types';
+import {
+  createUpdatedWord,
+  determineQualityRating,
+  isAnswerCorrect,
+  requiresRetry,
+  calculateAccuracy,
+  calculateProgress,
+  calculateSessionDuration,
+  updateSessionStats,
+  createReviewSession,
+  getWordsForReview,
+  shuffleArray,
+  maskWordInSentence,
+  playWordPronunciation,
+  calculateAnalyticsUpdate,
+  calculateGamificationUpdate,
+  isValidInput
+} from './utils';
 import { 
   ArrowLeft,
   Lightbulb,
@@ -10,7 +28,8 @@ import {
   BookOpen,
   Play,
   Pause,
-  RotateCw
+  RotateCw,
+  ArrowRight
 } from 'lucide-react';
 
 const Review: React.FC = () => {
@@ -21,6 +40,9 @@ const Review: React.FC = () => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [showHint, setShowHint] = useState(false);
+  const [showReviewStep, setShowReviewStep] = useState(false);
+  const [selectedQuality, setSelectedQuality] = useState<QualityRating | null>(null);
+  const [retryAnswer, setRetryAnswer] = useState('');
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     total: 0,
@@ -33,20 +55,13 @@ const Review: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'pause' | 'stop' | null>(null);
 
-  // Get words due for review
-  const getDueWords = (): VocabWord[] => {
-    if (!data) return [];
-    const now = Date.now();
-    return data.vocabWords.filter(word => word.nextReview <= now);
-  };
-
   // Initialize review session
   useEffect(() => {
     if (data) {
-      const dueWords = getDueWords();
+      const dueWords = getWordsForReview(data.vocabWords);
       if (dueWords.length > 0) {
         // Shuffle words for better learning
-        const shuffled = [...dueWords].sort(() => Math.random() - 0.5);
+        const shuffled = shuffleArray(dueWords);
         setReviewWords(shuffled);
         setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
       }
@@ -55,94 +70,76 @@ const Review: React.FC = () => {
 
   // Handle answer submission
   const handleAnswerSubmit = () => {
-    if (!userAnswer.trim()) return;
+    if (!isValidInput(userAnswer)) return;
     
     const currentWord = reviewWords[currentWordIndex];
-    const isCorrect = userAnswer.toLowerCase().trim() === currentWord.word.toLowerCase();
+    const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
     
     setShowAnswer(true);
-    setSessionStats(prev => ({
-      ...prev,
-      correct: prev.correct + (isCorrect ? 1 : 0),
-      total: prev.total + 1
-    }));
+    setSessionStats(prev => updateSessionStats(prev, isCorrect));
   };
 
+
+  // Handle quality rating selection
+  const handleQualityRating = (quality: QualityRating) => {
+    setSelectedQuality(quality);
+    setShowReviewStep(true);
+  };
+
+  // Handle retry answer for low quality words
+  const handleRetrySubmit = () => {
+    if (!isValidInput(retryAnswer)) return;
+    
+    const currentWord = reviewWords[currentWordIndex];
+    const isRetryCorrect = isAnswerCorrect(retryAnswer, currentWord.word);
+    
+    if (isRetryCorrect) {
+      // Proceed to next word if retry is correct
+      processQualityRating(selectedQuality!);
+    } else {
+      // Reset retry answer and let user try again
+      setRetryAnswer('');
+      // Optional: show feedback that retry is incorrect
+    }
+  };
 
   // Process quality rating and move to next word
   const processQualityRating = async (quality: QualityRating) => {
     const currentWord = reviewWords[currentWordIndex];
-    const isCorrect = userAnswer.toLowerCase().trim() === currentWord.word.toLowerCase();
+    const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
     
-    // Determine quality based on new logic
-    let finalQuality: QualityRating;
+    // Determine final quality based on user behavior
+    const finalQuality = determineQualityRating({
+      isCorrect,
+      usedHint: showHint,
+      userSelectedQuality: quality === 0 ? undefined : quality,
+      isSkipped: quality === 0
+    });
     
-    if (quality === 0) {
-      // Skip button was pressed
-      finalQuality = 0;
-    } else if (showHint) {
-      // User used hint
-      if (isCorrect) {
-        finalQuality = 2; // Used hint + correct = quality 2
-      } else {
-        finalQuality = 0; // Used hint + wrong = quality 0
-      }
-    } else {
-      // User didn't use hint
-      if (isCorrect) {
-        finalQuality = quality; // User can choose 3-5 based on difficulty
-      } else {
-        finalQuality = 1; // No hint + wrong = quality 1
-      }
-    }
-    
-    // Update word with SRS algorithm
-    const updatedWord = {
-      ...currentWord,
-      quality: finalQuality,
-      repetitions: currentWord.repetitions + 1,
-      lastReviewTime: Date.now(),
-      totalReviews: currentWord.totalReviews + 1,
-      correctReviews: currentWord.correctReviews + (finalQuality >= 3 ? 1 : 0)
-    };
-
-    // Simple SRS calculation
-    let newInterval = currentWord.interval;
-    let newEaseFactor = currentWord.easeFactor;
-
-    if (finalQuality >= 3) {
-      newInterval = Math.min(currentWord.interval * 2, 365);
-      newEaseFactor = Math.max(1.3, currentWord.easeFactor + (0.1 - (5 - finalQuality) * (0.08 + (5 - finalQuality) * 0.02)));
-    } else {
-      newInterval = 1;
-      newEaseFactor = Math.max(1.3, currentWord.easeFactor - 0.2);
-    }
-
-    updatedWord.interval = newInterval;
-    updatedWord.easeFactor = newEaseFactor;
-    updatedWord.nextReview = Date.now() + (newInterval * 24 * 60 * 60 * 1000);
+    // Create updated word with new SRS values
+    const updatedWord = createUpdatedWord(currentWord, finalQuality);
 
     // Update word, analytics, and gamification
     await updateWord(currentWord.id, updatedWord);
 
-    // Update analytics
+    // Update analytics and gamification
     if (data) {
       const sessionTime = Date.now() - sessionStats.startTime;
-      await updateAnalytics({
-        totalStudyTime: (data.analytics.totalStudyTime || 0) + sessionTime,
-        averageSessionTime: ((data.analytics.averageSessionTime || 0) + sessionTime) / 2,
-        totalWords: data.analytics.totalWords || 0,
-        learnedWords: (data.analytics.learnedWords || 0) + (finalQuality >= 3 ? 1 : 0),
-        accuracy: data.analytics.accuracy || 0
+      
+      const analyticsUpdate = calculateAnalyticsUpdate({
+        currentAnalytics: data.analytics,
+        sessionTime,
+        finalQuality
+      });
+      
+      const gamificationUpdate = calculateGamificationUpdate({
+        currentGamification: data.gamification,
+        sessionTime,
+        finalQuality
       });
 
-      // Update gamification
-      const xpGained = finalQuality >= 3 ? 10 : (finalQuality === 2 ? 5 : 2);
-      await updateGamification({
-        xp: (data.gamification.xp || 0) + xpGained,
-        totalStudyTime: (data.gamification.totalStudyTime || 0) + sessionTime,
-        streak: finalQuality >= 3 ? (data.gamification.streak || 0) + 1 : 0
-      });
+      await updateAnalytics(analyticsUpdate);
+      await updateGamification(gamificationUpdate);
     }
 
     // Move to next word or complete review
@@ -151,22 +148,22 @@ const Review: React.FC = () => {
       setShowAnswer(false);
       setUserAnswer('');
       setShowHint(false);
+      setShowReviewStep(false);
+      setSelectedQuality(null);
+      setRetryAnswer('');
     } else {
       // Complete review session
       const endTime = Date.now();
       const totalTime = endTime - sessionStats.startTime;
       
-      // Create review session record (could be saved to storage in the future)
-      const reviewSession: ReviewSession = {
-        id: `session_${Date.now()}`,
+      // Create review session record
+      const reviewSession = createReviewSession({
         startTime: sessionStats.startTime,
         endTime,
         wordsReviewed: reviewWords.map(w => w.id),
         correctAnswers: sessionStats.correct,
-        totalAnswers: sessionStats.total,
-        averageResponseTime: totalTime / sessionStats.total,
-        quality: sessionStats.correct / sessionStats.total
-      };
+        totalAnswers: sessionStats.total
+      });
       
       // TODO: Save review session to storage
       console.log('Review session completed:', reviewSession);
@@ -178,9 +175,11 @@ const Review: React.FC = () => {
 
   // Restart review
   const handleRestart = () => {
-    const dueWords = getDueWords();
+    if (!data) return;
+    
+    const dueWords = getWordsForReview(data.vocabWords);
     if (dueWords.length > 0) {
-      const shuffled = [...dueWords].sort(() => Math.random() - 0.5);
+      const shuffled = shuffleArray(dueWords);
       setReviewWords(shuffled);
       setCurrentWordIndex(0);
       setShowAnswer(false);
@@ -292,8 +291,8 @@ const Review: React.FC = () => {
   }
 
   const currentWord = reviewWords[currentWordIndex];
-  const progress = ((currentWordIndex + 1) / reviewWords.length) * 100;
-  const accuracy = sessionStats.total > 0 ? (sessionStats.correct / sessionStats.total) * 100 : 0;
+  const progress = calculateProgress(currentWordIndex, reviewWords.length);
+  const accuracy = calculateAccuracy(sessionStats);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -364,20 +363,10 @@ const Review: React.FC = () => {
                   {/* Pronunciation Button */}
                   {(currentWord.pronunUrl || currentWord.audioUrl) && (
                     <button 
-                      onClick={() => {
-                        const audioUrl = currentWord.pronunUrl || currentWord.audioUrl;
-                        if (audioUrl) {
-                          new Audio(audioUrl).play().catch(() => {
-                            // Fallback to TTS
-                            if ('speechSynthesis' in window) {
-                              const utterance = new SpeechSynthesisUtterance(currentWord.word);
-                              utterance.lang = 'en-US';
-                              utterance.rate = 0.8;
-                              speechSynthesis.speak(utterance);
-                            }
-                          });
-                        }
-                      }}
+                      onClick={() => playWordPronunciation(
+                        currentWord.word, 
+                        currentWord.pronunUrl || currentWord.audioUrl
+                      )}
                       className="btn btn-outline"
                     >
                       <Volume2 className="w-4 h-4" />
@@ -388,10 +377,7 @@ const Review: React.FC = () => {
                   {/* Example with masked word */}
                   {currentWord.example && (
                     <div className="text-lg text-gray-600 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                      {currentWord.example.replace(
-                        new RegExp(`\\b${currentWord.word}\\b`, 'gi'), 
-                        '_____'
-                      )}
+                      {maskWordInSentence(currentWord.example, currentWord.word)}
                     </div>
                   )}
                 </div>
@@ -423,7 +409,7 @@ const Review: React.FC = () => {
                       <button 
                         onClick={handleAnswerSubmit}
                         className="btn btn-primary btn-lg"
-                        disabled={!userAnswer.trim() || isPaused}
+                        disabled={!isValidInput(userAnswer) || isPaused}
                       >
                         <Check className="w-5 h-5" />
                         Check Answer
@@ -439,7 +425,7 @@ const Review: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ) : (
+              ) : !showReviewStep ? (
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="text-lg">
@@ -465,39 +451,108 @@ const Review: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Only show difficulty question for quality 3-5 */}
-                  {(() => {
-                    const isCorrect = userAnswer.toLowerCase() === currentWord.word.toLowerCase();
-                    const usedHint = showHint;
-                    
-                    // Only show difficulty selection if user didn't use hint and got it correct
-                    if (!usedHint && isCorrect) {
-                      return (
-                        <div className="space-y-4">
-                          <div className="text-lg text-gray-700">How difficult was this word?</div>
-                          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
-                            {[3, 4, 5].map(qualityValue => (
-                              <button
-                                key={qualityValue}
-                                onClick={() => processQualityRating(qualityValue as QualityRating)}
-                                className={`btn btn-lg p-3 text-sm ${
-                                  qualityValue === 3 ? 'btn-warning' : 'btn-success'
-                                }`}
-                                disabled={isPaused}
-                              >
-                                <div className="font-bold">{qualityValue}</div>
-                                <div className="text-xs">
-                                  {qualityValue === 3 ? 'Correct' :
-                                   qualityValue === 4 ? 'Easy' : 'Perfect'}
-                                </div>
-                              </button>
-                            ))}
+                  {/* Quality Rating */}
+                  <div className="space-y-4">
+                    <div className="text-lg text-gray-700">How did you do with this word?</div>
+                    <div className="grid grid-cols-6 gap-2 max-w-2xl mx-auto">
+                      {[0, 1, 2, 3, 4, 5].map(qualityValue => (
+                        <button
+                          key={qualityValue}
+                          onClick={() => handleQualityRating(qualityValue as QualityRating)}
+                          className={`btn btn-lg p-3 text-sm ${
+                            qualityValue <= 2 ? 'btn-error' :
+                            qualityValue === 3 ? 'btn-warning' : 'btn-success'
+                          }`}
+                          disabled={isPaused}
+                        >
+                          <div className="font-bold">{qualityValue}</div>
+                          <div className="text-xs">
+                            {qualityValue === 0 ? 'Total blackout' :
+                             qualityValue === 1 ? 'Incorrect, easy' :
+                             qualityValue === 2 ? 'Incorrect, hard' :
+                             qualityValue === 3 ? 'Correct, hard' :
+                             qualityValue === 4 ? 'Correct, hesitant' : 'Perfect'}
                           </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  })()}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Review Step - Show word details and audio */}
+                  <div className="space-y-4">
+                    <div className="text-2xl font-bold text-green-600 mb-4">
+                      {currentWord.word}
+                    </div>
+                    
+                    {currentWord.phonetic && (
+                      <div className="text-lg text-gray-500 mb-4">
+                        {currentWord.phonetic}
+                      </div>
+                    )}
+                    
+                    <div className="text-lg text-gray-700 mb-4">
+                      <strong>Meaning:</strong> {currentWord.meaning}
+                    </div>
+                    
+                    {/* Audio Button */}
+                    {(currentWord.pronunUrl || currentWord.audioUrl) && (
+                      <button 
+                        onClick={() => playWordPronunciation(
+                          currentWord.word, 
+                          currentWord.pronunUrl || currentWord.audioUrl
+                        )}
+                        className="btn btn-outline mb-4"
+                      >
+                        <Volume2 className="w-4 h-4" />
+                        Listen to Pronunciation
+                      </button>
+                    )}
+                    
+                    {/* Example */}
+                    {currentWord.example && (
+                      <div className="text-lg text-gray-600 p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
+                        <strong>Example:</strong> {currentWord.example}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Retry input for low quality ratings (0-2) */}
+                  {selectedQuality !== null && requiresRetry(selectedQuality) ? (
+                    <div className="space-y-4">
+                      <div className="text-lg text-red-600 font-medium">
+                        Please type the word again to continue:
+                      </div>
+                      <input 
+                        type="text"
+                        value={retryAnswer}
+                        onChange={(e) => setRetryAnswer(e.target.value)}
+                        onKeyPress={(e) => e.key === 'Enter' && handleRetrySubmit()}
+                        className="input text-lg text-center max-w-md mx-auto"
+                        placeholder="Type the word again..."
+                        autoFocus
+                      />
+                      <button 
+                        onClick={handleRetrySubmit}
+                        className="btn btn-primary btn-lg"
+                        disabled={!isValidInput(retryAnswer)}
+                      >
+                        <Check className="w-5 h-5" />
+                        Continue
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      <button 
+                        onClick={() => processQualityRating(selectedQuality!)}
+                        className="btn btn-primary btn-lg"
+                      >
+                        <ArrowRight className="w-5 h-5" />
+                        Continue to Next Word
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -518,7 +573,7 @@ const Review: React.FC = () => {
               </div>
               <div className="card p-4 text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {Math.round((Date.now() - sessionStats.startTime) / 1000 / 60)}m
+                  {calculateSessionDuration(sessionStats.startTime)}m
                 </div>
                 <div className="text-sm text-gray-600">Time Spent</div>
               </div>
@@ -549,7 +604,7 @@ const Review: React.FC = () => {
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
                   <div className="text-3xl font-bold text-purple-600 mb-2">
-                    {Math.round(sessionStats.totalTime / 1000 / 60)}m
+                    {calculateSessionDuration(sessionStats.startTime, sessionStats.startTime + sessionStats.totalTime)}m
                   </div>
                   <div className="text-sm text-gray-600">Time Spent</div>
                 </div>
@@ -640,7 +695,7 @@ const Review: React.FC = () => {
               </div>
               <div className="p-4 bg-purple-50 rounded-lg">
                 <div className="text-3xl font-bold text-purple-600 mb-2">
-                  {Math.round(sessionStats.totalTime / 1000 / 60)}m
+                  {calculateSessionDuration(sessionStats.startTime)}m
                 </div>
                 <div className="text-sm text-gray-600">Time Spent</div>
               </div>
