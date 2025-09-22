@@ -332,11 +332,98 @@ export const calculateGamificationUpdate = (params: {
   const { currentGamification, sessionTime, finalQuality } = params;
   const xpGained = calculateXPGained(finalQuality);
   
+  // Don't modify streak here - it should be handled by daily goal tracking
+  // This function is called for each word review, but streak should only increase once per day
   return {
     xp: (currentGamification.xp || 0) + xpGained,
     totalStudyTime: (currentGamification.totalStudyTime || 0) + sessionTime,
-    streak: finalQuality >= 3 ? (currentGamification.streak || 0) + 1 : 0
+    // Keep existing streak value - don't increment per word
+    streak: currentGamification.streak || 0
   };
+};
+
+/**
+ * Update daily streak based on daily goal completion
+ * @param params Streak update parameters
+ * @returns Updated gamification data with proper streak handling
+ */
+export const updateDailyStreak = (params: {
+  currentGamification: any;
+  wordsReviewedToday: number;
+  dailyGoal: number;
+  currentDate?: Date;
+}): { streak: number; lastStreakUpdate: number; streakIncremented: boolean } => {
+  const { currentGamification, wordsReviewedToday, dailyGoal, currentDate = new Date() } = params;
+  
+  // Get current streak and last update date
+  const currentStreak = currentGamification.streak || 0;
+  const lastStreakUpdate = currentGamification.lastStreakUpdate || 0;
+  
+  // Check if today is different from last streak update day
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+  const todayTimestamp = today.getTime();
+  
+  const lastUpdateDate = new Date(lastStreakUpdate);
+  lastUpdateDate.setHours(0, 0, 0, 0);
+  const lastUpdateTimestamp = lastUpdateDate.getTime();
+  
+  // If already updated today, don't increment again
+  if (lastUpdateTimestamp === todayTimestamp) {
+    return {
+      streak: currentStreak,
+      lastStreakUpdate: lastStreakUpdate,
+      streakIncremented: false
+    };
+  }
+  
+  // Check if daily goal is met
+  if (wordsReviewedToday >= dailyGoal) {
+    // Check if this is consecutive day
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    const isConsecutiveDay = (todayTimestamp - lastUpdateTimestamp) === oneDayMs;
+    
+    let newStreak;
+    if (lastStreakUpdate === 0 || isConsecutiveDay) {
+      // First time or consecutive day - increment streak
+      newStreak = currentStreak + 1;
+    } else {
+      // Gap in days - reset to 1
+      newStreak = 1;
+    }
+    
+    return {
+      streak: newStreak,
+      lastStreakUpdate: todayTimestamp,
+      streakIncremented: true
+    };
+  }
+  
+  // Goal not met yet - keep current streak
+  return {
+    streak: currentStreak,
+    lastStreakUpdate: lastStreakUpdate,
+    streakIncremented: false
+  };
+};
+
+/**
+ * Count words reviewed today
+ * @param words Array of vocabulary words
+ * @param currentDate Current date (defaults to today)
+ * @returns Number of words reviewed today
+ */
+export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = new Date()): number => {
+  const today = new Date(currentDate);
+  today.setHours(0, 0, 0, 0);
+  const todayStart = today.getTime();
+  const todayEnd = todayStart + (24 * 60 * 60 * 1000) - 1;
+  
+  return words.filter(word => {
+    return word.lastReviewTime && 
+           word.lastReviewTime >= todayStart && 
+           word.lastReviewTime <= todayEnd;
+  }).length;
 };
 
 // ===============================

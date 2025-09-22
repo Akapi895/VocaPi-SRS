@@ -17,6 +17,8 @@ import {
   playWordPronunciation,
   calculateAnalyticsUpdate,
   calculateGamificationUpdate,
+  updateDailyStreak,
+  countWordsReviewedToday,
   isValidInput
 } from './utils';
 import { 
@@ -203,6 +205,36 @@ const Review: React.FC = () => {
           console.log('Review session saved to storage');
         } catch (error) {
           console.error('Failed to save review session:', error);
+        }
+
+        // Check and update daily streak after completing session
+        if (data && data.vocabWords && data.gamification) {
+          try {
+            const wordsReviewedToday = countWordsReviewedToday(data.vocabWords);
+            const dailyGoal = data.gamification.dailyGoal || 10; // Default to 10 words
+            
+            const streakUpdate = updateDailyStreak({
+              currentGamification: data.gamification,
+              wordsReviewedToday,
+              dailyGoal
+            });
+            
+            // Only update if streak was incremented
+            if (streakUpdate.streakIncremented) {
+              const streakGamificationUpdate = {
+                ...data.gamification,
+                streak: streakUpdate.streak,
+                lastStreakUpdate: streakUpdate.lastStreakUpdate
+              };
+              
+              await updateGamification(streakGamificationUpdate);
+              console.log(`Daily goal achieved! Streak updated to ${streakUpdate.streak}`);
+            } else {
+              console.log(`Daily goal progress: ${wordsReviewedToday}/${dailyGoal} words reviewed today`);
+            }
+          } catch (error) {
+            console.error('Failed to update daily streak:', error);
+          }
         }
 
         // Update session stats and complete session atomically

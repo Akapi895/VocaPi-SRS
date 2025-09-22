@@ -122,6 +122,118 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     checkUnlocked: (data) => data.totalWords >= 500
   },
   
+  // Advanced Word Count Achievements (500-3000+)
+  {
+    id: 'vocabulary_titan',
+    icon: '🏛️',
+    name: 'Vocabulary Titan',
+    description: 'Mastered 750 words - reaching intermediate level',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 750,
+    checkUnlocked: (data) => data.totalWords >= 750
+  },
+  {
+    id: 'millennium_master',
+    icon: '🌟',
+    name: 'Millennium Master',
+    description: 'Conquered 1000 words - true milestone!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 1000,
+    checkUnlocked: (data) => data.totalWords >= 1000
+  },
+  {
+    id: 'intermediate_scholar',
+    icon: '🎯',
+    name: 'Intermediate Scholar',
+    description: 'Achieved 1250 words - solid intermediate level',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 1250,
+    checkUnlocked: (data) => data.totalWords >= 1250
+  },
+  {
+    id: 'vocabulary_sage',
+    icon: '🧙‍♂️',
+    name: 'Vocabulary Sage',
+    description: 'Mastered 1500 words - approaching advanced level',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.MYTHIC,
+    points: 1500,
+    checkUnlocked: (data) => data.totalWords >= 1500
+  },
+  {
+    id: 'word_wizard',
+    icon: '🔮',
+    name: 'Word Wizard',
+    description: 'Enchanted with 1750 words - magical achievement!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.MYTHIC,
+    points: 1750,
+    checkUnlocked: (data) => data.totalWords >= 1750
+  },
+  {
+    id: 'vocabulary_grandmaster',
+    icon: '👑',
+    name: 'Vocabulary Grandmaster',
+    description: 'Conquered 2000 words - advanced English level!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.MYTHIC,
+    points: 2000,
+    checkUnlocked: (data) => data.totalWords >= 2000
+  },
+  {
+    id: 'english_scholar',
+    icon: '🎓',
+    name: 'English Scholar',
+    description: 'Mastered 2250 words - academic excellence',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.MYTHIC,
+    points: 2250,
+    checkUnlocked: (data) => data.totalWords >= 2250
+  },
+  {
+    id: 'linguistic_prodigy',
+    icon: '🌈',
+    name: 'Linguistic Prodigy',
+    description: 'Achieved 2500 words - exceptional vocabulary',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.MYTHIC,
+    points: 2500,
+    checkUnlocked: (data) => data.totalWords >= 2500
+  },
+  {
+    id: 'vocabulary_deity',
+    icon: '✨',
+    name: 'Vocabulary Deity',
+    description: 'Transcended with 3000 words - divine mastery!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.DIVINE,
+    points: 3000,
+    checkUnlocked: (data) => data.totalWords >= 3000
+  },
+  {
+    id: 'ultimate_wordsmith',
+    icon: '🌌',
+    name: 'Ultimate Wordsmith',
+    description: 'Beyond mortal limits - 4000 words conquered!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.DIVINE,
+    points: 4000,
+    checkUnlocked: (data) => data.totalWords >= 4000
+  },
+  {
+    id: 'vocabulary_immortal',
+    icon: '🔥',
+    name: 'Vocabulary Immortal',
+    description: 'Legendary status - 5000 words mastered!',
+    category: AchievementCategory.WORDS,
+    rarity: AchievementRarity.DIVINE,
+    points: 5000,
+    checkUnlocked: (data) => data.totalWords >= 5000
+  },
+  
   // Streak Achievements
   {
     id: 'on_fire',
@@ -144,6 +256,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     checkUnlocked: (data) => data.currentStreak >= 7
   },
   {
+    id: 'fortnight_fighter',
+    icon: '🛡️',
+    name: 'Fortnight Fighter',
+    description: '14-day learning streak',
+    category: AchievementCategory.STREAK,
+    rarity: AchievementRarity.RARE,
+    points: 140,
+    checkUnlocked: (data) => data.currentStreak >= 14
+  },
+  {
     id: 'diamond_dedication',
     icon: '💎',
     name: 'Diamond Dedication',
@@ -154,6 +276,16 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     checkUnlocked: (data) => data.currentStreak >= 30
   },
   {
+    id: 'quarterly_champion',
+    icon: '🏆',
+    name: 'Quarterly Champion',
+    description: '90-day learning streak',
+    category: AchievementCategory.STREAK,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 900,
+    checkUnlocked: (data) => data.currentStreak >= 90
+  },
+  {
     id: 'centurion',
     icon: '🌟',
     name: 'Centurion',
@@ -162,6 +294,26 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     rarity: AchievementRarity.LEGENDARY,
     points: 1000,
     checkUnlocked: (data) => data.currentStreak >= 100
+  },
+  {
+    id: 'half_year_hero',
+    icon: '🌞',
+    name: 'Half Year Hero',
+    description: '180-day learning streak - incredible dedication!',
+    category: AchievementCategory.STREAK,
+    rarity: AchievementRarity.MYTHIC,
+    points: 1800,
+    checkUnlocked: (data) => data.currentStreak >= 180
+  },
+  {
+    id: 'year_long_legend',
+    icon: '🎆',
+    name: 'Year-Long Legend',
+    description: '365-day learning streak - unstoppable force!',
+    category: AchievementCategory.STREAK,
+    rarity: AchievementRarity.DIVINE,
+    points: 3650,
+    checkUnlocked: (data) => data.currentStreak >= 365
   },
   
   // Accuracy Achievements
@@ -195,6 +347,46 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     points: 300,
     checkUnlocked: (data) => data.accuracy >= 95 && data.totalWords >= 50
   },
+  {
+    id: 'flawless_performer',
+    icon: '💯',
+    name: 'Flawless Performer',
+    description: '90% accuracy with 100+ words - consistent excellence',
+    category: AchievementCategory.ACCURACY,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 450,
+    checkUnlocked: (data) => data.accuracy >= 90 && data.totalWords >= 100
+  },
+  {
+    id: 'accuracy_virtuoso',
+    icon: '🎼',
+    name: 'Accuracy Virtuoso',
+    description: '92% accuracy with 250+ words - masterful precision',
+    category: AchievementCategory.ACCURACY,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 600,
+    checkUnlocked: (data) => data.accuracy >= 92 && data.totalWords >= 250
+  },
+  {
+    id: 'precision_perfectionist',
+    icon: '⚡',
+    name: 'Precision Perfectionist',
+    description: '94% accuracy with 500+ words - near perfection',
+    category: AchievementCategory.ACCURACY,
+    rarity: AchievementRarity.MYTHIC,
+    points: 940,
+    checkUnlocked: (data) => data.accuracy >= 94 && data.totalWords >= 500
+  },
+  {
+    id: 'accuracy_god',
+    icon: '✨',
+    name: 'Accuracy God',
+    description: '96% accuracy with 1000+ words - divine precision!',
+    category: AchievementCategory.ACCURACY,
+    rarity: AchievementRarity.DIVINE,
+    points: 1920,
+    checkUnlocked: (data) => data.accuracy >= 96 && data.totalWords >= 1000
+  },
   
   // Study Time Achievements
   {
@@ -213,9 +405,9 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     }
   },
   {
-    id: 'dedicated_learner',
+    id: 'dedicated_student',
     icon: '📖',
-    name: 'Dedicated Learner',
+    name: 'Dedicated Student',
     description: '10 hours of study time',
     category: AchievementCategory.TIME,
     rarity: AchievementRarity.UNCOMMON,
@@ -225,6 +417,20 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
       const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
       return studyHours >= 10;
+    }
+  },
+  {
+    id: 'study_marathon',
+    icon: '🏃‍♂️',
+    name: 'Study Marathon',
+    description: '25 hours of focused learning',
+    category: AchievementCategory.TIME,
+    rarity: AchievementRarity.RARE,
+    points: 375,
+    checkUnlocked: (data) => {
+      if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
+      const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
+      return studyHours >= 25;
     }
   },
   {
@@ -240,6 +446,62 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
       const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
       return studyHours >= 50;
+    }
+  },
+  {
+    id: 'century_scholar',
+    icon: '💯',
+    name: 'Century Scholar',
+    description: '100 hours of dedicated learning',
+    category: AchievementCategory.TIME,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 1000,
+    checkUnlocked: (data) => {
+      if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
+      const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
+      return studyHours >= 100;
+    }
+  },
+  {
+    id: 'academic_champion',
+    icon: '🏆',
+    name: 'Academic Champion',
+    description: '200 hours of intensive study',
+    category: AchievementCategory.TIME,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 2000,
+    checkUnlocked: (data) => {
+      if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
+      const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
+      return studyHours >= 200;
+    }
+  },
+  {
+    id: 'time_master',
+    icon: '⌛',
+    name: 'Time Master',
+    description: '500 hours of mastery pursuit',
+    category: AchievementCategory.TIME,
+    rarity: AchievementRarity.MYTHIC,
+    points: 5000,
+    checkUnlocked: (data) => {
+      if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
+      const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
+      return studyHours >= 500;
+    }
+  },
+  {
+    id: 'eternal_learner',
+    icon: '🌌',
+    name: 'Eternal Learner',
+    description: '1000 hours - true dedication to mastery!',
+    category: AchievementCategory.TIME,
+    rarity: AchievementRarity.DIVINE,
+    points: 10000,
+    checkUnlocked: (data) => {
+      if (!data.totalStudyTime || data.totalStudyTime <= 0) return false;
+      const studyHours = Math.floor(data.totalStudyTime / (1000 * 60 * 60));
+      return studyHours >= 1000;
     }
   },
   
@@ -258,6 +520,78 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
     }
   },
   {
+    id: 'retention_expert',
+    icon: '🧪',
+    name: 'Retention Expert',
+    description: '50 words mastered in review phase',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.EPIC,
+    points: 250,
+    checkUnlocked: (data) => {
+      return data.wordDistribution && data.wordDistribution.review >= 50;
+    }
+  },
+  {
+    id: 'memory_champion',
+    icon: '🏅',
+    name: 'Memory Champion',
+    description: '100 words mastered in review phase',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 500,
+    checkUnlocked: (data) => {
+      return data.wordDistribution && data.wordDistribution.review >= 100;
+    }
+  },
+  {
+    id: 'vocabulary_architect',
+    icon: '🏗️',
+    name: 'Vocabulary Architect',
+    description: '500 words actively being learned',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.MYTHIC,
+    points: 750,
+    checkUnlocked: (data) => {
+      return data.wordDistribution && data.wordDistribution.learning >= 500;
+    }
+  },
+  {
+    id: 'english_polymath',
+    icon: '🎭',
+    name: 'English Polymath',
+    description: 'Master 1000+ words with 90%+ accuracy',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.MYTHIC,
+    points: 1500,
+    checkUnlocked: (data) => data.totalWords >= 1000 && data.accuracy >= 90
+  },
+  {
+    id: 'linguistic_savant',
+    icon: '🎯',
+    name: 'Linguistic Savant',
+    description: '2000+ words with 92%+ accuracy and 90+ day streak',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.DIVINE,
+    points: 3000,
+    checkUnlocked: (data) => 
+      data.totalWords >= 2000 && 
+      data.accuracy >= 92 && 
+      data.currentStreak >= 90
+  },
+  {
+    id: 'vocabulary_overlord',
+    icon: '👑',
+    name: 'Vocabulary Overlord',
+    description: 'Ultimate achievement: 3000+ words, 95%+ accuracy, 180+ day streak',
+    category: AchievementCategory.SPECIAL,
+    rarity: AchievementRarity.DIVINE,
+    points: 5000,
+    checkUnlocked: (data) => 
+      data.totalWords >= 3000 && 
+      data.accuracy >= 95 && 
+      data.currentStreak >= 180
+  },
+  {
     id: 'weekly_champion',
     icon: '💪',
     name: 'Weekly Champion',
@@ -270,6 +604,48 @@ export const ACHIEVEMENT_DEFINITIONS: AchievementDefinition[] = [
       if (!data.weeklyProgress || data.weeklyProgress.length === 0) return false;
       const weeklyWordsCount = data.weeklyProgress.reduce((sum, day) => sum + (day.words || 0), 0);
       return weeklyWordsCount >= 30;
+    }
+  },
+  {
+    id: 'weekly_warrior',
+    icon: '⚔️',
+    name: 'Weekly Warrior',
+    description: '50+ words learned this week',
+    category: AchievementCategory.WEEKLY,
+    rarity: AchievementRarity.RARE,
+    points: 150,
+    checkUnlocked: (data) => {
+      if (!data.weeklyProgress || data.weeklyProgress.length === 0) return false;
+      const weeklyWordsCount = data.weeklyProgress.reduce((sum, day) => sum + (day.words || 0), 0);
+      return weeklyWordsCount >= 50;
+    }
+  },
+  {
+    id: 'weekly_legend',
+    icon: '🌟',
+    name: 'Weekly Legend',
+    description: '100+ words conquered this week!',
+    category: AchievementCategory.WEEKLY,
+    rarity: AchievementRarity.EPIC,
+    points: 300,
+    checkUnlocked: (data) => {
+      if (!data.weeklyProgress || data.weeklyProgress.length === 0) return false;
+      const weeklyWordsCount = data.weeklyProgress.reduce((sum, day) => sum + (day.words || 0), 0);
+      return weeklyWordsCount >= 100;
+    }
+  },
+  {
+    id: 'weekly_overlord',
+    icon: '🔥',
+    name: 'Weekly Overlord',
+    description: '200+ words mastered this week - incredible pace!',
+    category: AchievementCategory.WEEKLY,
+    rarity: AchievementRarity.LEGENDARY,
+    points: 500,
+    checkUnlocked: (data) => {
+      if (!data.weeklyProgress || data.weeklyProgress.length === 0) return false;
+      const weeklyWordsCount = data.weeklyProgress.reduce((sum, day) => sum + (day.words || 0), 0);
+      return weeklyWordsCount >= 200;
     }
   }
 ];

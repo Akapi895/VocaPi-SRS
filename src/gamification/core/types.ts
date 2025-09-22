@@ -51,7 +51,9 @@ export enum AchievementRarity {
   UNCOMMON = 'uncommon',
   RARE = 'rare',
   EPIC = 'epic',
-  LEGENDARY = 'legendary'
+  LEGENDARY = 'legendary',
+  MYTHIC = 'mythic',
+  DIVINE = 'divine'
 }
 
 export interface AchievementDefinition {

@@ -29,7 +29,8 @@ export const useChromeStorage = () => {
           achievements: [],
           dailyGoal: 20,
           weeklyGoal: 100,
-          totalStudyTime: 0
+          totalStudyTime: 0,
+          lastStreakUpdate: 0
         },
         analytics: result.analytics || {
           totalWords: 0,

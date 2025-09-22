@@ -33,6 +33,7 @@ export interface VocabWord {
     weeklyGoal: number;
     totalStudyTime: number;
     lastStudyDate?: number;
+    lastStreakUpdate?: number;
   }
   
   export interface Achievement {

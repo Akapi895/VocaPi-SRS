@@ -266,7 +266,7 @@ const Analytics: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1">
                     <div className="text-sm text-gray-600">{day.words} words</div>
                     <div className="text-sm text-gray-600">•</div>
-                    <div className="text-sm text-gray-600">{day.time} min</div>
+                    <div className="text-sm text-gray-600">{formatTime(day.time)}</div>
                     {day.added > 0 && (
                       <>
                         <div className="text-sm text-gray-600">•</div>
