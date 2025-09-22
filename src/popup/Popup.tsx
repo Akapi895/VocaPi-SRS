@@ -1,7 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
 // import { useChromeMessages } from '@/hooks/useChromeMessages';
-import { VocabWord } from '@/types';
+import {
+  getDueWords,
+  getFilteredWords,
+  playWordPronunciation,
+  createExportData,
+  generateExportFilename,
+  downloadJsonFile,
+  processDataImport,
+  createFileInput,
+  toggleWordHighlightingGlobally,
+  openExtensionPage,
+  calculateLearningStats,
+  formatDateForDisplay,
+  getReviewStatusColor,
+  debounce
+} from './utils';
 import { 
   BookOpen, 
   Play, 
@@ -26,6 +41,7 @@ const Popup: React.FC = () => {
   const [currentScreen, setCurrentScreen] = useState<'main' | 'wordList'>('main');
   const [wordHighlightingEnabled, setWordHighlightingEnabled] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [debouncedSearchTerm, setDebouncedSearchTerm] = useState('');
 
   // Load settings on component mount
   useEffect(() => {
@@ -34,25 +50,19 @@ const Popup: React.FC = () => {
     }
   }, [data?.settings]);
 
-  // Get words due for review
-  const getDueWords = (): VocabWord[] => {
-    if (!data) return [];
-    const now = Date.now();
-    return data.vocabWords.filter(word => word.nextReview <= now);
-  };
+  // Debounced search effect
+  useEffect(() => {
+    const debouncedSearch = debounce((term: string) => {
+      setDebouncedSearchTerm(term);
+    }, 300);
 
-  // Filter words based on search term
-  const getFilteredWords = (): VocabWord[] => {
-    if (!data) return [];
-    if (!searchTerm.trim()) return data.vocabWords;
-    
-    const term = searchTerm.toLowerCase();
-    return data.vocabWords.filter(word => 
-      word.word.toLowerCase().includes(term) || 
-      word.meaning.toLowerCase().includes(term) ||
-      (word.example && word.example.toLowerCase().includes(term))
-    );
-  };
+    debouncedSearch(searchTerm);
+  }, [searchTerm]);
+
+  // Helper functions using utils
+  const getCurrentDueWords = () => getDueWords(data?.vocabWords || []);
+  const getCurrentFilteredWords = () => getFilteredWords(data?.vocabWords || [], debouncedSearchTerm);
+  const getStats = () => calculateLearningStats(data);
 
 
 
@@ -63,24 +73,9 @@ const Popup: React.FC = () => {
     setWordHighlightingEnabled(newValue);
     await updateSettings({ notifications: newValue });
     
-    // Send message to all tabs to update content script
+    // Use utils function to broadcast to all tabs
     try {
-      const tabs = await chrome.tabs.query({});
-      const promises = tabs.map(async (tab) => {
-        if (tab.id) {
-          try {
-            await chrome.tabs.sendMessage(tab.id, {
-              type: 'TOGGLE_WORD_HIGHLIGHTING',
-              data: { enabled: newValue }
-            });
-          } catch (error) {
-            // Ignore errors for tabs that don't have content script
-            console.log(`Tab ${tab.id} doesn't have content script or failed to send message`);
-          }
-        }
-      });
-      
-      await Promise.allSettled(promises);
+      await toggleWordHighlightingGlobally(newValue);
     } catch (error) {
       console.error('Failed to update content scripts:', error);
     }
@@ -89,57 +84,9 @@ const Popup: React.FC = () => {
   // Play audio pronunciation
   const playAudio = async (word: string) => {
     try {
-      const vw = data?.vocabWords.find(w => w.word.toLowerCase() === word.toLowerCase());
-      const anyVw = vw as any;
-      const pronunUrl: string | undefined =
-        anyVw?.pronunUrl || anyVw?.audioUrl || anyVw?.audio || undefined;
-
-      if (pronunUrl && pronunUrl.trim() !== '') {
-        try {
-          // Add timeout to prevent hanging
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 8000);
-          
-          const res = await fetch(pronunUrl, { 
-            signal: controller.signal,
-            method: 'GET'
-          });
-          clearTimeout(timeoutId);
-
-          if (res.ok) {
-            const blob = await res.blob();
-            const objectUrl = URL.createObjectURL(blob);
-            
-            try {
-              const audio = new Audio(objectUrl);
-              await audio.play();
-              audio.onended = () => URL.revokeObjectURL(objectUrl);
-              return; // Success, no need for TTS fallback
-            } catch (playError) {
-              URL.revokeObjectURL(objectUrl);
-              console.log('Audio playback failed, falling back to TTS');
-            }
-          }
-        } catch (fetchError) {
-          console.log('Audio fetch failed, falling back to TTS');
-        }
-      }
+      await playWordPronunciation(word, data?.vocabWords || []);
     } catch (error) {
-      console.log('Audio processing error, falling back to TTS');
-    }
-
-    // Fallback: Web Speech API (TTS)
-    if ('speechSynthesis' in window) {
-      try {
-        window.speechSynthesis.cancel(); 
-        const utterance = new SpeechSynthesisUtterance(word);
-        utterance.lang = 'en-US';
-        utterance.rate = 0.85;
-        utterance.volume = 0.8;
-        window.speechSynthesis.speak(utterance);
-      } catch (ttsError) {
-        console.log('Text-to-speech also failed:', ttsError);
-      }
+      console.error('Failed to play pronunciation:', error);
     }
   };
 
@@ -147,66 +94,38 @@ const Popup: React.FC = () => {
   const handleExportData = () => {
     if (!data) return;
     
-    const exportData = {
-      vocabWords: data.vocabWords,
-      gamification: data.gamification,
-      analytics: data.analytics,
-      settings: data.settings,
-      exportDate: new Date().toISOString(),
-      version: '1.0'
-    };
-    
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vocab-srs-backup-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    const exportData = createExportData(data);
+    const filename = generateExportFilename();
+    downloadJsonFile(exportData, filename);
   };
 
   // Import data
-  const handleImportData = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
-    input.accept = '.json';
-    input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (!file) return;
+  const handleImportData = async () => {
+    try {
+      const files = await createFileInput('.json', false);
+      if (!files || files.length === 0) return;
       
-      try {
-        const text = await file.text();
-        const importData = JSON.parse(text);
-        
-        // Validate import data
-        if (!importData.vocabWords || !Array.isArray(importData.vocabWords)) {
-          alert('Invalid file format. Please select a valid VocaPi backup file.');
-          return;
-        }
-        
+      const file = files[0];
+      const result = await processDataImport(file, data);
+      
+      if (result.success && result.data) {
         // Confirm import
         const confirmed = confirm(
-          `This will import ${importData.vocabWords.length} words and replace your current data. Are you sure?`
+          `This will import ${result.wordCount} words and replace your current data. Are you sure?`
         );
         
         if (confirmed) {
-          await saveData({
-            vocabWords: importData.vocabWords,
-            gamification: importData.gamification || data?.gamification,
-            analytics: importData.analytics || data?.analytics,
-            settings: importData.settings || data?.settings
-          });
+          await saveData(result.data);
           alert('Data imported successfully!');
           window.location.reload();
         }
-      } catch (error) {
-        console.error('Import failed:', error);
-        alert('Failed to import data. Please check the file format.');
+      } else {
+        alert(result.error || 'Failed to import data. Please check the file format.');
       }
-    };
-    input.click();
+    } catch (error) {
+      console.error('Import failed:', error);
+      alert('Failed to import data. Please try again.');
+    }
   };
 
   if (loading) {
@@ -237,7 +156,7 @@ const Popup: React.FC = () => {
     );
   }
 
-  const dueWords = getDueWords();
+  const dueWords = getCurrentDueWords();
 
   return (
     <div className="w-96 h-[600px] bg-white flex flex-col">
@@ -294,22 +213,22 @@ const Popup: React.FC = () => {
               <div className="flex items-center gap-1">
                 <Trophy className="w-3 h-3 text-yellow-500" />
                 <span className="text-gray-600">Level:</span>
-                <span className="font-semibold">{data?.gamification.level || 1}</span>
+                <span className="font-semibold">{getStats().level}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Zap className="w-3 h-3 text-blue-500" />
                 <span className="text-gray-600">XP:</span>
-                <span className="font-semibold">{data?.gamification.xp || 0}</span>
+                <span className="font-semibold">{getStats().xp}</span>
               </div>
               <div className="flex items-center gap-1">
                 <Target className="w-3 h-3 text-green-500" />
                 <span className="text-gray-600">Streak:</span>
-                <span className="font-semibold">{data?.gamification.streak || 0} days</span>
+                <span className="font-semibold">{getStats().streak} days</span>
               </div>
               <div className="flex items-center gap-1">
                 <TrendingUp className="w-3 h-3 text-purple-500" />
                 <span className="text-gray-600">Accuracy:</span>
-                <span className="font-semibold">{data?.analytics.accuracy || 0}%</span>
+                <span className="font-semibold">{getStats().accuracy}%</span>
               </div>
             </div>
           </div>
@@ -317,7 +236,7 @@ const Popup: React.FC = () => {
           {/* Action Buttons */}
           <div className="space-y-2">
             <button 
-              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('review.html') })}
+              onClick={() => openExtensionPage('review.html')}
               className="btn btn-primary w-full btn-lg"
               disabled={dueWords.length === 0}
             >
@@ -337,14 +256,14 @@ const Popup: React.FC = () => {
           {/* Quick Actions */}
           <div className="grid grid-cols-4 gap-2">
             <button 
-              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('analytics.html') })}
+              onClick={() => openExtensionPage('analytics.html')}
               className="btn btn-outline btn-sm p-2"
               title="View learning analytics"
             >
               <BarChart3 className="w-4 h-4" />
             </button>
             <button 
-              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('options.html') })}
+              onClick={() => openExtensionPage('options.html')}
               className="btn btn-outline btn-sm p-2"
               title="Settings & Cloud Sync"
             >
@@ -398,12 +317,16 @@ const Popup: React.FC = () => {
             </div>
             
             <div className="space-y-2 max-h-96 overflow-y-auto">
-              {getFilteredWords().map((word) => (
+              {getCurrentFilteredWords().map((word) => (
                 <div key={word.id} className="card p-3">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
                         <div className="font-medium">{word.word}</div>
+                        <div 
+                          className={`w-2 h-2 rounded-full ${getReviewStatusColor(word.nextReview)}`}
+                          title={word.nextReview <= Date.now() ? 'Due for review' : 'Not due yet'}
+                        />
                         <button 
                           onClick={() => playAudio(word.word)}
                           className="p-1 hover:bg-gray-100 rounded"
@@ -418,12 +341,12 @@ const Popup: React.FC = () => {
                       )}
                     </div>
                     <div className="text-xs text-gray-400">
-                      {new Date(word.nextReview).toLocaleDateString()}
+                      {formatDateForDisplay(word.nextReview)}
                     </div>
                   </div>
                 </div>
               ))}
-              {getFilteredWords().length === 0 && (
+              {getCurrentFilteredWords().length === 0 && searchTerm && (
                 <div className="text-center text-gray-500 py-8">
                   No words found matching "{searchTerm}"
                 </div>

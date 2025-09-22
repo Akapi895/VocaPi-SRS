@@ -77,6 +77,20 @@ const Review: React.FC = () => {
     
     setShowAnswer(true);
     setSessionStats(prev => updateSessionStats(prev, isCorrect));
+    
+    // Auto-play pronunciation after answer check
+    playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl);
+  };
+
+  // Handle skip - show review step immediately
+  const handleSkip = () => {
+    setSelectedQuality(0); // Skip = quality 0
+    setShowAnswer(true);
+    setShowReviewStep(true);
+    
+    // Auto-play pronunciation after skip
+    const currentWord = reviewWords[currentWordIndex];
+    playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl);
   };
 
 
@@ -277,13 +291,6 @@ const Review: React.FC = () => {
               <Check className="w-4 h-4" />
               Close Review
             </button>
-            <button 
-              onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') })}
-              className="btn btn-secondary w-full"
-            >
-              <BookOpen className="w-4 h-4" />
-              Back to Main
-            </button>
           </div>
         </div>
       </div>
@@ -415,7 +422,7 @@ const Review: React.FC = () => {
                         Check Answer
                       </button>
                       <button 
-                        onClick={() => processQualityRating(0)}
+                        onClick={handleSkip}
                         className="btn btn-outline btn-lg"
                         disabled={isPaused}
                       >
@@ -435,7 +442,7 @@ const Review: React.FC = () => {
                           ? 'text-green-600' 
                           : 'text-red-600'
                       }`}>
-                        {userAnswer}
+                        {userAnswer || 'Skipped'}
                       </span>
                     </div>
                     <div className="text-lg">
@@ -451,32 +458,64 @@ const Review: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Quality Rating */}
-                  <div className="space-y-4">
-                    <div className="text-lg text-gray-700">How did you do with this word?</div>
-                    <div className="grid grid-cols-6 gap-2 max-w-2xl mx-auto">
-                      {[0, 1, 2, 3, 4, 5].map(qualityValue => (
-                        <button
-                          key={qualityValue}
-                          onClick={() => handleQualityRating(qualityValue as QualityRating)}
-                          className={`btn btn-lg p-3 text-sm ${
-                            qualityValue <= 2 ? 'btn-error' :
-                            qualityValue === 3 ? 'btn-warning' : 'btn-success'
-                          }`}
-                          disabled={isPaused}
-                        >
-                          <div className="font-bold">{qualityValue}</div>
-                          <div className="text-xs">
-                            {qualityValue === 0 ? 'Total blackout' :
-                             qualityValue === 1 ? 'Incorrect, easy' :
-                             qualityValue === 2 ? 'Incorrect, hard' :
-                             qualityValue === 3 ? 'Correct, hard' :
-                             qualityValue === 4 ? 'Correct, hesitant' : 'Perfect'}
+                  {/* Conditional Quality Rating based on performance */}
+                  {(() => {
+                    const isCorrect = userAnswer.toLowerCase() === currentWord.word.toLowerCase();
+                    const usedHint = showHint;
+                    
+                    // Auto-determine quality for incorrect answers or hint usage
+                    if (usedHint && !isCorrect) {
+                      // Used hint + wrong = quality 0 (auto)
+                      setTimeout(() => handleQualityRating(0), 1000);
+                      return (
+                        <div className="text-center text-gray-600">
+                          Quality automatically set to 0 (used hint + incorrect)
+                        </div>
+                      );
+                    } else if (usedHint && isCorrect) {
+                      // Used hint + correct = quality 2 (auto)
+                      setTimeout(() => handleQualityRating(2), 1000);
+                      return (
+                        <div className="text-center text-gray-600">
+                          Quality automatically set to 2 (used hint + correct)
+                        </div>
+                      );
+                    } else if (!usedHint && !isCorrect) {
+                      // No hint + wrong = quality 1 (auto)
+                      setTimeout(() => handleQualityRating(1), 1000);
+                      return (
+                        <div className="text-center text-gray-600">
+                          Quality automatically set to 1 (no hint + incorrect)
+                        </div>
+                      );
+                    } else if (!usedHint && isCorrect) {
+                      // No hint + correct = allow user to choose 3-5
+                      return (
+                        <div className="space-y-4">
+                          <div className="text-lg text-gray-700">How difficult was this word?</div>
+                          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+                            {[3, 4, 5].map(qualityValue => (
+                              <button
+                                key={qualityValue}
+                                onClick={() => handleQualityRating(qualityValue as QualityRating)}
+                                className={`btn btn-lg p-3 text-sm ${
+                                  qualityValue === 3 ? 'btn-warning' : 'btn-success'
+                                }`}
+                                disabled={isPaused}
+                              >
+                                <div className="font-bold">{qualityValue}</div>
+                                <div className="text-xs">
+                                  {qualityValue === 3 ? 'Correct, hard' :
+                                   qualityValue === 4 ? 'Correct, easy' : 'Perfect'}
+                                </div>
+                              </button>
+                            ))}
                           </div>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -518,11 +557,14 @@ const Review: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Retry input for low quality ratings (0-2) */}
+                  {/* Retry input for low quality ratings (0-2) or skip */}
                   {selectedQuality !== null && requiresRetry(selectedQuality) ? (
                     <div className="space-y-4">
                       <div className="text-lg text-red-600 font-medium">
-                        Please type the word again to continue:
+                        {selectedQuality === 0 ? 
+                          'You skipped this word. Please type it to continue:' :
+                          'Please type the word again to continue:'
+                        }
                       </div>
                       <input 
                         type="text"
