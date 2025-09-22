@@ -192,7 +192,7 @@ export const createExportData = (data: any): ExportData => {
     analytics: data.analytics || {},
     settings: data.settings || {},
     exportDate: new Date().toISOString(),
-    version: '1.0'
+    version: '1.0.1' // Match analytics export version
   };
 };
 
@@ -235,7 +235,7 @@ export const validateImportData = (importData: any): { isValid: boolean; error?:
       return { isValid: false, error: 'Invalid file format. Must be a JSON object.' };
     }
 
-    // Check for required fields
+    // Check for required fields - vocab words are mandatory
     if (!importData.vocabWords) {
       return { isValid: false, error: 'Missing vocabulary words data.' };
     }
@@ -244,8 +244,20 @@ export const validateImportData = (importData: any): { isValid: boolean; error?:
       return { isValid: false, error: 'Vocabulary words must be an array.' };
     }
 
-    // Validate word structure
+    // Allow empty arrays (for fresh start)
+    if (importData.vocabWords.length === 0) {
+      return { 
+        isValid: true, 
+        wordCount: 0 
+      };
+    }
+
+    // Validate word structure for non-empty arrays
     for (const word of importData.vocabWords) {
+      if (!word || typeof word !== 'object') {
+        return { isValid: false, error: 'Invalid word data structure. Each word must be an object.' };
+      }
+      
       if (!word.id || !word.word || !word.meaning) {
         return { isValid: false, error: 'Invalid word data structure. Each word must have id, word, and meaning.' };
       }

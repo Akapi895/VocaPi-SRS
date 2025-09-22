@@ -73,7 +73,7 @@ const Analytics: React.FC = () => {
 
   // Helper function for export
   const exportAnalytics = () => {
-    exportAnalyticsData(data?.analytics, data?.gamification, totalWords);
+    exportAnalyticsData(data);
   };
 
   return (

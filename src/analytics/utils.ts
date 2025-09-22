@@ -428,18 +428,21 @@ export const formatTime = (minutes: number): string => {
  * Create export data for analytics
  * @param analytics Analytics data
  * @param gamification Gamification data
- * @param wordsCount Total words count
- * @returns Export data object
+ * @param vocabWords Vocabulary words array
+ * @param settings Settings data
+ * @returns Export data object compatible with popup import
  */
 export const createAnalyticsExportData = (
   analytics?: AnalyticsData,
   gamification?: GamificationData,
-  wordsCount: number = 0
+  vocabWords: VocabWord[] = [],
+  settings?: any
 ) => {
   return {
-    analytics,
-    gamification,
-    words: wordsCount,
+    vocabWords: vocabWords || [],
+    analytics: analytics || {},
+    gamification: gamification || {},
+    settings: settings || {},
     exportDate: new Date().toISOString(),
     version: '1.0.1'
   };
@@ -472,16 +475,16 @@ export const downloadAnalyticsData = (exportData: any, filename: string): void =
 
 /**
  * Export analytics data with proper formatting
- * @param analytics Analytics data
- * @param gamification Gamification data
- * @param wordsCount Total words count
+ * @param data Complete application data
+ * @returns void - Downloads file directly
  */
-export const exportAnalyticsData = (
-  analytics?: AnalyticsData,
-  gamification?: GamificationData,
-  wordsCount: number = 0
-): void => {
-  const exportData = createAnalyticsExportData(analytics, gamification, wordsCount);
+export const exportAnalyticsData = (data?: any): void => {
+  const exportData = createAnalyticsExportData(
+    data?.analytics,
+    data?.gamification,
+    data?.vocabWords || [],
+    data?.settings
+  );
   const filename = generateAnalyticsExportFilename();
   downloadAnalyticsData(exportData, filename);
 };
