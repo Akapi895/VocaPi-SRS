@@ -716,16 +716,33 @@ function showAddModal(word?: string) {
       const result = await chrome.storage.local.get(['vocabWords']);
       const existingWords = result.vocabWords || [];
       
-      // Check if word already exists
+      // Check if word with same meaning already exists
       const existingWord = existingWords.find((w: VocabWord) => 
-        w.word.toLowerCase() === word.toLowerCase()
+        w.word.toLowerCase() === word.toLowerCase() && 
+        w.meaning.toLowerCase() === meaning.toLowerCase()
       );
       
       if (existingWord) {
-        alert('This word already exists in your dictionary!');
+        alert(`The word "${word}" with the meaning "${meaning}" already exists in your dictionary!\n\nNote: You can add the same word with different meanings.`);
         saveBtnElement.disabled = false;
         saveBtnElement.textContent = 'Save to Dictionary';
         return;
+      }
+      
+      // Show existing meanings if word exists with different meanings
+      const existingMeanings = existingWords.filter((w: VocabWord) => 
+        w.word.toLowerCase() === word.toLowerCase()
+      );
+      
+      if (existingMeanings.length > 0) {
+        const meaningsList = existingMeanings.map((w: VocabWord) => `• ${w.meaning}`).join('\n');
+        const confirmMessage = `The word "${word}" already exists with these meanings:\n\n${meaningsList}\n\nDo you want to add this word with a new meaning: "${meaning}"?`;
+        
+        if (!confirm(confirmMessage)) {
+          saveBtnElement.disabled = false;
+          saveBtnElement.textContent = 'Save to Dictionary';
+          return;
+        }
       }
       
       existingWords.push(newWord);

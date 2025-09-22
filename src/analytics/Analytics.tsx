@@ -1,6 +1,11 @@
 import React, { useState } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
-import { AnalyticsData, GamificationData, VocabWord } from '@/types';
+import {
+  getAnalyticsSummary,
+  formatTime,
+  exportAnalyticsData
+} from './utils';
+
 import { 
   BarChart3,
   TrendingUp,
@@ -48,220 +53,27 @@ const Analytics: React.FC = () => {
     );
   }
 
-  const analytics = data?.analytics || {} as AnalyticsData;
-  const gamification = data?.gamification || {} as GamificationData;
-  const words = data?.vocabWords || [];
+  // Get comprehensive analytics summary using utils
+  const analyticsSummary = getAnalyticsSummary(data);
+  const {
+    coreStats,
+    wordDistribution: wordsByDifficulty,
+    streakInfo,
+    weeklyProgress,
+    studyPatterns,
+    achievements,
+    levelProgress,
+    userRank,
+    difficultWords
+  } = analyticsSummary;
 
-  // Calculate real-time stats from actual data
-  const totalWords = words.length;
-  const totalStudyTime = analytics.totalStudyTime || 0;
-  const averageSessionTime = analytics.averageSessionTime || (totalStudyTime / Math.max(totalWords / 5, 1));
-  
-  // Calculate accuracy from word data
-  const wordsWithReviews = words.filter((w: VocabWord) => w.totalReviews > 0);
-  const totalCorrectReviews = wordsWithReviews.reduce((sum: number, w: VocabWord) => sum + w.correctReviews, 0);
-  const totalReviews = wordsWithReviews.reduce((sum: number, w: VocabWord) => sum + w.totalReviews, 0);
-  const accuracy = totalReviews > 0 ? Math.round((totalCorrectReviews / totalReviews) * 100) : 0;
-  
-  const currentStreak = gamification.streak || 0;
-  const longestStreak = analytics.longestStreak || Math.max(currentStreak, analytics.currentStreak || 0);
+  // Extract commonly used values for easier access
+  const { totalWords, accuracy, dueWords, averageSessionTime, totalStudyTime } = coreStats;
+  const { currentStreak, longestStreak } = streakInfo;
 
-  // Get words by difficulty (based on repetitions and success rate)
-  const wordsByDifficulty = {
-    new: words.filter((w: VocabWord) => w.repetitions === 0).length,
-    learning: words.filter((w: VocabWord) => w.repetitions > 0 && w.repetitions < 5).length,
-    review: words.filter((w: VocabWord) => w.repetitions >= 5).length
-  };
-
-  // Get words due for review
-  const now = Date.now();
-  const dueWords = words.filter((w: VocabWord) => w.nextReview <= now).length;
-
-  // Calculate weekly progress from real data
-  const getWeeklyProgress = () => {
-    const today = new Date();
-    const weekStart = new Date(today);
-    weekStart.setDate(today.getDate() - today.getDay()); // Start of week (Sunday)
-    
-    const weeklyData = [];
-    const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    
-    for (let i = 0; i < 7; i++) {
-      const currentDay = new Date(weekStart);
-      currentDay.setDate(weekStart.getDate() + i);
-      const dayStart = currentDay.getTime();
-      const dayEnd = dayStart + (24 * 60 * 60 * 1000);
-      
-      // Count words added on this day
-      const wordsAddedToday = words.filter((w: VocabWord) => 
-        w.createdAt >= dayStart && w.createdAt < dayEnd
-      ).length;
-      
-      // Count words reviewed on this day (estimate from lastReviewTime)
-      const wordsReviewedToday = words.filter((w: VocabWord) => 
-        w.lastReviewTime && w.lastReviewTime >= dayStart && w.lastReviewTime < dayEnd
-      ).length;
-      
-      // Estimate study time (5 minutes per review + 3 minutes per new word)
-      const estimatedTime = (wordsReviewedToday * 5) + (wordsAddedToday * 3);
-      
-      weeklyData.push({
-        day: dayNames[i],
-        words: wordsAddedToday + wordsReviewedToday,
-        time: estimatedTime,
-        added: wordsAddedToday,
-        reviewed: wordsReviewedToday
-      });
-    }
-    
-    return weeklyData;
-  };
-
-  const weeklyProgress = getWeeklyProgress();
-
-  // Get difficult words (low success rate)
-  const getDifficultWords = () => {
-    return words
-      .filter((w: VocabWord) => w.totalReviews >= 3) // Only words with enough reviews
-      .map((w: VocabWord) => ({
-        ...w,
-        successRate: w.totalReviews > 0 ? (w.correctReviews / w.totalReviews) * 100 : 0
-      }))
-      .filter((w: any) => w.successRate < 70) // Less than 70% success rate
-      .sort((a: any, b: any) => a.successRate - b.successRate) // Sort by difficulty
-      .slice(0, 6);
-  };
-
-  // Get study patterns
-  const getStudyPatterns = () => {
-    const hourCounts = new Array(24).fill(0);
-    const dayCounts = new Array(7).fill(0);
-    
-    words.forEach((w: VocabWord) => {
-      if (w.createdAt) {
-        const date = new Date(w.createdAt);
-        hourCounts[date.getHours()]++;
-        dayCounts[date.getDay()]++;
-      }
-      if (w.lastReviewTime) {
-        const date = new Date(w.lastReviewTime);
-        hourCounts[date.getHours()]++;
-        dayCounts[date.getDay()]++;
-      }
-    });
-    
-    const bestHour = hourCounts.indexOf(Math.max(...hourCounts));
-    const bestDay = dayCounts.indexOf(Math.max(...dayCounts));
-    
-    const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-    
-    return {
-      bestStudyTime: `${bestHour}:00 - ${bestHour + 1}:00`,
-      mostActiveDay: dayNames[bestDay],
-      totalSessions: Math.floor(totalWords / 5) || 1 // Estimate
-    };
-  };
-
-  const studyPatterns = getStudyPatterns();
-  const difficultWords = getDifficultWords();
-
-  // Enhanced gamification system
-  const getAchievements = () => {
-    const achievements = [];
-    
-    // Word count achievements
-    if (totalWords >= 1) achievements.push({ icon: '🌱', name: 'First Word', description: 'Added your first word to the dictionary', unlocked: true });
-    if (totalWords >= 10) achievements.push({ icon: '📚', name: 'Bookworm', description: 'Collected 10 words', unlocked: true });
-    if (totalWords >= 50) achievements.push({ icon: '🏆', name: 'Vocabulary Builder', description: 'Built a vocabulary of 50 words', unlocked: true });
-    if (totalWords >= 100) achievements.push({ icon: '🎓', name: 'Scholar', description: 'Mastered 100 words', unlocked: true });
-    if (totalWords >= 250) achievements.push({ icon: '👑', name: 'Word Master', description: 'Conquered 250 words', unlocked: true });
-    if (totalWords >= 500) achievements.push({ icon: '⚡', name: 'Vocabulary Legend', description: 'Achieved legendary status with 500 words', unlocked: true });
-    
-    // Streak achievements
-    if (currentStreak >= 3) achievements.push({ icon: '🔥', name: 'On Fire', description: '3-day learning streak', unlocked: true });
-    if (currentStreak >= 7) achievements.push({ icon: '⭐', name: 'Week Warrior', description: '7-day learning streak', unlocked: true });
-    if (currentStreak >= 30) achievements.push({ icon: '💎', name: 'Diamond Dedication', description: '30-day learning streak', unlocked: true });
-    if (currentStreak >= 100) achievements.push({ icon: '🌟', name: 'Centurion', description: '100-day learning streak', unlocked: true });
-    
-    // Accuracy achievements
-    if (accuracy >= 70) achievements.push({ icon: '🎯', name: 'Sharp Shooter', description: '70% accuracy achieved', unlocked: true });
-    if (accuracy >= 85) achievements.push({ icon: '🏹', name: 'Precision Master', description: '85% accuracy achieved', unlocked: true });
-    if (accuracy >= 95) achievements.push({ icon: '🔍', name: 'Perfect Precision', description: '95% accuracy achieved', unlocked: true });
-    
-    // Study time achievements
-    const studyHours = Math.floor(totalStudyTime / (1000 * 60 * 60));
-    if (studyHours >= 1) achievements.push({ icon: '⏰', name: 'Time Keeper', description: 'Studied for 1 hour total', unlocked: true });
-    if (studyHours >= 10) achievements.push({ icon: '📖', name: 'Dedicated Learner', description: '10 hours of study time', unlocked: true });
-    if (studyHours >= 50) achievements.push({ icon: '🧠', name: 'Brain Trainer', description: '50 hours of study time', unlocked: true });
-    
-    // Special achievements
-    if (wordsByDifficulty.review >= 20) achievements.push({ icon: '🎪', name: 'Review Master', description: '20 words in review phase', unlocked: true });
-    if (weeklyProgress.reduce((sum, day) => sum + day.words, 0) >= 30) achievements.push({ icon: '💪', name: 'Weekly Champion', description: 'Studied 30+ words this week', unlocked: true });
-    
-    return achievements;
-  };
-
-  const achievements = getAchievements();
-
-  // Calculate next level progress
-  const getNextLevelProgress = () => {
-    const currentLevel = gamification.level || 1;
-    const currentXP = gamification.xp || 0;
-    const xpForCurrentLevel = (currentLevel - 1) * 100;
-    const xpForNextLevel = currentLevel * 100;
-    const progressXP = currentXP - xpForCurrentLevel;
-    const neededXP = xpForNextLevel - xpForCurrentLevel;
-    const progressPercentage = Math.min((progressXP / neededXP) * 100, 100);
-    
-    return {
-      currentLevel,
-      nextLevel: currentLevel + 1,
-      progressXP,
-      neededXP,
-      progressPercentage,
-      remainingXP: neededXP - progressXP
-    };
-  };
-
-  const levelProgress = getNextLevelProgress();
-
-  // Get user rank based on total words
-  const getUserRank = () => {
-    if (totalWords < 10) return { name: 'Beginner', icon: '🌱', color: 'text-green-600' };
-    if (totalWords < 50) return { name: 'Learner', icon: '📚', color: 'text-blue-600' };
-    if (totalWords < 100) return { name: 'Scholar', icon: '🎓', color: 'text-purple-600' };
-    if (totalWords < 250) return { name: 'Expert', icon: '🏆', color: 'text-yellow-600' };
-    if (totalWords < 500) return { name: 'Master', icon: '👑', color: 'text-orange-600' };
-    return { name: 'Legend', icon: '⚡', color: 'text-red-600' };
-  };
-
-  const userRank = getUserRank();
-
-  const formatTime = (minutes: number) => {
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  };
-
+  // Helper function for export
   const exportAnalytics = () => {
-    const exportData = {
-      analytics,
-      gamification,
-      words: words.length,
-      exportDate: new Date().toISOString(),
-      version: '1.0.1'
-    };
-
-    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vocab-analytics-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    exportAnalyticsData(data?.analytics, data?.gamification, totalWords);
   };
 
   return (
@@ -317,7 +129,7 @@ const Analytics: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-gray-600">Total Words</p>
-                <p className="text-3xl font-bold text-blue-600">{words.length}</p>
+                <p className="text-3xl font-bold text-blue-600">{totalWords}</p>
               </div>
               <BookOpen className="w-8 h-8 text-blue-600" />
             </div>
@@ -406,7 +218,7 @@ const Analytics: React.FC = () => {
               <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Zap className="w-10 h-10 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">{gamification.xp || 0}</h3>
+              <h3 className="font-semibold text-gray-900">{levelProgress.progressXP}</h3>
               <p className="text-sm text-gray-600">Experience Points</p>
             </div>
             

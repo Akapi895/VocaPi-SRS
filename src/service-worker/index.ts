@@ -158,13 +158,14 @@ async function handleSaveWord(wordData: VocabWord, sendResponse: (response: any)
     const result = await chrome.storage.local.get(['vocabWords']);
     const existingWords = result.vocabWords || [];
     
-    // Check if word already exists
+    // Check if word with same meaning already exists
     const existingWord = existingWords.find((w: VocabWord) => 
-      w.word.toLowerCase() === wordData.word.toLowerCase()
+      w.word.toLowerCase() === wordData.word.toLowerCase() &&
+      w.meaning.toLowerCase() === wordData.meaning.toLowerCase()
     );
     
     if (existingWord) {
-      sendResponse({ error: 'Word already exists' });
+      sendResponse({ error: 'Word with this meaning already exists' });
       return;
     }
     

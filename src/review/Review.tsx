@@ -54,6 +54,7 @@ const Review: React.FC = () => {
   const [showStatsModal, setShowStatsModal] = useState(false);
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'pause' | 'stop' | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   // Initialize review session
   useEffect(() => {
@@ -119,71 +120,106 @@ const Review: React.FC = () => {
 
   // Process quality rating and move to next word
   const processQualityRating = async (quality: QualityRating) => {
-    const currentWord = reviewWords[currentWordIndex];
-    const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
+    if (isProcessing) return; // Prevent multiple calls
     
-    // Determine final quality based on user behavior
-    const finalQuality = determineQualityRating({
-      isCorrect,
-      usedHint: showHint,
-      userSelectedQuality: quality === 0 ? undefined : quality,
-      isSkipped: quality === 0
-    });
-    
-    // Create updated word with new SRS values
-    const updatedWord = createUpdatedWord(currentWord, finalQuality);
-
-    // Update word, analytics, and gamification
-    await updateWord(currentWord.id, updatedWord);
-
-    // Update analytics and gamification
-    if (data) {
-      const sessionTime = Date.now() - sessionStats.startTime;
+    setIsProcessing(true);
+    try {
+      const currentWord = reviewWords[currentWordIndex];
+      const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
       
-      const analyticsUpdate = calculateAnalyticsUpdate({
-        currentAnalytics: data.analytics,
-        sessionTime,
-        finalQuality
+      // Determine final quality based on user behavior
+      const finalQuality = determineQualityRating({
+        isCorrect,
+        usedHint: showHint,
+        userSelectedQuality: quality === 0 ? undefined : quality,
+        isSkipped: quality === 0
       });
       
-      const gamificationUpdate = calculateGamificationUpdate({
-        currentGamification: data.gamification,
-        sessionTime,
-        finalQuality
-      });
+      // Create updated word with new SRS values
+      const updatedWord = createUpdatedWord(currentWord, finalQuality);
 
-      await updateAnalytics(analyticsUpdate);
-      await updateGamification(gamificationUpdate);
-    }
+      // Update word, analytics, and gamification - wait for all to complete
+      const updatePromises = [updateWord(currentWord.id, updatedWord)];
 
-    // Move to next word or complete review
-    if (currentWordIndex < reviewWords.length - 1) {
-      setCurrentWordIndex(prev => prev + 1);
-      setShowAnswer(false);
-      setUserAnswer('');
-      setShowHint(false);
-      setShowReviewStep(false);
-      setSelectedQuality(null);
-      setRetryAnswer('');
-    } else {
-      // Complete review session
-      const endTime = Date.now();
-      const totalTime = endTime - sessionStats.startTime;
+      if (data) {
+        const sessionTime = Date.now() - sessionStats.startTime;
+        
+        const analyticsUpdate = calculateAnalyticsUpdate({
+          currentAnalytics: data.analytics,
+          sessionTime,
+          finalQuality
+        });
+        
+        const gamificationUpdate = calculateGamificationUpdate({
+          currentGamification: data.gamification,
+          sessionTime,
+          finalQuality
+        });
+
+        updatePromises.push(updateAnalytics(analyticsUpdate));
+        updatePromises.push(updateGamification(gamificationUpdate));
+      }
+
+      // Wait for all updates to complete before proceeding
+      await Promise.all(updatePromises);
+
+      // Move to next word or complete review
+      console.log('Current word index:', currentWordIndex, 'Total words:', reviewWords.length);
       
-      // Create review session record
-      const reviewSession = createReviewSession({
-        startTime: sessionStats.startTime,
-        endTime,
-        wordsReviewed: reviewWords.map(w => w.id),
-        correctAnswers: sessionStats.correct,
-        totalAnswers: sessionStats.total
-      });
-      
-      // TODO: Save review session to storage
-      console.log('Review session completed:', reviewSession);
+      if (currentWordIndex < reviewWords.length - 1) {
+        console.log('Moving to next word');
+        // Reset all states first before moving to next word
+        setShowAnswer(false);
+        setUserAnswer('');
+        setShowHint(false);
+        setShowReviewStep(false);
+        setSelectedQuality(null);
+        setRetryAnswer('');
+        // Then move to next word
+        setCurrentWordIndex(prev => prev + 1);
+      } else {
+        // Complete review session
+        console.log('Completing review session');
+        const endTime = Date.now();
+        const totalTime = endTime - sessionStats.startTime;
+        
+        // Create review session record
+        const reviewSession = createReviewSession({
+          startTime: sessionStats.startTime,
+          endTime,
+          wordsReviewed: reviewWords.map(w => w.id),
+          correctAnswers: sessionStats.correct,
+          totalAnswers: sessionStats.total
+        });
+        
+        console.log('Review session completed:', reviewSession);
 
-      setSessionStats(prev => ({ ...prev, totalTime }));
-      setSessionComplete(true);
+        // Save review session to chrome storage
+        try {
+          const result = await chrome.storage.local.get(['reviewSessions']);
+          const existingSessions = result.reviewSessions || [];
+          const updatedSessions = [...existingSessions, reviewSession];
+          await chrome.storage.local.set({ reviewSessions: updatedSessions });
+          console.log('Review session saved to storage');
+        } catch (error) {
+          console.error('Failed to save review session:', error);
+        }
+
+        // Update session stats and complete session atomically
+        setSessionStats(prev => ({ ...prev, totalTime }));
+        console.log('Setting sessionComplete to true');
+        setSessionComplete(true);
+      }
+    } catch (error) {
+      console.error('Error processing quality rating:', error);
+      // Continue to next word even if there's an error
+      if (currentWordIndex < reviewWords.length - 1) {
+        setCurrentWordIndex(prev => prev + 1);
+      } else {
+        setSessionComplete(true);
+      }
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -301,6 +337,8 @@ const Review: React.FC = () => {
   const progress = calculateProgress(currentWordIndex, reviewWords.length);
   const accuracy = calculateAccuracy(sessionStats);
 
+  console.log('Review component render - sessionComplete:', sessionComplete, 'reviewWords.length:', reviewWords.length);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
       {/* Header */}
@@ -391,6 +429,7 @@ const Review: React.FC = () => {
               )}
               
               {!showAnswer ? (
+                // Step 1: Input form for user answer
                 <div className="space-y-6">
                   <button 
                     onClick={() => setShowHint(!showHint)}
@@ -432,7 +471,8 @@ const Review: React.FC = () => {
                     </div>
                   </div>
                 </div>
-              ) : !showReviewStep ? (
+              ) : showAnswer && !showReviewStep ? (
+                // Step 2: Show answer result and quality rating
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="text-lg">
@@ -501,7 +541,7 @@ const Review: React.FC = () => {
                                 className={`btn btn-lg p-3 text-sm ${
                                   qualityValue === 3 ? 'btn-warning' : 'btn-success'
                                 }`}
-                                disabled={isPaused}
+                                disabled={isPaused || isProcessing}
                               >
                                 <div className="font-bold">{qualityValue}</div>
                                 <div className="text-xs">
@@ -517,7 +557,8 @@ const Review: React.FC = () => {
                     return null;
                   })()}
                 </div>
-              ) : (
+              ) : showAnswer && showReviewStep ? (
+                // Step 3: Review step - show word details and allow continue
                 <div className="space-y-6">
                   {/* Review Step - Show word details and audio */}
                   <div className="space-y-4">
@@ -578,7 +619,7 @@ const Review: React.FC = () => {
                       <button 
                         onClick={handleRetrySubmit}
                         className="btn btn-primary btn-lg"
-                        disabled={!isValidInput(retryAnswer)}
+                        disabled={!isValidInput(retryAnswer) || isProcessing}
                       >
                         <Check className="w-5 h-5" />
                         Continue
@@ -589,14 +630,24 @@ const Review: React.FC = () => {
                       <button 
                         onClick={() => processQualityRating(selectedQuality!)}
                         className="btn btn-primary btn-lg"
+                        disabled={isProcessing}
                       >
-                        <ArrowRight className="w-5 h-5" />
-                        Continue to Next Word
+                        {isProcessing ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                            Processing...
+                          </>
+                        ) : (
+                          <>
+                            <ArrowRight className="w-5 h-5" />
+                            Continue to Next Word
+                          </>
+                        )}
                       </button>
                     </div>
                   )}
                 </div>
-              )}
+              ) : null}
             </div>
 
             {/* Session Stats */}
@@ -646,7 +697,7 @@ const Review: React.FC = () => {
                 </div>
                 <div className="p-4 bg-purple-50 rounded-lg">
                   <div className="text-3xl font-bold text-purple-600 mb-2">
-                    {calculateSessionDuration(sessionStats.startTime, sessionStats.startTime + sessionStats.totalTime)}m
+                    {calculateSessionDuration(sessionStats.startTime)}m
                   </div>
                   <div className="text-sm text-gray-600">Time Spent</div>
                 </div>
