@@ -73,7 +73,19 @@ async function checkDailyReminder() {
     
     // Check if there are words due for review
     const now = Date.now();
-    const dueWords = words.filter(word => word.nextReview <= now);
+    const dueWords = words.filter(word => {
+      // Safety checks for valid word object
+      if (!word || typeof word !== 'object') return false;
+      
+      // Check if nextReview exists and is valid
+      if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
+        // New words without nextReview are considered due
+        return word.repetitions === 0;
+      }
+      
+      // Word is due if nextReview time has passed
+      return word.nextReview <= now;
+    });
     
     if (dueWords.length > 0) {
       // Show notification
@@ -240,7 +252,19 @@ async function handleStartReview(sendResponse: (response: any) => void) {
     const words = result.vocabWords || [];
     
     const now = Date.now();
-    const dueWords = words.filter((word: VocabWord) => word.nextReview <= now);
+    const dueWords = words.filter((word: VocabWord) => {
+      // Safety checks for valid word object
+      if (!word || typeof word !== 'object') return false;
+      
+      // Check if nextReview exists and is valid
+      if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
+        // New words without nextReview are considered due
+        return word.repetitions === 0;
+      }
+      
+      // Word is due if nextReview time has passed
+      return word.nextReview <= now;
+    });
     
     sendResponse({ success: true, dueWords });
   } catch (error) {

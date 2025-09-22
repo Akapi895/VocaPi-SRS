@@ -65,7 +65,17 @@ export const calculateCoreStatistics = (
   // Get words due for review (safe check)
   const now = Date.now();
   const dueWords = words.filter((w: VocabWord) => {
-    return w.nextReview && w.nextReview <= now;
+    // Safety checks for valid word object
+    if (!w || typeof w !== 'object') return false;
+    
+    // Check if nextReview exists and is valid
+    if (!w.nextReview || typeof w.nextReview !== 'number' || isNaN(w.nextReview)) {
+      // New words without nextReview are considered due
+      return (w.repetitions || 0) === 0;
+    }
+    
+    // Word is due if nextReview time has passed
+    return w.nextReview <= now;
   }).length;
 
   return {
@@ -147,26 +157,42 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
         console.log(`Word added on ${dayNames[i]}:`, w.word, new Date(w.createdAt));
       }
       return isInRange;
-    }).length;
+    });
     
     // Count unique words that were reviewed on this day
     // (avoid double counting if a word was reviewed multiple times)
-    const reviewedWordsToday = words.filter((w: VocabWord) => {
+    const wordsReviewedToday = words.filter((w: VocabWord) => {
       if (!w.lastReviewTime) return false;
       const isInRange = w.lastReviewTime >= dayStart && w.lastReviewTime <= dayEnd;
       if (debugMode && isInRange) {
         console.log(`Word reviewed on ${dayNames[i]}:`, w.word, new Date(w.lastReviewTime));
       }
       return isInRange;
-    }).length;
+    });
+    
+    // Calculate UNIQUE words interacted with today (no double counting)
+    // A word should only be counted once even if it was both added AND reviewed today
+    const uniqueWordsToday = new Set<string>();
+    
+    // Add words that were added today
+    wordsAddedToday.forEach(w => uniqueWordsToday.add(w.id));
+    
+    // Add words that were reviewed today (Set automatically handles duplicates)
+    wordsReviewedToday.forEach(w => uniqueWordsToday.add(w.id));
+    
+    // Get final counts
+    const wordsAddedCount = wordsAddedToday.length;
+    const wordsReviewedCount = wordsReviewedToday.length;
+    const uniqueWordsCount = uniqueWordsToday.size;
     
     // Count total review sessions (estimate based on word activity)
     // Assume each word reviewed = 1 session, plus each new word = potential review
-    const totalReviewSessions = reviewedWordsToday + Math.floor(wordsAddedToday * 0.3); // 30% of new words get immediate practice
+    const totalReviewSessions = wordsReviewedCount + Math.floor(wordsAddedCount * 0.3); // 30% of new words get immediate practice
     
     // Calculate day.words as unique vocabulary interactions
     // This represents the breadth of vocabulary work (unique words touched)
-    const uniqueWordsWorkedOn = wordsAddedToday + reviewedWordsToday;
+    // NO DOUBLE COUNTING: A word that was both added AND reviewed today counts as 1
+    const uniqueWordsWorkedOn = uniqueWordsCount;
     
     // More realistic time estimation based on research and SRS best practices
     const avgTimePerNewWord = 4; // minutes (includes initial learning, example reading, note-taking)
@@ -174,17 +200,17 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
     const setupTime = uniqueWordsWorkedOn > 0 ? 2 : 0; // App setup time if any activity
     
     const estimatedTime = Math.round(
-      (wordsAddedToday * avgTimePerNewWord) + 
+      (wordsAddedCount * avgTimePerNewWord) + 
       (totalReviewSessions * avgTimePerReview) + 
       setupTime
     );
     
     if (debugMode) {
       console.log(`${dayNames[i]} summary:`, {
-        wordsAddedToday,
-        reviewedWordsToday,
-        totalReviewSessions,
+        wordsAddedCount,
+        wordsReviewedCount,
         uniqueWordsWorkedOn,
+        totalReviewSessions,
         estimatedTime,
         dayStart: new Date(dayStart),
         dayEnd: new Date(dayEnd)
@@ -193,10 +219,10 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
     
     weeklyData.push({
       day: dayNames[i],
-      words: uniqueWordsWorkedOn, // This now represents unique words interacted with
+      words: uniqueWordsWorkedOn, // UNIQUE words interacted with (no double counting)
       time: estimatedTime,
-      added: wordsAddedToday,
-      reviewed: reviewedWordsToday // Unique words reviewed, not total review sessions
+      added: wordsAddedCount,
+      reviewed: wordsReviewedCount // Unique words reviewed, not total review sessions
     });
   }
   

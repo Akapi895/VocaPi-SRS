@@ -218,7 +218,19 @@ export const createReviewSession = (params: {
  * @returns Words due for review
  */
 export const getWordsForReview = (words: VocabWord[], currentTime: number = Date.now()): VocabWord[] => {
-  return words.filter(word => word.nextReview <= currentTime);
+  return words.filter(word => {
+    // Safety checks
+    if (!word || typeof word !== 'object') return false;
+    
+    // Check if nextReview exists and is a valid number
+    if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
+      // If no nextReview is set, consider it due for review (new words)
+      return word.repetitions === 0;
+    }
+    
+    // Word is due if nextReview time has passed
+    return word.nextReview <= currentTime;
+  });
 };
 
 /**

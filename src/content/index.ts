@@ -701,7 +701,7 @@ function showAddModal(word?: string) {
       interval: 1,
       repetitions: 0,
       easeFactor: 2.5,
-      nextReview: Date.now(),
+      nextReview: Date.now(), // New words are immediately available for review
       quality: 0,
       totalReviews: 0,
       correctReviews: 0
