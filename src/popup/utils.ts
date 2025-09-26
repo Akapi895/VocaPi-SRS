@@ -5,13 +5,25 @@ import { VocabWord } from '@/types';
 // ===============================
 
 /**
- * Get words that are due for review
+ * Get words that are due for review (consistent with review logic)
  * @param words Array of vocabulary words
  * @param currentTime Current timestamp (defaults to now)
  * @returns Words due for review
  */
 export const getDueWords = (words: VocabWord[], currentTime: number = Date.now()): VocabWord[] => {
-  return words.filter(word => word.nextReview <= currentTime);
+  return words.filter(word => {
+    // Safety checks
+    if (!word || typeof word !== 'object') return false;
+    
+    // Check if nextReview exists and is a valid number
+    if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
+      // If no nextReview is set, consider it due for review (new words)
+      return word.repetitions === 0;
+    }
+    
+    // Word is due if nextReview time has passed
+    return word.nextReview <= currentTime;
+  });
 };
 
 /**

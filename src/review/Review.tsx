@@ -5,7 +5,6 @@ import {
   createUpdatedWord,
   determineQualityRating,
   isAnswerCorrect,
-  requiresRetry,
   calculateAccuracy,
   calculateProgress,
   calculateSessionDuration,
@@ -134,7 +133,6 @@ const Review: React.FC = () => {
   const [showHint, setShowHint] = useState(false);
   const [showReviewStep, setShowReviewStep] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<QualityRating | null>(null);
-  const [retryAnswer, setRetryAnswer] = useState('');
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     total: 0,
@@ -193,23 +191,6 @@ const Review: React.FC = () => {
     setShowReviewStep(true);
   };
 
-  // Handle retry answer for low quality words
-  const handleRetrySubmit = () => {
-    if (!isValidInput(retryAnswer)) return;
-    
-    const currentWord = reviewWords[currentWordIndex];
-    const isRetryCorrect = isAnswerCorrect(retryAnswer, currentWord.word);
-    
-    if (isRetryCorrect) {
-      // Proceed to next word if retry is correct
-      processQualityRating(selectedQuality!);
-    } else {
-      // Reset retry answer and let user try again
-      setRetryAnswer('');
-      // Optional: show feedback that retry is incorrect
-    }
-  };
-
   // Process quality rating and move to next word
   const processQualityRating = async (quality: QualityRating) => {
     if (isProcessing) return; // Prevent multiple calls
@@ -218,8 +199,6 @@ const Review: React.FC = () => {
     try {
       const currentWord = reviewWords[currentWordIndex];
       const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
-      
-      // Determine final quality based on user behavior
       const finalQuality = determineQualityRating({
         isCorrect,
         usedHint: showHint,
@@ -229,6 +208,8 @@ const Review: React.FC = () => {
       
       // Create updated word with new SRS values
       const updatedWord = createUpdatedWord(currentWord, finalQuality);
+      
+
 
       // Update word, analytics, and gamification - wait for all to complete
       const updatePromises = [updateWord(currentWord.id, updatedWord)];
@@ -256,22 +237,17 @@ const Review: React.FC = () => {
       await Promise.all(updatePromises);
 
       // Move to next word or complete review
-      console.log('Current word index:', currentWordIndex, 'Total words:', reviewWords.length);
-      
       if (currentWordIndex < reviewWords.length - 1) {
-        console.log('Moving to next word');
         // Reset all states first before moving to next word
         setShowAnswer(false);
         setUserAnswer('');
         setShowHint(false);
         setShowReviewStep(false);
         setSelectedQuality(null);
-        setRetryAnswer('');
         // Then move to next word
         setCurrentWordIndex(prev => prev + 1);
       } else {
         // Complete review session
-        console.log('Completing review session');
         const endTime = Date.now();
         const totalTime = endTime - sessionStats.startTime;
         
@@ -283,8 +259,6 @@ const Review: React.FC = () => {
           correctAnswers: sessionStats.correct,
           totalAnswers: sessionStats.total
         });
-        
-        console.log('Review session completed:', reviewSession);
 
         // Save review session to chrome storage
         try {
@@ -292,7 +266,6 @@ const Review: React.FC = () => {
           const existingSessions = result.reviewSessions || [];
           const updatedSessions = [...existingSessions, reviewSession];
           await chrome.storage.local.set({ reviewSessions: updatedSessions });
-          console.log('Review session saved to storage');
         } catch (error) {
           console.error('Failed to save review session:', error);
         }
@@ -318,9 +291,6 @@ const Review: React.FC = () => {
               };
               
               await updateGamification(streakGamificationUpdate);
-              console.log(`Daily goal achieved! Streak updated to ${streakUpdate.streak}`);
-            } else {
-              console.log(`Daily goal progress: ${wordsReviewedToday}/${dailyGoal} words reviewed today`);
             }
           } catch (error) {
             console.error('Failed to update daily streak:', error);
@@ -329,14 +299,11 @@ const Review: React.FC = () => {
 
         // Update session stats and complete session atomically
         setSessionStats(prev => ({ ...prev, totalTime }));
-        console.log('Setting sessionComplete to true');
-        // Use setTimeout to ensure sessionStats is updated before marking complete
         setTimeout(() => {
           setSessionComplete(true);
         }, 0);
       }
     } catch (error) {
-      console.error('Error processing quality rating:', error);
       // Continue to next word even if there's an error
       if (currentWordIndex < reviewWords.length - 1) {
         setCurrentWordIndex(prev => prev + 1);
@@ -360,6 +327,8 @@ const Review: React.FC = () => {
       setShowAnswer(false);
       setUserAnswer('');
       setShowHint(false);
+      setShowReviewStep(false);
+      setSelectedQuality(null);
       setSessionStats({
         correct: 0,
         total: 0,
@@ -461,8 +430,6 @@ const Review: React.FC = () => {
   const currentWord = reviewWords[currentWordIndex];
   const progress = calculateProgress(currentWordIndex, reviewWords.length);
   const accuracy = calculateAccuracy(sessionStats);
-
-  console.log('Review component render - sessionComplete:', sessionComplete, 'reviewWords.length:', reviewWords.length);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
@@ -730,47 +697,13 @@ const Review: React.FC = () => {
                     )}
                   </div>
 
-                  {/* Retry input for low quality ratings (0-2) or skip */}
-                  {selectedQuality !== null && requiresRetry(selectedQuality) ? (
-                    <div className="space-y-4">
-                      <div className="text-lg text-red-600 font-medium">
-                        {selectedQuality === 0 ? 
-                          'You skipped this word. Please type it to continue:' :
-                          'Please type the word again to continue:'
-                        }
-                      </div>
-                      <input 
-                        type="text"
-                        value={retryAnswer}
-                        onChange={(e) => handleInputChange(e, setRetryAnswer)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleRetrySubmit()}
-                        onKeyDown={handleKeyDown}
-                        onPaste={handleAntiPaste}
-                        onContextMenu={handleContextMenu}
-                        onDrop={(e) => e.preventDefault()} // Prevent drag & drop
-                        onDragOver={(e) => e.preventDefault()}
-                        className="input text-lg text-center max-w-md mx-auto"
-                        placeholder="Type the word again..."
-                        autoFocus
-                        autoComplete="off" // Disable autocomplete
-                        spellCheck={false} // Disable spell check suggestions
-                      />
-                      <button 
-                        onClick={handleRetrySubmit}
-                        className="btn btn-primary btn-lg"
-                        disabled={!isValidInput(retryAnswer) || isProcessing}
-                      >
-                        <Check className="w-5 h-5" />
-                        Continue
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <button 
-                        onClick={() => processQualityRating(selectedQuality!)}
-                        className="btn btn-primary btn-lg"
-                        disabled={isProcessing}
-                      >
+                  {/* No retry mechanism - directly proceed to next word */}
+                  <div className="space-y-4">
+                    <button 
+                      onClick={() => processQualityRating(selectedQuality!)}
+                      className="btn btn-primary btn-lg"
+                      disabled={isProcessing}
+                    >
                         {isProcessing ? (
                           <>
                             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -784,7 +717,6 @@ const Review: React.FC = () => {
                         )}
                       </button>
                     </div>
-                  )}
                 </div>
               ) : null}
             </div>

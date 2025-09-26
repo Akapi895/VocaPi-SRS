@@ -1,68 +1,30 @@
 import { VocabWord, QualityRating, ReviewSession } from '@/types';
 
-// ===============================
-// SRS Algorithm Utilities
-// ===============================
+// Import SRS core algorithm functions for internal use
+import {
+  calculateWordDifficulty,
+  getWordMaturity,
+  prioritizeWordsForReview,
+  getOptimalSessionSize,
+  calculateXPGained
+} from './srs-algorithm';
 
-export interface SRSCalculationResult {
-  newInterval: number;
-  newEaseFactor: number;
-  nextReview: number;
-}
-
-/**
- * Calculate new SRS values based on quality rating
- * @param word Current word data
- * @param quality Quality rating (0-5)
- * @returns New interval, ease factor, and next review date
- */
-export const calculateSRSValues = (word: VocabWord, quality: QualityRating): SRSCalculationResult => {
-  let newInterval = word.interval;
-  let newEaseFactor = word.easeFactor;
-
-  if (quality >= 3) {
-    // Correct answer - increase interval
-    newInterval = Math.min(word.interval * 2, 365);
-    newEaseFactor = Math.max(
-      1.3, 
-      word.easeFactor + (0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02))
-    );
-  } else {
-    // Incorrect answer - reset interval and decrease ease factor
-    newInterval = 1;
-    newEaseFactor = Math.max(1.3, word.easeFactor - 0.2);
-  }
-
-  const nextReview = Date.now() + (newInterval * 24 * 60 * 60 * 1000);
-
-  return {
-    newInterval,
-    newEaseFactor,
-    nextReview
-  };
-};
-
-/**
- * Create updated word object with new SRS values
- * @param word Current word
- * @param quality Quality rating
- * @returns Updated word object
- */
-export const createUpdatedWord = (word: VocabWord, quality: QualityRating): VocabWord => {
-  const srsValues = calculateSRSValues(word, quality);
-  
-  return {
-    ...word,
-    quality,
-    repetitions: word.repetitions + 1,
-    lastReviewTime: Date.now(),
-    totalReviews: word.totalReviews + 1,
-    correctReviews: word.correctReviews + (quality >= 3 ? 1 : 0),
-    interval: srsValues.newInterval,
-    easeFactor: srsValues.newEaseFactor,
-    nextReview: srsValues.nextReview
-  };
-};
+// Re-export for external use
+export type { SRSCalculationResult } from './srs-algorithm';
+export {
+  calculateSRSValues,
+  createUpdatedWord,
+  calculateWordDifficulty,
+  getWordMaturity,
+  calculateRetentionProbability,
+  prioritizeWordsForReview,
+  getOptimalSessionSize,
+  calculateReviewPriority,
+  getWordAnalytics,
+  isValidQuality,
+  requiresRetry,
+  calculateXPGained
+} from './srs-algorithm';
 
 // ===============================
 // Quality Rating Logic
@@ -78,7 +40,7 @@ export interface QualityDeterminationParams {
 /**
  * Determine final quality rating based on user performance
  * @param params Parameters for quality determination
- * @returns Final quality rating
+ * @returns Final quality rating (0-5)
  */
 export const determineQualityRating = (params: QualityDeterminationParams): QualityRating => {
   const { isCorrect, usedHint, userSelectedQuality, isSkipped } = params;
@@ -115,14 +77,7 @@ export const isAnswerCorrect = (userAnswer: string, correctAnswer: string): bool
   return userAnswer.toLowerCase().trim() === correctAnswer.toLowerCase().trim();
 };
 
-/**
- * Check if quality requires retry (quality 0-2)
- * @param quality Quality rating
- * @returns Whether retry is required
- */
-export const requiresRetry = (quality: QualityRating): boolean => {
-  return quality <= 2;
-};
+
 
 // ===============================
 // Session Management
@@ -208,17 +163,27 @@ export const createReviewSession = (params: {
 };
 
 // ===============================
+// Word Management & Statistics  
+// ===============================
+
+// ===============================
 // Word Management
 // ===============================
 
 /**
- * Get words that are due for review
+ * Get words that are due for review, sorted by priority
  * @param words Array of vocabulary words
  * @param currentTime Current timestamp (defaults to now)
- * @returns Words due for review
+ * @param maxWords Maximum number of words to return (optional)
+ * @returns Words due for review, prioritized
  */
-export const getWordsForReview = (words: VocabWord[], currentTime: number = Date.now()): VocabWord[] => {
-  return words.filter(word => {
+export const getWordsForReview = (
+  words: VocabWord[], 
+  currentTime: number = Date.now(),
+  maxWords?: number
+): VocabWord[] => {
+  // Filter words that are due
+  const dueWords = words.filter(word => {
     // Safety checks
     if (!word || typeof word !== 'object') return false;
     
@@ -231,6 +196,64 @@ export const getWordsForReview = (words: VocabWord[], currentTime: number = Date
     // Word is due if nextReview time has passed
     return word.nextReview <= currentTime;
   });
+  
+  // Prioritize the due words  
+  const prioritizedWords = prioritizeWordsForReview(dueWords, currentTime);
+  
+  // Return limited number if specified
+  return maxWords ? prioritizedWords.slice(0, maxWords) : prioritizedWords;
+};
+
+/**
+ * Get words approaching review time (within next 24 hours)
+ * @param words Array of vocabulary words
+ * @param currentTime Current timestamp (defaults to now)
+ * @param hoursAhead Hours to look ahead (default 24)
+ * @returns Words approaching review time
+ */
+export const getUpcomingReviewWords = (
+  words: VocabWord[], 
+  currentTime: number = Date.now(),
+  hoursAhead: number = 24
+): VocabWord[] => {
+  const futureTime = currentTime + (hoursAhead * 60 * 60 * 1000);
+  
+  return words.filter(word => {
+    if (!word.nextReview || word.nextReview <= currentTime) return false;
+    return word.nextReview <= futureTime;
+  });
+};
+
+/**
+ * Get review statistics for planning
+ * @param words Array of vocabulary words
+ * @param currentTime Current timestamp (defaults to now)
+ * @returns Review statistics
+ */
+export const getReviewStatistics = (words: VocabWord[], currentTime: number = Date.now()) => {
+  const dueNow = getWordsForReview(words, currentTime);
+  const upcoming24h = getUpcomingReviewWords(words, currentTime, 24);
+  const upcoming7d = getUpcomingReviewWords(words, currentTime, 24 * 7);
+  
+  const maturityCounts = words.reduce((acc, word) => {
+    const maturity = getWordMaturity(word);
+    acc[maturity] = (acc[maturity] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
+  const avgDifficulty = words.length > 0 
+    ? words.reduce((sum, word) => sum + calculateWordDifficulty(word), 0) / words.length
+    : 0;
+  
+  return {
+    total: words.length,
+    dueNow: dueNow.length,
+    upcoming24h: upcoming24h.length,
+    upcoming7d: upcoming7d.length,
+    maturityDistribution: maturityCounts,
+    averageDifficulty: Math.round(avgDifficulty * 100) / 100,
+    recommendedSessionSize: getOptimalSessionSize(dueNow.length)
+  };
 };
 
 /**
@@ -299,16 +322,7 @@ export const playWordPronunciation = async (word: string, audioUrl?: string): Pr
 // Gamification and Analytics Updates
 // ===============================
 
-/**
- * Calculate XP gained based on quality rating
- * @param quality Quality rating (0-5)
- * @returns XP points earned
- */
-export const calculateXPGained = (quality: QualityRating): number => {
-  if (quality >= 3) return 10; // Correct answers
-  if (quality === 2) return 5;  // Partial credit
-  return 2; // Participation points
-};
+
 
 /**
  * Calculate analytics update data
@@ -439,6 +453,159 @@ export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = 
 };
 
 // ===============================
+// Adaptive Learning & Performance Tracking
+// ===============================
+
+/**
+ * Calculate dynamic daily goal based on user performance and available time
+ * @param currentPerformance Recent performance metrics
+ * @param availableStudyTime Available study time in minutes
+ * @param currentGoal Current daily goal
+ * @returns Suggested daily goal adjustment
+ */
+export const calculateAdaptiveDailyGoal = (params: {
+  recentAccuracy: number;
+  averageTimePerWord: number; // in seconds
+  availableStudyTime: number; // in minutes
+  currentGoal: number;
+  completionRate: number; // how often daily goal is met (0-1)
+}): number => {
+  const { recentAccuracy, averageTimePerWord, availableStudyTime, currentGoal, completionRate } = params;
+  
+  // Calculate how many words can fit in available time
+  const maxWordsInTime = Math.floor((availableStudyTime * 60) / averageTimePerWord);
+  
+  let adjustedGoal = currentGoal;
+  
+  // Adjust based on completion rate
+  if (completionRate >= 0.8 && recentAccuracy >= 0.75) {
+    // User is consistently meeting goals with good accuracy - increase slightly
+    adjustedGoal = Math.min(currentGoal + 2, maxWordsInTime);
+  } else if (completionRate < 0.5 || recentAccuracy < 0.6) {
+    // User struggling - decrease goal
+    adjustedGoal = Math.max(5, currentGoal - 2);
+  }
+  
+  // Ensure goal is realistic for available time
+  return Math.min(adjustedGoal, maxWordsInTime);
+};
+
+/**
+ * Detect learning patterns and suggest optimizations
+ * @param words User's vocabulary words
+ * @param sessions Recent review sessions
+ * @returns Learning insights and recommendations
+ */
+export const analyzeLearningPatterns = (words: VocabWord[], sessions: ReviewSession[]) => {
+  const insights = {
+    difficultWordTypes: [] as string[],
+    bestStudyTimes: [] as string[],
+    strugglingCategories: [] as string[],
+    recommendations: [] as string[]
+  };
+  
+  // Analyze difficult word types
+  const wordTypeAccuracy = words.reduce((acc, word) => {
+    if (word.totalReviews > 0) {
+      const accuracy = word.correctReviews / word.totalReviews;
+      if (!acc[word.wordType]) acc[word.wordType] = [];
+      acc[word.wordType].push(accuracy);
+    }
+    return acc;
+  }, {} as Record<string, number[]>);
+  
+  // Find word types with low average accuracy
+  Object.entries(wordTypeAccuracy).forEach(([type, accuracies]) => {
+    const avgAccuracy = accuracies.reduce((sum, acc) => sum + acc, 0) / accuracies.length;
+    if (avgAccuracy < 0.7) {
+      insights.difficultWordTypes.push(type);
+      insights.strugglingCategories.push(`${type} (${Math.round(avgAccuracy * 100)}% accuracy)`);
+    }
+  });
+  
+  // Analyze session timing patterns
+  if (sessions.length >= 5) {
+    const sessionsByHour = sessions.reduce((acc, session) => {
+      const hour = new Date(session.startTime).getHours();
+      if (!acc[hour]) acc[hour] = [];
+      acc[hour].push(session.quality);
+      return acc;
+    }, {} as Record<number, number[]>);
+    
+    // Find hours with best performance
+    const hourPerformance = Object.entries(sessionsByHour)
+      .map(([hour, qualities]) => ({
+        hour: parseInt(hour),
+        avgQuality: qualities.reduce((sum, q) => sum + q, 0) / qualities.length
+      }))
+      .sort((a, b) => b.avgQuality - a.avgQuality);
+    
+    if (hourPerformance.length > 0) {
+      insights.bestStudyTimes = hourPerformance
+        .slice(0, 3)
+        .map(hp => `${hp.hour}:00 (${Math.round(hp.avgQuality * 100)}% avg quality)`);
+    }
+  }
+  
+  // Generate recommendations
+  if (insights.difficultWordTypes.length > 0) {
+    insights.recommendations.push(`Focus extra practice on ${insights.difficultWordTypes.join(', ')} word types`);
+  }
+  
+  if (insights.bestStudyTimes.length > 0) {
+    insights.recommendations.push(`Schedule reviews during your peak hours: ${insights.bestStudyTimes[0].split(' ')[0]}`);
+  }
+  
+  // Check for overdue words
+  const overdueWords = words.filter(word => 
+    word.nextReview && word.nextReview < Date.now() - (7 * 24 * 60 * 60 * 1000)
+  );
+  
+  if (overdueWords.length > 10) {
+    insights.recommendations.push(`You have ${overdueWords.length} words overdue by more than a week. Consider smaller daily sessions to catch up.`);
+  }
+  
+  return insights;
+};
+
+/**
+ * Calculate streak preservation probability
+ * @param currentStreak Current streak count
+ * @param todaysProgress Today's progress (0-1)
+ * @param averageSessionQuality Recent average session quality
+ * @returns Probability of maintaining streak (0-1)
+ */
+export const calculateStreakRisk = (
+  currentStreak: number,
+  todaysProgress: number,
+  averageSessionQuality: number
+): { risk: number; recommendation: string } => {
+  let risk = 0;
+  
+  // Higher risk for longer streaks (more to lose)
+  const streakPressure = Math.min(currentStreak / 30, 1) * 0.3;
+  
+  // Risk based on today's progress
+  const progressRisk = (1 - todaysProgress) * 0.5;
+  
+  // Risk based on recent quality (low quality suggests difficulty)
+  const qualityRisk = (1 - averageSessionQuality) * 0.2;
+  
+  risk = streakPressure + progressRisk + qualityRisk;
+  
+  let recommendation = '';
+  if (risk > 0.7) {
+    recommendation = 'High risk of breaking streak! Complete a few easy reviews now.';
+  } else if (risk > 0.4) {
+    recommendation = 'Moderate streak risk. Try to complete your daily goal today.';
+  } else {
+    recommendation = 'Streak is safe. Keep up the good work!';
+  }
+  
+  return { risk, recommendation };
+};
+
+// ===============================
 // Validation Helpers
 // ===============================
 
@@ -451,11 +618,3 @@ export const isValidInput = (input: string): boolean => {
   return input.trim().length > 0;
 };
 
-/**
- * Validate quality rating (0-5)
- * @param quality Quality rating to validate
- * @returns Whether quality is valid
- */
-export const isValidQuality = (quality: any): quality is QualityRating => {
-  return typeof quality === 'number' && quality >= 0 && quality <= 5;
-};
