@@ -7,6 +7,198 @@ let isModalOpen = false;
 let wordHighlightingEnabled = true;
 let isInitialized = false;
 
+// Show success popup message
+function showSuccessPopup(message: string, duration = 3000) {
+  showPopupMessage(message, 'success', duration);
+}
+
+// Show error popup message  
+function showErrorPopup(message: string, duration = 4000) {
+  showPopupMessage(message, 'error', duration);
+}
+
+// Generic popup message function
+function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 'info', duration = 3000) {
+  // Remove any existing popup message
+  const existingPopup = document.getElementById('vocab-srs-popup-message');
+  if (existingPopup) {
+    document.body.removeChild(existingPopup);
+  }
+
+  // Create popup message element
+  const popup = document.createElement('div');
+  popup.id = 'vocab-srs-popup-message';
+  popup.className = `vocab-srs-popup-message vocab-srs-popup-${type}`;
+  
+  // Choose icon based on type
+  let icon = '';
+  if (type === 'success') {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+      <polyline points="22,4 12,14.01 9,11.01"/>
+    </svg>`;
+  } else if (type === 'error') {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="15" y1="9" x2="9" y2="15"/>
+      <line x1="9" y1="9" x2="15" y2="15"/>
+    </svg>`;
+  } else {
+    icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="12" y1="16" x2="12" y2="12"/>
+      <line x1="12" y1="8" x2="12.01" y2="8"/>
+    </svg>`;
+  }
+  
+  popup.innerHTML = `
+    <div class="vocab-srs-popup-content">
+      <div class="vocab-srs-popup-icon">${icon}</div>
+      <div class="vocab-srs-popup-text">${message}</div>
+      <button class="vocab-srs-popup-close">&times;</button>
+    </div>
+  `;
+
+  // Add styles if not already added
+  let styleElement = document.getElementById('vocab-srs-popup-styles');
+  if (!styleElement) {
+    styleElement = document.createElement('style');
+    styleElement.id = 'vocab-srs-popup-styles';
+    styleElement.textContent = `
+      .vocab-srs-popup-message {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 10002;
+        min-width: 300px;
+        max-width: 400px;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        animation: vocab-srs-slide-in 0.3s ease-out;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
+      
+      .vocab-srs-popup-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        color: white;
+      }
+      
+      .vocab-srs-popup-error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        color: white;
+      }
+      
+      .vocab-srs-popup-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        color: white;
+      }
+      
+      .vocab-srs-popup-content {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 20px;
+      }
+      
+      .vocab-srs-popup-icon {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      
+      .vocab-srs-popup-text {
+        flex: 1;
+        font-size: 14px;
+        font-weight: 500;
+        line-height: 1.4;
+      }
+      
+      .vocab-srs-popup-close {
+        background: none;
+        border: none;
+        color: currentColor;
+        font-size: 20px;
+        cursor: pointer;
+        padding: 0;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 4px;
+        transition: background-color 0.2s;
+        flex-shrink: 0;
+      }
+      
+      .vocab-srs-popup-close:hover {
+        background: rgba(255, 255, 255, 0.2);
+      }
+      
+      @keyframes vocab-srs-slide-in {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      
+      @keyframes vocab-srs-slide-out {
+        from {
+          transform: translateX(0);
+          opacity: 1;
+        }
+        to {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+      }
+      
+      .vocab-srs-popup-message.vocab-srs-closing {
+        animation: vocab-srs-slide-out 0.3s ease-in forwards;
+      }
+    `;
+    document.head.appendChild(styleElement);
+  }
+
+  // Add popup to body
+  document.body.appendChild(popup);
+
+  // Close function
+  const closePopup = () => {
+    popup.classList.add('vocab-srs-closing');
+    setTimeout(() => {
+      if (popup.parentNode) {
+        document.body.removeChild(popup);
+      }
+    }, 300);
+  };
+
+  // Add close button event listener
+  const closeBtn = popup.querySelector('.vocab-srs-popup-close');
+  closeBtn?.addEventListener('click', closePopup);
+
+  // Auto close after duration
+  setTimeout(closePopup, duration);
+
+  // Close on click outside (optional)
+  const handleOutsideClick = (event: MouseEvent) => {
+    if (!popup.contains(event.target as Node)) {
+      closePopup();
+      document.removeEventListener('click', handleOutsideClick);
+    }
+  };
+  
+  setTimeout(() => {
+    document.addEventListener('click', handleOutsideClick);
+  }, 100);
+}
+
 // Initialize content script
 function init() {
   if (isInitialized) {
@@ -384,6 +576,9 @@ function showAddModal(word?: string) {
   
   isModalOpen = true;
   
+  // Hide floating button when modal opens
+  hideFloatingButton();
+  
   // Create modal
   const modal = document.createElement('div');
   modal.id = 'vocab-srs-modal';
@@ -649,7 +844,22 @@ function showAddModal(word?: string) {
     document.body.removeChild(modal);
     document.head.removeChild(style);
     isModalOpen = false;
+    
+    // Remove ESC key listener when modal closes
+    document.removeEventListener('keydown', handleEscKey);
   };
+  
+  // Handle ESC key to close modal
+  const handleEscKey = (event: KeyboardEvent) => {
+    if (event.key === 'Escape' && isModalOpen) {
+      event.preventDefault();
+      event.stopPropagation();
+      closeModal();
+    }
+  };
+  
+  // Add ESC key listener
+  document.addEventListener('keydown', handleEscKey);
   
   closeBtn?.addEventListener('click', closeModal);
   cancelBtn?.addEventListener('click', closeModal);
@@ -676,7 +886,7 @@ function showAddModal(word?: string) {
     
     // Basic validation
     if (!word || !meaning || !wordType) {
-      alert('Please fill in the required fields: Word, Meaning, and Word Type');
+      showErrorPopup('Please fill in the required fields: Word, Meaning, and Word Type', 4000);
       return;
     }
     
@@ -723,7 +933,7 @@ function showAddModal(word?: string) {
       );
       
       if (existingWord) {
-        alert(`The word "${word}" with the meaning "${meaning}" already exists in your dictionary!\n\nNote: You can add the same word with different meanings.`);
+        showErrorPopup(`The word "${word}" with the meaning "${meaning}" already exists in your dictionary! You can add the same word with different meanings.`, 5000);
         saveBtnElement.disabled = false;
         saveBtnElement.textContent = 'Save to Dictionary';
         return;
@@ -749,7 +959,7 @@ function showAddModal(word?: string) {
       await chrome.storage.local.set({ vocabWords: existingWords });
       
       // Show success message
-      alert('Word added to dictionary successfully!');
+      showSuccessPopup(`Word "${word}" added to dictionary successfully!`, 4000);
       closeModal();
       
       // Hide floating button
@@ -757,7 +967,7 @@ function showAddModal(word?: string) {
       
     } catch (error) {
       console.error('Failed to save word:', error);
-      alert('Failed to save word. Please try again.');
+      showErrorPopup('Failed to save word. Please try again.', 4000);
       
       // Re-enable save button
       saveBtnElement.disabled = false;
@@ -840,6 +1050,16 @@ function handleMessage(message: any, _sender: chrome.runtime.MessageSender, send
       
     case 'SHOW_ADD_MODAL':
       showAddModal(message.data?.word);
+      sendResponse({ success: true });
+      break;
+      
+    case 'SHOW_SUCCESS_MESSAGE':
+      showSuccessPopup(message.data?.message, message.data?.duration);
+      sendResponse({ success: true });
+      break;
+      
+    case 'SHOW_ERROR_MESSAGE':
+      showErrorPopup(message.data?.message, message.data?.duration);
       sendResponse({ success: true });
       break;
       

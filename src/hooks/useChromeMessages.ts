@@ -1,5 +1,5 @@
-import { useEffect, useCallback } from 'react';
-import { ChromeMessage, ContentScriptMessage, PopupMessage } from '@/types';
+import { useCallback } from 'react';
+import { ChromeMessage, ContentScriptMessage } from '@/types';
 
 export const useChromeMessages = () => {
   const sendMessage = useCallback(async (message: ChromeMessage) => {
@@ -83,6 +83,36 @@ export const useChromeMessages = () => {
     return false;
   }, [getCurrentTab, sendMessageToTab]);
 
+  const showSuccessMessage = useCallback(async (message: string, duration = 3000) => {
+    try {
+      const tab = await getCurrentTab();
+      if (tab?.id) {
+        return await sendMessageToTab(tab.id, { 
+          type: 'SHOW_SUCCESS_MESSAGE', 
+          data: { message, duration } 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to show success message:', error);
+    }
+    return false;
+  }, [getCurrentTab, sendMessageToTab]);
+
+  const showErrorMessage = useCallback(async (message: string, duration = 4000) => {
+    try {
+      const tab = await getCurrentTab();
+      if (tab?.id) {
+        return await sendMessageToTab(tab.id, { 
+          type: 'SHOW_ERROR_MESSAGE', 
+          data: { message, duration } 
+        });
+      }
+    } catch (error) {
+      console.error('Failed to show error message:', error);
+    }
+    return false;
+  }, [getCurrentTab, sendMessageToTab]);
+
   return {
     sendMessage,
     sendMessageToTab,
@@ -90,6 +120,8 @@ export const useChromeMessages = () => {
     listenForMessages,
     getCurrentTab,
     getSelectedText,
-    showAddModal
+    showAddModal,
+    showSuccessMessage,
+    showErrorMessage
   };
 };

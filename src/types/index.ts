@@ -121,7 +121,7 @@ export interface VocabWord {
   }
   
   export interface ContentScriptMessage {
-    type: 'ADD_WORD' | 'GET_SELECTED_TEXT' | 'SHOW_ADD_MODAL';
+    type: 'ADD_WORD' | 'GET_SELECTED_TEXT' | 'SHOW_ADD_MODAL' | 'SHOW_SUCCESS_MESSAGE' | 'SHOW_ERROR_MESSAGE' | 'TOGGLE_WORD_HIGHLIGHTING';
     data?: any;
   }
   

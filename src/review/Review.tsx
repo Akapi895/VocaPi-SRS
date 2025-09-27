@@ -18,7 +18,8 @@ import {
   calculateGamificationUpdate,
   updateDailyStreak,
   countWordsReviewedToday,
-  isValidInput
+  isValidInput,
+  requiresRetry
 } from './utils';
 import { 
   ArrowLeft,
@@ -68,8 +69,14 @@ const Review: React.FC = () => {
     const newValue = e.target.value;
     const oldValue = e.target.dataset.oldValue || '';
     
-    // Detect potential paste (large text input at once)
-    if (newValue.length - oldValue.length > 3) {
+    // Clear retry error when user starts typing again
+    if (isRetryMode && retryError) {
+      setRetryError('');
+    }
+    
+    // More strict paste detection for retry mode
+    const pasteThreshold = isRetryMode ? 1 : 3;
+    if (newValue.length - oldValue.length > pasteThreshold) {
       // Likely a paste operation - reject it
       e.target.value = oldValue;
       setter(oldValue);
@@ -145,6 +152,9 @@ const Review: React.FC = () => {
   const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [pendingAction, setPendingAction] = useState<'pause' | 'stop' | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isRetryMode, setIsRetryMode] = useState(false);
+  const [retryQuality, setRetryQuality] = useState<QualityRating | null>(null);
+  const [retryError, setRetryError] = useState<string>('');
 
   // Initialize review session
   useEffect(() => {
@@ -166,6 +176,32 @@ const Review: React.FC = () => {
     const currentWord = reviewWords[currentWordIndex];
     const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
     
+    // Special handling for retry mode
+    if (isRetryMode) {
+      if (isCorrect) {
+        // Correct answer in retry mode - save word with original quality and proceed
+        setRetryError('');
+        const originalQuality = retryQuality || 1;
+        
+        // Reset retry mode states
+        setIsRetryMode(false);
+        setRetryQuality(null);
+        setUserAnswer('');
+        
+        // Process the word with original quality and move to next word
+        setTimeout(() => {
+          processQualityRating(originalQuality);
+        }, 100); // Small delay to ensure state is updated
+        return;
+      } else {
+        // Wrong answer in retry mode - show error and clear input
+        setRetryError('❌ Incorrect! Please try again with the correct spelling.');
+        setUserAnswer('');
+        return;
+      }
+    }
+    
+    // Normal mode
     setShowAnswer(true);
     setSessionStats(prev => updateSessionStats(prev, isCorrect));
     
@@ -206,10 +242,25 @@ const Review: React.FC = () => {
         isSkipped: quality === 0
       });
       
-      // Create updated word with new SRS values
-      const updatedWord = createUpdatedWord(currentWord, finalQuality);
+      // Check if this word requires retry (quality <= 2)
+      if (requiresRetry(finalQuality) && !isRetryMode) {
+        // Enter retry mode - stay in showReviewStep with retry interface
+        setIsRetryMode(true);
+        setRetryQuality(finalQuality);
+        setRetryError('');
+        setUserAnswer('');
+        setShowHint(false);
+        setSelectedQuality(quality);
+        setShowReviewStep(true); // Stay in review step
+        setIsProcessing(false);
+        return;
+      }
       
-
+      // If we're in retry mode, use the original quality from first attempt
+      const actualQuality = isRetryMode ? (retryQuality || finalQuality) : finalQuality;
+      
+      // Create updated word with new SRS values
+      const updatedWord = createUpdatedWord(currentWord, actualQuality);
 
       // Update word, analytics, and gamification - wait for all to complete
       const updatePromises = [updateWord(currentWord.id, updatedWord)];
@@ -244,6 +295,8 @@ const Review: React.FC = () => {
         setShowHint(false);
         setShowReviewStep(false);
         setSelectedQuality(null);
+        setIsRetryMode(false);
+        setRetryQuality(null);
         // Then move to next word
         setCurrentWordIndex(prev => prev + 1);
       } else {
@@ -299,6 +352,8 @@ const Review: React.FC = () => {
 
         // Update session stats and complete session atomically
         setSessionStats(prev => ({ ...prev, totalTime }));
+        setIsRetryMode(false);
+        setRetryQuality(null);
         setTimeout(() => {
           setSessionComplete(true);
         }, 0);
@@ -329,6 +384,9 @@ const Review: React.FC = () => {
       setShowHint(false);
       setShowReviewStep(false);
       setSelectedQuality(null);
+      setIsRetryMode(false);
+      setRetryQuality(null);
+      setRetryError('');
       setSessionStats({
         correct: 0,
         total: 0,
@@ -446,9 +504,21 @@ const Review: React.FC = () => {
                 Back
               </button>
               <div>
-                <h1 className="text-lg font-semibold text-gray-900">Review Session</h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-lg font-semibold text-gray-900">Review Session</h1>
+                  {isRetryMode && (
+                    <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-medium">
+                      Retry Mode
+                    </span>
+                  )}
+                </div>
                 <p className="text-sm text-gray-600">
                   {currentWordIndex + 1} of {reviewWords.length} words
+                  {isRetryMode && retryQuality !== null && (
+                    <span className="text-amber-600 ml-2">
+                      • Please retype this word correctly
+                    </span>
+                  )}
                 </p>
               </div>
             </div>
@@ -697,26 +767,82 @@ const Review: React.FC = () => {
                     )}
                   </div>
 
-                  {/* No retry mechanism - directly proceed to next word */}
-                  <div className="space-y-4">
-                    <button 
-                      onClick={() => processQualityRating(selectedQuality!)}
-                      className="btn btn-primary btn-lg"
-                      disabled={isProcessing}
-                    >
-                        {isProcessing ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                            Processing...
-                          </>
-                        ) : (
-                          <>
-                            <ArrowRight className="w-5 h-5" />
-                            Continue to Next Word
-                          </>
-                        )}
-                      </button>
+                  {/* Retry Interface or Continue Button */}
+                  {isRetryMode ? (
+                    // Show retry interface within review step
+                    <div className="space-y-6">
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                        <div className="text-center mb-4">
+                          <div className="text-2xl mb-2">🔄</div>
+                          <div className="text-lg font-semibold text-amber-800 mb-2">
+                            Practice this word again
+                          </div>
+                          <div className="text-sm text-amber-700">
+                            Please retype the correct answer to proceed to the next word
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-4">
+                          <input 
+                            type="text"
+                            value={userAnswer}
+                            onChange={(e) => handleInputChange(e, setUserAnswer)}
+                            onKeyPress={(e) => e.key === 'Enter' && handleAnswerSubmit()}
+                            onKeyDown={handleKeyDown}
+                            onPaste={handleAntiPaste}
+                            onContextMenu={handleContextMenu}
+                            onDrop={(e) => e.preventDefault()}
+                            onDragOver={(e) => e.preventDefault()}
+                            className="input text-lg text-center max-w-md mx-auto border-amber-300 focus:border-amber-500 bg-white"
+                            placeholder="Retype the correct word..."
+                            autoFocus
+                            disabled={isPaused}
+                            autoComplete="off"
+                            spellCheck={false}
+                          />
+                          
+                          {/* Retry error message */}
+                          {retryError && (
+                            <div className="text-red-600 text-sm text-center font-medium bg-red-50 border border-red-200 rounded-lg px-3 py-2 mx-auto max-w-md">
+                              {retryError}
+                            </div>
+                          )}
+                          
+                          <div className="text-center">
+                            <button 
+                              onClick={handleAnswerSubmit}
+                              className="btn btn-warning btn-lg"
+                              disabled={!isValidInput(userAnswer) || isPaused}
+                            >
+                              <Check className="w-5 h-5" />
+                              Submit Retry
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
+                  ) : (
+                    // Normal continue button
+                    <div className="space-y-4">
+                      <button 
+                        onClick={() => processQualityRating(selectedQuality!)}
+                        className="btn btn-primary btn-lg"
+                        disabled={isProcessing}
+                      >
+                          {isProcessing ? (
+                            <>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              Processing...
+                            </>
+                          ) : (
+                            <>
+                              <ArrowRight className="w-5 h-5" />
+                              Continue to Next Word
+                            </>
+                          )}
+                        </button>
+                      </div>
+                  )}
                 </div>
               ) : null}
             </div>

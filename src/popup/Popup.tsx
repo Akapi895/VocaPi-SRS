@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
-// import { useChromeMessages } from '@/hooks/useChromeMessages';
+import { useChromeMessages } from '@/hooks/useChromeMessages';
 import {
   getDueWords,
   getFilteredWords,
@@ -37,6 +37,7 @@ import {
 
 const Popup: React.FC = () => {
   const { data, loading, error, updateSettings, saveData } = useChromeStorage();
+  const { showSuccessMessage, showErrorMessage } = useChromeMessages();
   
   const [currentScreen, setCurrentScreen] = useState<'main' | 'wordList'>('main');
   const [wordHighlightingEnabled, setWordHighlightingEnabled] = useState(true);
@@ -116,15 +117,15 @@ const Popup: React.FC = () => {
         
         if (confirmed) {
           await saveData(result.data);
-          alert('Data imported successfully!');
-          window.location.reload();
+          await showSuccessMessage('Data imported successfully!');
+          setTimeout(() => window.location.reload(), 1000);
         }
       } else {
-        alert(result.error || 'Failed to import data. Please check the file format.');
+        await showErrorMessage(result.error || 'Failed to import data. Please check the file format.');
       }
     } catch (error) {
       console.error('Import failed:', error);
-      alert('Failed to import data. Please try again.');
+      await showErrorMessage('Failed to import data. Please try again.');
     }
   };
 

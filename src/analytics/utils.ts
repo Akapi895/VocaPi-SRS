@@ -32,6 +32,23 @@ export interface DifficultWord extends VocabWord {
   successRate: number;
 }
 
+// Response time analytics types
+export interface ResponseTimeData {
+  word: string;
+  estimatedResponseTime: number;
+  difficulty: 'easy' | 'medium' | 'hard';
+  accuracy: number;
+}
+
+export interface ResponseTimeAnalytics {
+  averageResponseTime: number;
+  byDifficulty: {
+    easy: ResponseTimeData[];
+    medium: ResponseTimeData[];
+    hard: ResponseTimeData[];
+  };
+}
+
 /**
  * Calculate real-time statistics from vocab words data
  * @param words Array of vocabulary words
@@ -139,9 +156,6 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
   const weekStart = new Date(today);
   weekStart.setDate(today.getDate() - today.getDay());
   
-  // Debug logging for development
-  const debugMode = false; // Set to true for debugging
-  
   for (let i = 0; i < 7; i++) {
     // Create a new date for each day to avoid mutation issues
     const currentDay = new Date(weekStart);
@@ -152,22 +166,14 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
     // Count words added on this day
     const wordsAddedToday = words.filter((w: VocabWord) => {
       if (!w.createdAt) return false;
-      const isInRange = w.createdAt >= dayStart && w.createdAt <= dayEnd;
-      if (debugMode && isInRange) {
-        console.log(`Word added on ${dayNames[i]}:`, w.word, new Date(w.createdAt));
-      }
-      return isInRange;
+      return w.createdAt >= dayStart && w.createdAt <= dayEnd;
     });
     
     // Count unique words that were reviewed on this day
     // (avoid double counting if a word was reviewed multiple times)
     const wordsReviewedToday = words.filter((w: VocabWord) => {
       if (!w.lastReviewTime) return false;
-      const isInRange = w.lastReviewTime >= dayStart && w.lastReviewTime <= dayEnd;
-      if (debugMode && isInRange) {
-        console.log(`Word reviewed on ${dayNames[i]}:`, w.word, new Date(w.lastReviewTime));
-      }
-      return isInRange;
+      return w.lastReviewTime >= dayStart && w.lastReviewTime <= dayEnd;
     });
     
     // Calculate UNIQUE words interacted with today (no double counting)
@@ -204,18 +210,6 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
       (totalReviewSessions * avgTimePerReview) + 
       setupTime
     );
-    
-    if (debugMode) {
-      console.log(`${dayNames[i]} summary:`, {
-        wordsAddedCount,
-        wordsReviewedCount,
-        uniqueWordsWorkedOn,
-        totalReviewSessions,
-        estimatedTime,
-        dayStart: new Date(dayStart),
-        dayEnd: new Date(dayEnd)
-      });
-    }
     
     weeklyData.push({
       day: dayNames[i],
@@ -337,6 +331,10 @@ export const getAnalyticsSummary = (data: any) => {
   const studyPatterns = analyzeStudyPatterns(words);
   const difficultWords = getDifficultWords(words);
   
+  // New analytics features
+  const responseTimeAnalytics = getResponseTimeAnalytics(words);
+  const consistencyScore = getStudyConsistencyScore(words);
+  
   // Create data for gamification system
   const gamificationData: GamificationAnalysisData = {
     totalWords: coreStats.totalWords,
@@ -362,8 +360,140 @@ export const getAnalyticsSummary = (data: any) => {
     achievements: gamificationSummary.achievements,
     levelProgress: gamificationSummary.levelProgress,
     userRank: gamificationSummary.userRank,
-    difficultWords
+    difficultWords,
+    // New features
+    responseTimeAnalytics,
+    consistencyScore
   };
+};
+
+/**
+ * Helper function to determine word difficulty based on repetitions and accuracy
+ * @param word Vocabulary word
+ * @returns Difficulty level
+ */
+const getDifficultyLevel = (word: VocabWord): 'easy' | 'medium' | 'hard' => {
+  const repetitions = word.repetitions || 0;
+  const totalReviews = word.totalReviews || 0;
+  const correctReviews = word.correctReviews || 0;
+  const accuracy = totalReviews > 0 ? correctReviews / totalReviews : 0;
+  
+  // Easy: Well practiced and high accuracy
+  if (repetitions >= 5 && accuracy >= 0.8) return 'easy';
+  
+  // Medium: Some practice with decent accuracy
+  if (repetitions >= 2 && accuracy >= 0.6) return 'medium';
+  
+  // Hard: New words or low accuracy
+  return 'hard';
+};
+
+/**
+ * Calculate response time analytics based on word difficulty and performance
+ * @param words Array of vocabulary words
+ * @returns Response time analysis
+ */
+export const getResponseTimeAnalytics = (words: VocabWord[]): ResponseTimeAnalytics => {
+  // Filter words that have been reviewed
+  const reviewedWords = words.filter(w => (w.totalReviews || 0) > 0);
+  
+  const responseTimeData: ResponseTimeData[] = reviewedWords.map(w => {
+    const difficulty = getDifficultyLevel(w);
+    const totalReviews = w.totalReviews || 1;
+    const correctReviews = w.correctReviews || 0;
+    const accuracy = Math.round((correctReviews / totalReviews) * 100);
+    
+    // Base response times (in seconds)
+    const baseTimes = {
+      easy: 2.5,    // Well-known words
+      medium: 4.0,  // Moderate difficulty
+      hard: 6.5     // Difficult words
+    };
+    
+    // Adjust based on repetitions (more practice = faster)
+    const repetitionFactor = Math.max(0.6, 1 - (w.repetitions || 0) * 0.05);
+    
+    // Adjust based on accuracy (lower accuracy = slower thinking)
+    const accuracyFactor = Math.max(0.8, 0.5 + (accuracy / 100) * 0.7);
+    
+    const estimatedTime = baseTimes[difficulty] * repetitionFactor / accuracyFactor;
+    
+    return {
+      word: w.word,
+      estimatedResponseTime: Math.round(estimatedTime * 10) / 10,
+      difficulty,
+      accuracy
+    };
+  });
+  
+  // Calculate average response time
+  const averageResponseTime = responseTimeData.length > 0 
+    ? Math.round((responseTimeData.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeData.length) * 10) / 10
+    : 0;
+  
+  // Group by difficulty
+  const byDifficulty = {
+    easy: responseTimeData.filter(w => w.difficulty === 'easy'),
+    medium: responseTimeData.filter(w => w.difficulty === 'medium'),
+    hard: responseTimeData.filter(w => w.difficulty === 'hard')
+  };
+  
+  return {
+    averageResponseTime,
+    byDifficulty
+  };
+};
+
+/**
+ * Calculate study consistency score based on learning patterns
+ * @param words Array of vocabulary words
+ * @returns Consistency score (0-100)
+ */
+export const getStudyConsistencyScore = (words: VocabWord[]): number => {
+  const now = Date.now();
+  const dayMs = 24 * 60 * 60 * 1000;
+  const last30Days = 30;
+  
+  let activeDays = 0;
+  const dailyActivity: { [key: string]: boolean } = {};
+  
+  // Check activity for each day in the last 30 days
+  for (let i = 0; i < last30Days; i++) {
+    const dayStart = now - (i + 1) * dayMs;
+    const dayEnd = now - i * dayMs;
+    const dateKey = new Date(dayStart).toDateString();
+    
+    // Check if there was any activity on this day
+    const hadActivity = words.some(w => 
+      (w.createdAt && w.createdAt >= dayStart && w.createdAt < dayEnd) ||
+      (w.lastReviewTime && w.lastReviewTime >= dayStart && w.lastReviewTime < dayEnd)
+    );
+    
+    dailyActivity[dateKey] = hadActivity;
+    if (hadActivity) activeDays++;
+  }
+  
+  // Calculate consistency score
+  const consistencyScore = Math.round((activeDays / last30Days) * 100);
+  
+  // Bonus for consecutive days (streak bonus)
+  let currentStreak = 0;
+  let maxStreak = 0;
+  const sortedDates = Object.keys(dailyActivity).sort();
+  
+  for (const date of sortedDates) {
+    if (dailyActivity[date]) {
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  }
+  
+  // Apply streak bonus (up to 20 points)
+  const streakBonus = Math.min(20, maxStreak * 2);
+  
+  return Math.min(100, consistencyScore + streakBonus);
 };
 
 /**

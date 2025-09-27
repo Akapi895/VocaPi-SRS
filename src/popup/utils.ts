@@ -1,4 +1,7 @@
 import { VocabWord } from '@/types';
+import { calculateCoreStatistics, calculateWordDistribution } from '@/analytics/utils';
+import { getGamificationSummary } from '@/gamification';
+import type { GamificationAnalysisData } from '@/gamification/core/types';
 
 // ===============================
 // Word Filtering & Search Utilities
@@ -420,25 +423,47 @@ export const createFileInput = (
 // ===============================
 
 /**
- * Calculate learning statistics from data
+ * Calculate learning statistics from data (consistent with analytics)
  * @param data Application data
  * @returns Calculated statistics
  */
 export const calculateLearningStats = (data: any) => {
-  const totalWords = data?.vocabWords?.length || 0;
-  const dueWords = getDueWords(data?.vocabWords || []);
-  const level = data?.gamification?.level || 1;
-  const xp = data?.gamification?.xp || 0;
-  const streak = data?.gamification?.streak || 0;
-  const accuracy = data?.analytics?.accuracy || 0;
-
+  const words = data?.vocabWords || [];
+  const analytics = data?.analytics || {};
+  const gamification = data?.gamification || {};
+  
+  const totalWords = words.length;
+  const dueWords = getDueWords(words);
+  
+  // Calculate core statistics using same logic as analytics
+  const coreStats = calculateCoreStatistics(words, analytics);
+  
+  // Calculate word distribution
+  const wordDistribution = calculateWordDistribution(words);
+  
+  // Create gamification analysis data
+  const gamificationData: GamificationAnalysisData = {
+    totalWords,
+    currentStreak: gamification.streak || 0,
+    accuracy: coreStats.accuracy,
+    totalStudyTime: coreStats.totalStudyTime,
+    wordDistribution,
+    weeklyProgress: [],
+    words,
+    analytics,
+    gamification
+  };
+  
+  // Get gamification summary with proper level calculation
+  const gamificationSummary = getGamificationSummary(gamificationData);
+  
   return {
     totalWords,
     dueWordsCount: dueWords.length,
-    level,
-    xp,
-    streak,
-    accuracy: Math.round(accuracy),
+    level: gamificationSummary.levelProgress.currentLevel,
+    xp: gamificationSummary.levelProgress.totalXP,
+    streak: gamificationData.currentStreak,
+    accuracy: coreStats.accuracy,
     // Additional calculated stats
     completionRate: totalWords > 0 ? Math.round(((totalWords - dueWords.length) / totalWords) * 100) : 0,
     hasDueWords: dueWords.length > 0

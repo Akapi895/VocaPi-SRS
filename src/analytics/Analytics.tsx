@@ -18,7 +18,10 @@ import {
   Award,
   Activity,
   ArrowLeft,
-  Download
+  Download,
+  Timer,
+  Gauge,
+  CheckCircle2
 } from 'lucide-react';
 
 const Analytics: React.FC = () => {
@@ -64,7 +67,9 @@ const Analytics: React.FC = () => {
     achievements,
     levelProgress,
     userRank,
-    difficultWords
+    difficultWords,
+    responseTimeAnalytics,
+    consistencyScore
   } = analyticsSummary;
 
   // Extract commonly used values for easier access
@@ -292,8 +297,8 @@ const Analytics: React.FC = () => {
           </div>
         </div>
 
-        {/* Learning Patterns */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Learning Patterns & Performance */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
           <div className="card p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
               <Clock className="w-5 h-5 text-purple-600" />
@@ -322,54 +327,170 @@ const Analytics: React.FC = () => {
 
           <div className="card p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Award className="w-5 h-5 text-orange-600" />
-              Achievements ({achievements.filter(a => a.unlocked).length})
+              <Gauge className="w-5 h-5 text-green-600" />
+              Study Consistency
             </h3>
             
-            <div className="space-y-3 max-h-80 overflow-y-auto">
-              {achievements.length > 0 ? (
-                achievements.map((achievement: any, index: number) => (
-                  <div key={index} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
-                    achievement.unlocked 
-                      ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' 
-                      : 'bg-gray-50 border border-gray-200 opacity-60'
-                  }`}>
-                    <div className="text-2xl">{achievement.icon}</div>
-                    <div className="flex-1">
-                      <div className={`font-medium ${achievement.unlocked ? 'text-gray-900' : 'text-gray-500'}`}>
-                        {achievement.name}
-                      </div>
-                      <div className={`text-sm ${achievement.unlocked ? 'text-gray-600' : 'text-gray-400'}`}>
-                        {achievement.description}
-                      </div>
-                    </div>
-                    {achievement.unlocked && (
-                      <div className="text-green-600">
-                        <Award className="w-4 h-4" />
-                      </div>
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-500">
-                  <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p>Start learning to unlock achievements!</p>
+            <div className="text-center mb-4">
+              <div className={`text-4xl font-bold mb-2 ${
+                consistencyScore >= 80 ? 'text-green-600' :
+                consistencyScore >= 60 ? 'text-yellow-600' :
+                consistencyScore >= 40 ? 'text-orange-600' : 'text-red-600'
+              }`}>
+                {consistencyScore}%
+              </div>
+              <div className="text-sm text-gray-600 mb-3">Consistency Score</div>
+              
+              {/* Consistency Progress Ring */}
+              <div className="relative w-20 h-20 mx-auto">
+                <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
+                  <path
+                    className="text-gray-200"
+                    strokeWidth="3"
+                    stroke="currentColor"
+                    fill="transparent"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                  <path
+                    className={
+                      consistencyScore >= 80 ? 'text-green-500' :
+                      consistencyScore >= 60 ? 'text-yellow-500' :
+                      consistencyScore >= 40 ? 'text-orange-500' : 'text-red-500'
+                    }
+                    strokeWidth="3"
+                    strokeDasharray={`${consistencyScore}, 100`}
+                    strokeLinecap="round"
+                    stroke="currentColor"
+                    fill="transparent"
+                    d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <CheckCircle2 className={`w-6 h-6 ${
+                    consistencyScore >= 80 ? 'text-green-600' :
+                    consistencyScore >= 60 ? 'text-yellow-600' :
+                    consistencyScore >= 40 ? 'text-orange-600' : 'text-red-600'
+                  }`} />
                 </div>
-              )}
+              </div>
             </div>
             
-            {/* Achievement Progress */}
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="flex justify-between text-sm text-gray-600 mb-2">
-                <span>Achievement Progress</span>
-                <span>{achievements.filter(a => a.unlocked).length} / {achievements.length}</span>
+            <div className="text-center text-xs text-gray-600">
+              {consistencyScore >= 80 ? 'Excellent consistency!' :
+               consistencyScore >= 60 ? 'Good study habits' :
+               consistencyScore >= 40 ? 'Room for improvement' : 'Try to study more regularly'}
+            </div>
+          </div>
+
+          <div className="card p-6">
+            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
+              <Timer className="w-5 h-5 text-orange-600" />
+              Response Time
+            </h3>
+            
+            <div className="space-y-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-orange-600 mb-1">
+                  {responseTimeAnalytics.averageResponseTime}s
+                </div>
+                <div className="text-sm text-gray-600">Average Response</div>
               </div>
-              <div className="w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${achievements.length > 0 ? (achievements.filter(a => a.unlocked).length / achievements.length) * 100 : 0}%` }}
-                ></div>
+              
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-green-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Easy</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {responseTimeAnalytics.byDifficulty.easy.length > 0 
+                      ? Math.round((responseTimeAnalytics.byDifficulty.easy.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.easy.length) * 10) / 10
+                      : 0}s
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Medium</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {responseTimeAnalytics.byDifficulty.medium.length > 0 
+                      ? Math.round((responseTimeAnalytics.byDifficulty.medium.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.medium.length) * 10) / 10
+                      : 0}s
+                  </div>
+                </div>
+                
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full"></div>
+                    <span className="text-sm text-gray-600">Hard</span>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {responseTimeAnalytics.byDifficulty.hard.length > 0 
+                      ? Math.round((responseTimeAnalytics.byDifficulty.hard.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.hard.length) * 10) / 10
+                      : 0}s
+                  </div>
+                </div>
               </div>
+              
+              <div className="text-xs text-gray-500 text-center mt-3">
+                *Estimated based on difficulty and accuracy
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Achievements Section */}
+        <div className="card p-6 mb-8">
+          <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
+            <Award className="w-5 h-5 text-orange-600" />
+            Achievements ({achievements.filter(a => a.unlocked).length})
+          </h2>
+          
+          <div className="space-y-3 max-h-80 overflow-y-auto">
+            {achievements.length > 0 ? (
+              achievements.map((achievement: any, index: number) => (
+                <div key={index} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
+                  achievement.unlocked 
+                    ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' 
+                    : 'bg-gray-50 border border-gray-200 opacity-60'
+                }`}>
+                  <div className="text-2xl">{achievement.icon}</div>
+                  <div className="flex-1">
+                    <div className={`font-medium ${achievement.unlocked ? 'text-gray-900' : 'text-gray-500'}`}>
+                      {achievement.name}
+                    </div>
+                    <div className={`text-sm ${achievement.unlocked ? 'text-gray-600' : 'text-gray-400'}`}>
+                      {achievement.description}
+                    </div>
+                  </div>
+                  {achievement.unlocked && (
+                    <div className="text-green-600">
+                      <Award className="w-4 h-4" />
+                    </div>
+                  )}
+                </div>
+              ))
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                <p>Start learning to unlock achievements!</p>
+              </div>
+            )}
+          </div>
+          
+          {/* Achievement Progress */}
+          <div className="mt-4 pt-4 border-t border-gray-200">
+            <div className="flex justify-between text-sm text-gray-600 mb-2">
+              <span>Achievement Progress</span>
+              <span>{achievements.filter(a => a.unlocked).length} / {achievements.length}</span>
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full transition-all duration-300"
+                style={{ width: `${achievements.length > 0 ? (achievements.filter(a => a.unlocked).length / achievements.length) * 100 : 0}%` }}
+              ></div>
             </div>
           </div>
         </div>

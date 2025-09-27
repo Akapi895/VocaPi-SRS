@@ -371,12 +371,13 @@ export const isValidQuality = (quality: any): quality is QualityRating => {
 };
 
 /**
- * Check if quality requires retry
- * @param _quality Quality rating
- * @returns Whether retry is required
+ * Check if quality requires retry (retype the word)
+ * @param quality Quality rating
+ * @returns Whether retry is required for low quality words
  */
-export const requiresRetry = (_quality: QualityRating): boolean => {
-  return false;
+export const requiresRetry = (quality: QualityRating): boolean => {
+  // Require retry for quality 0, 1, 2 (failed or difficult words)
+  return quality <= 2;
 };
 
 /**
