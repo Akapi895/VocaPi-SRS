@@ -321,17 +321,10 @@ export const getAnalyticsSummary = (data: any) => {
   const analytics = data?.analytics || {};
   const gamification = data?.gamification || {};
   
-  console.log('Raw data in getAnalyticsSummary:', { 
-    wordsCount: words.length, 
-    analyticsKeys: Object.keys(analytics), 
-    gamificationKeys: Object.keys(gamification) 
-  });
-  
   const coreStats = calculateCoreStatistics(words, analytics);
   const wordDistribution = calculateWordDistribution(words);
   const streakInfo = calculateStreakInfo(gamification, analytics);
   const weeklyProgress = generateWeeklyProgress(words);
-  console.log('Generated weeklyProgress:', weeklyProgress);
   const studyPatterns = analyzeStudyPatterns(words);
   const difficultWords = getDifficultWords(words);
   

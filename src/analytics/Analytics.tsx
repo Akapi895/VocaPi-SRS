@@ -31,7 +31,6 @@ const Analytics: React.FC = () => {
   // Auto-add test data if no words exist (for development)
   React.useEffect(() => {
     if (data && (!data.vocabWords || data.vocabWords.length === 0)) {
-      console.log('No words found, adding test data...');
       
       const testWords = [
         {
@@ -143,7 +142,6 @@ const Analytics: React.FC = () => {
 
   // Get comprehensive analytics summary using filtered data
   const analyticsSummary = getAnalyticsSummary(filteredData);
-  console.log('Analytics Summary:', analyticsSummary);
   const {
     coreStats,
     wordDistribution: wordsByDifficulty,
@@ -158,8 +156,6 @@ const Analytics: React.FC = () => {
     consistencyScore
   } = analyticsSummary;
   
-  console.log('Weekly Progress Data:', weeklyProgress);
-
   // Extract commonly used values for easier access
   const { totalWords, accuracy, dueWords, averageSessionTime, totalStudyTime } = coreStats;
   const { currentStreak, longestStreak } = streakInfo;

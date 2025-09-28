@@ -10,12 +10,8 @@ if (container) {
   try {
     const root = createRoot(container);
     root.render(<Review />);
-    console.log('Review page rendered successfully');
   } catch (error) {
-    console.error('Error rendering review page:', error);
     // Show fallback content
     container.innerHTML = '<div style="padding: 20px; text-align: center;">Error loading review page. Please refresh.</div>';
   }
-} else {
-  console.error('Review root container not found');
 }

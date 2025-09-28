@@ -10,12 +10,8 @@ if (container) {
   try {
     const root = createRoot(container);
     root.render(<Analytics />);
-    console.log('Analytics page rendered successfully');
   } catch (error) {
-    console.error('Error rendering analytics page:', error);
     // Show fallback content
     container.innerHTML = '<div style="padding: 20px; text-align: center;">Error loading analytics page. Please refresh.</div>';
   }
-} else {
-  console.error('Analytics root container not found');
 }

@@ -54,7 +54,6 @@ export class ThemeManager {
         }
       }
     } catch (error) {
-      console.log('Failed to load theme from storage:', error);
       this.currentTheme = 'system';
     }
   }

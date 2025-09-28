@@ -139,6 +139,7 @@ const Review: React.FC = () => {
   const [showAnswer, setShowAnswer] = useState(false);
   const [userAnswer, setUserAnswer] = useState('');
   const [showHint, setShowHint] = useState(false);
+  const [usedHintForCurrentWord, setUsedHintForCurrentWord] = useState(false);
   const [showReviewStep, setShowReviewStep] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<QualityRating | null>(null);
   const [sessionStats, setSessionStats] = useState({
@@ -156,6 +157,7 @@ const Review: React.FC = () => {
   const [isRetryMode, setIsRetryMode] = useState(false);
   const [retryQuality, setRetryQuality] = useState<QualityRating | null>(null);
   const [retryError, setRetryError] = useState<string>('');
+  const [isPracticeSession, setIsPracticeSession] = useState(false);
 
   // Initialize review session
   useEffect(() => {
@@ -294,7 +296,7 @@ const Review: React.FC = () => {
       const isCorrect = isAnswerCorrect(userAnswer, currentWord.word);
       const finalQuality = determineQualityRating({
         isCorrect,
-        usedHint: showHint,
+        usedHint: usedHintForCurrentWord,
         userSelectedQuality: quality === 0 ? undefined : quality,
         isSkipped: quality === 0
       });
@@ -320,13 +322,16 @@ const Review: React.FC = () => {
       // If not in retry mode, use the calculated final quality
       const actualQuality = isRetryMode ? (retryQuality || finalQuality) : finalQuality;
       
-      // Create updated word with new SRS values
-      const updatedWord = createUpdatedWord(currentWord, actualQuality, srsSettings);
+      // Skip SRS updates if this is a practice session (Review Again)
+      const updatePromises: Promise<any>[] = [];
+      
+      if (!isPracticeSession) {
+        // Create updated word with new SRS values (only in first review session)
+        const updatedWord = createUpdatedWord(currentWord, actualQuality, srsSettings);
+        updatePromises.push(updateWord(currentWord.id, updatedWord));
+      }
 
-      // Update word, analytics, and gamification - wait for all to complete
-      const updatePromises = [updateWord(currentWord.id, updatedWord)];
-
-      if (data) {
+      if (data && !isPracticeSession) {
         const sessionTime = Date.now() - sessionStats.startTime;
         
         const analyticsUpdate = calculateAnalyticsUpdate({
@@ -354,6 +359,7 @@ const Review: React.FC = () => {
         setShowAnswer(false);
         setUserAnswer('');
         setShowHint(false);
+        setUsedHintForCurrentWord(false);
         setShowReviewStep(false);
         setSelectedQuality(null);
         setIsRetryMode(false);
@@ -366,27 +372,29 @@ const Review: React.FC = () => {
         const endTime = Date.now();
         const totalTime = endTime - sessionStats.startTime;
         
-        // Create review session record
-        const reviewSession = createReviewSession({
-          startTime: sessionStats.startTime,
-          endTime,
-          wordsReviewed: reviewWords.map(w => w.id),
-          correctAnswers: sessionStats.correct,
-          totalAnswers: sessionStats.total
-        });
+        // Create review session record (only for first review, not practice sessions)
+        if (!isPracticeSession) {
+          const reviewSession = createReviewSession({
+            startTime: sessionStats.startTime,
+            endTime,
+            wordsReviewed: reviewWords.map(w => w.id),
+            correctAnswers: sessionStats.correct,
+            totalAnswers: sessionStats.total
+          });
 
-        // Save review session to chrome storage
-        try {
-          const result = await chrome.storage.local.get(['reviewSessions']);
-          const existingSessions = result.reviewSessions || [];
-          const updatedSessions = [...existingSessions, reviewSession];
-          await chrome.storage.local.set({ reviewSessions: updatedSessions });
-        } catch (error) {
-          console.error('Failed to save review session:', error);
+          // Save review session to chrome storage
+          try {
+            const result = await chrome.storage.local.get(['reviewSessions']);
+            const existingSessions = result.reviewSessions || [];
+            const updatedSessions = [...existingSessions, reviewSession];
+            await chrome.storage.local.set({ reviewSessions: updatedSessions });
+          } catch (error) {
+            // Silent fail - non-critical for user experience
+          }
         }
 
-        // Check and update daily streak after completing session
-        if (data && data.vocabWords && data.gamification) {
+        // Check and update daily streak after completing session (only for first review)
+        if (data && data.vocabWords && data.gamification && !isPracticeSession) {
           try {
             // Fix daily goal for existing users who have 20 set to 10
             let dailyGoal = data.gamification.dailyGoal || 10;
@@ -416,7 +424,7 @@ const Review: React.FC = () => {
               await updateGamification(streakGamificationUpdate);
             }
           } catch (error) {
-            console.error('Failed to update daily streak:', error);
+            // Silent fail - non-critical for user experience
           }
         }
 
@@ -444,19 +452,23 @@ const Review: React.FC = () => {
   const handleRestart = () => {
     if (!data) return;
     
-    const dueWords = getWordsForReview(data.vocabWords);
-    if (dueWords.length > 0) {
-      const shuffled = shuffleArray(dueWords);
+    // Get words that were just reviewed (same words from current session)
+    const reviewedWords = reviewWords.length > 0 ? reviewWords : getWordsForReview(data.vocabWords);
+    
+    if (reviewedWords.length > 0) {
+      const shuffled = shuffleArray(reviewedWords);
       setReviewWords(shuffled);
       setCurrentWordIndex(0);
       setShowAnswer(false);
       setUserAnswer('');
       setShowHint(false);
+      setUsedHintForCurrentWord(false);
       setShowReviewStep(false);
       setSelectedQuality(null);
       setIsRetryMode(false);
       setRetryQuality(null);
       setRetryError('');
+      setIsPracticeSession(true); // Mark as practice session
       setSessionStats({
         correct: 0,
         total: 0,
@@ -575,10 +587,17 @@ const Review: React.FC = () => {
               </button>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-semibold text-foreground">Review Session</h1>
+                  <h1 className="text-lg font-semibold text-foreground">
+                    {isPracticeSession ? 'Practice Session' : 'Review Session'}
+                  </h1>
                   {isRetryMode && (
                     <span className="bg-warning-100 dark:bg-warning-900/30 text-warning-800 dark:text-warning-300 text-xs px-3 py-1 rounded-full font-medium animate-pulse-gentle">
                       Retry Mode
+                    </span>
+                  )}
+                  {isPracticeSession && (
+                    <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300 text-xs px-3 py-1 rounded-full font-medium">
+                      📚 Practice Only
                     </span>
                   )}
                 </div>
@@ -587,6 +606,11 @@ const Review: React.FC = () => {
                   {isRetryMode && retryQuality !== null && (
                     <span className="text-warning-600 dark:text-warning-400 ml-2">
                       • Please retype this word correctly
+                    </span>
+                  )}
+                  {isPracticeSession && (
+                    <span className="text-blue-600 dark:text-blue-400 ml-2">
+                      • No progress will be saved
                     </span>
                   )}
                 </p>
@@ -678,7 +702,14 @@ const Review: React.FC = () => {
                 <div className="space-y-6">
                   {studySettings.enableHints && (
                     <button 
-                      onClick={() => setShowHint(!showHint)}
+                      onClick={() => {
+                        const newShowHint = !showHint;
+                        setShowHint(newShowHint);
+                        // Track that hint was used for this word (once used, always used for this word)
+                        if (newShowHint) {
+                          setUsedHintForCurrentWord(true);
+                        }
+                      }}
                       className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-4"
                     >
                       <Lightbulb className="w-4 h-4 mr-2" />
@@ -755,7 +786,7 @@ const Review: React.FC = () => {
                   {/* Conditional Quality Rating based on performance */}
                   {(() => {
                     const isCorrect = userAnswer.toLowerCase() === currentWord.word.toLowerCase();
-                    const usedHint = showHint;
+                    const usedHint = usedHintForCurrentWord;
                     
                     // Auto-determine quality for incorrect answers or hint usage
                     if (usedHint && !isCorrect) {

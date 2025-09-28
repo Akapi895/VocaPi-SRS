@@ -10,12 +10,8 @@ if (container) {
   try {
     const root = createRoot(container);
     root.render(<Popup />);
-    console.log('Popup rendered successfully');
   } catch (error) {
-    console.error('Error rendering popup:', error);
     // Show fallback content
     container.innerHTML = '<div style="padding: 20px; text-align: center;">Error loading popup. Please refresh.</div>';
   }
-} else {
-  console.error('Popup root container not found');
 }

@@ -10,12 +10,8 @@ if (container) {
   try {
     const root = createRoot(container);
     root.render(<Options />);
-    console.log('Options page rendered successfully');
   } catch (error) {
-    console.error('Error rendering options page:', error);
     // Show fallback content
     container.innerHTML = '<div style="padding: 20px; text-align: center;">Error loading options page. Please refresh.</div>';
   }
-} else {
-  console.error('Options root container not found');
 }

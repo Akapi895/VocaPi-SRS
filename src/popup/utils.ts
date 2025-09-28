@@ -103,7 +103,7 @@ export const playWordPronunciation = async (word: string, vocabWords: VocabWord[
       if (success) return;
     }
   } catch (error) {
-    console.log('Audio processing error, falling back to TTS:', error);
+    // Fallback to TTS on error
   }
 
   // Fallback to TTS
@@ -138,13 +138,11 @@ export const playAudioFromUrl = async (audioUrl: string, timeout: number = 8000)
         return true;
       } catch (playError) {
         URL.revokeObjectURL(objectUrl);
-        console.log('Audio playback failed:', playError);
         return false;
       }
     }
     return false;
   } catch (fetchError) {
-    console.log('Audio fetch failed:', fetchError);
     return false;
   }
 };
@@ -359,7 +357,6 @@ export const broadcastToAllTabs = async (message: any): Promise<void> => {
           await chrome.tabs.sendMessage(tab.id, message);
         } catch (error) {
           // Ignore errors for tabs that don't have content script
-          console.log(`Tab ${tab.id} doesn't have content script or failed to send message`);
         }
       }
     });
