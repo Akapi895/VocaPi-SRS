@@ -437,17 +437,23 @@ export const updateDailyStreak = (params: {
   
   // Check if daily goal is met
   if (wordsReviewedToday >= dailyGoal) {
-    // Check if this is consecutive day
+    // Check if this is consecutive day or first time
     const oneDayMs = 24 * 60 * 60 * 1000;
-    const isConsecutiveDay = (todayTimestamp - lastUpdateTimestamp) === oneDayMs;
+    const daysDiff = Math.round((todayTimestamp - lastUpdateTimestamp) / oneDayMs);
     
     let newStreak;
-    if (lastStreakUpdate === 0 || isConsecutiveDay) {
-      // First time or consecutive day - increment streak
+    if (lastStreakUpdate === 0) {
+      // First time streak
+      newStreak = 1;
+    } else if (daysDiff === 1) {
+      // Consecutive day - increment streak
       newStreak = currentStreak + 1;
-    } else {
+    } else if (daysDiff > 1) {
       // Gap in days - reset to 1
       newStreak = 1;
+    } else {
+      // Same day (should not happen due to earlier check)
+      newStreak = currentStreak;
     }
     
     return {
@@ -477,11 +483,13 @@ export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = 
   const todayStart = today.getTime();
   const todayEnd = todayStart + (24 * 60 * 60 * 1000) - 1;
   
-  return words.filter(word => {
+  const reviewedToday = words.filter(word => {
     return word.lastReviewTime && 
            word.lastReviewTime >= todayStart && 
            word.lastReviewTime <= todayEnd;
-  }).length;
+  });
+  
+  return reviewedToday.length;
 };
 
 // ===============================

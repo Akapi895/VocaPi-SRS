@@ -388,8 +388,16 @@ const Review: React.FC = () => {
         // Check and update daily streak after completing session
         if (data && data.vocabWords && data.gamification) {
           try {
+            // Fix daily goal for existing users who have 20 set to 10
+            let dailyGoal = data.gamification.dailyGoal || 10;
+            if (dailyGoal === 20) {
+              dailyGoal = 10;
+              // Update storage with correct daily goal
+              const fixedGamification = { ...data.gamification, dailyGoal: 10 };
+              await updateGamification(fixedGamification);
+            }
+            
             const wordsReviewedToday = countWordsReviewedToday(data.vocabWords);
-            const dailyGoal = data.gamification.dailyGoal || 10; // Default to 10 words
             
             const streakUpdate = updateDailyStreak({
               currentGamification: data.gamification,
@@ -600,6 +608,9 @@ const Review: React.FC = () => {
                 </div>
                 <div className="text-xs text-foreground-secondary">
                   {sessionStats.correct}/{sessionStats.total} correct
+                </div>
+                <div className="text-xs text-primary-600 dark:text-primary-400">
+                  🔥 Streak: {data?.gamification?.streak || 0}
                 </div>
               </div>
             </div>

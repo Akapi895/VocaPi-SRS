@@ -32,7 +32,7 @@ export const useChromeStorage = () => {
           level: 1,
           streak: 0,
           achievements: [],
-          dailyGoal: 20,
+          dailyGoal: 10,
           weeklyGoal: 100,
           totalStudyTime: 0,
           lastStreakUpdate: 0
@@ -60,7 +60,7 @@ export const useChromeStorage = () => {
           soundEnabled: true,
           autoPlay: false,
           reviewReminders: true,
-          dailyGoal: 20,
+          dailyGoal: 10,
           weeklyGoal: 100,
           maxReviewsPerDay: 50,
           showPhonetics: true,
