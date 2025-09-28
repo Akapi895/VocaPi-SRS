@@ -4,6 +4,17 @@ import { VocabWord, QualityRating } from '@/types';
 // Core SRS Algorithm Types & Interfaces
 // ===============================
 
+export interface SRSSettings {
+  easeFactor: number;
+  easyBonus: number;
+  hardPenalty: number;
+  intervalModifier: number;
+  maximumInterval: number;
+  minimumInterval: number;
+  graduatingInterval: number;
+  easyInterval: number;
+}
+
 export interface SRSCalculationResult {
   newInterval: number;
   newEaseFactor: number;
@@ -31,7 +42,23 @@ export interface ReviewPriority {
  * @param quality Quality rating (0-5)
  * @returns New interval, ease factor, and next review date
  */
-export const calculateSRSValues = (word: VocabWord, quality: QualityRating): SRSCalculationResult => {
+const defaultSRSSettings: SRSSettings = {
+  easeFactor: 2.5,
+  easyBonus: 1.3,
+  hardPenalty: 1.2,
+  intervalModifier: 1.0,
+  maximumInterval: 365,
+  minimumInterval: 1,
+  graduatingInterval: 1,
+  easyInterval: 4
+};
+
+export const calculateSRSValues = (
+  word: VocabWord, 
+  quality: QualityRating, 
+  customSettings?: Partial<SRSSettings>
+): SRSCalculationResult => {
+  const settings = { ...defaultSRSSettings, ...customSettings };
   let newInterval = word.interval;
   let newEaseFactor = word.easeFactor;
   const repetitions = word.repetitions;
@@ -41,52 +68,56 @@ export const calculateSRSValues = (word: VocabWord, quality: QualityRating): SRS
     // Successful recall (quality 3, 4, 5)
     
     if (repetitions === 0) {
-      // First successful review
-      newInterval = 1;
+      // First successful review - use graduatingInterval from settings
+      newInterval = settings.graduatingInterval;
     } else if (repetitions === 1) {
-      // Second successful review
-      newInterval = 6;
+      // Second successful review - use easyInterval from settings  
+      newInterval = settings.easyInterval;
     } else {
       // Subsequent successful reviews
-      // Use ease factor to calculate interval with quality-based adjustment
+      // Use ease factor to calculate interval with quality-based adjustment and intervalModifier
       const qualityMultiplier = getQualityMultiplier(quality);
-      newInterval = Math.round(word.interval * newEaseFactor * qualityMultiplier);
+      newInterval = Math.round(word.interval * newEaseFactor * qualityMultiplier * settings.intervalModifier);
     }
     
     // Update ease factor based on quality (SuperMemo 2 formula enhanced)
     const easeAdjustment = 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
     newEaseFactor = Math.max(1.3, word.easeFactor + easeAdjustment);
     
-    // Apply difficulty bonus for quality 5
+    // Apply difficulty bonus for quality 5 using easyBonus from settings
     if (quality === 5) {
       newEaseFactor += 0.05; // Extra bonus for perfect recall
-      newInterval = Math.round(newInterval * 1.1); // 10% interval bonus
+      newInterval = Math.round(newInterval * settings.easyBonus); // Use easyBonus setting
     }
     
   } else {
     // Failed recall (quality 0, 1, 2)
     
     // Reset repetition count and adjust interval based on failure severity
-    newInterval = getFailureInterval(quality, repetitions);
+    newInterval = Math.max(settings.minimumInterval, getFailureInterval(quality, repetitions));
     
-    // Decrease ease factor based on failure severity
-    const easePenalty = getEasePenalty(quality);
+    // Decrease ease factor based on failure severity using hardPenalty from settings
+    const easePenalty = getEasePenalty(quality) * settings.hardPenalty;
     newEaseFactor = Math.max(1.3, word.easeFactor - easePenalty);
     
     // Additional penalty for complete blackout
     if (quality === 0) {
-      newEaseFactor = Math.max(1.3, newEaseFactor - 0.1);
+      newEaseFactor = Math.max(1.3, newEaseFactor - (0.1 * settings.hardPenalty));
     }
   }
   
   // Apply retention-based adjustments
   newInterval = applyRetentionAdjustment(newInterval, word, quality);
   
-  // Cap maximum interval to prevent words from disappearing too long
-  newInterval = Math.min(newInterval, getMaxInterval(quality, repetitions));
+  // Apply quality-based maximum interval limits (more sophisticated than flat cap)
+  const qualityBasedMaxInterval = getMaxInterval(quality, repetitions);
+  newInterval = Math.min(newInterval, qualityBasedMaxInterval);
   
-  // Ensure minimum interval
-  newInterval = Math.max(newInterval, 1);
+  // Cap maximum interval using settings (absolute maximum)
+  newInterval = Math.min(newInterval, settings.maximumInterval);
+  
+  // Ensure minimum interval using settings
+  newInterval = Math.max(newInterval, settings.minimumInterval);
   
   const nextReview = Date.now() + (newInterval * 24 * 60 * 60 * 1000);
 
@@ -103,8 +134,12 @@ export const calculateSRSValues = (word: VocabWord, quality: QualityRating): SRS
  * @param quality Quality rating
  * @returns Updated word object
  */
-export const createUpdatedWord = (word: VocabWord, quality: QualityRating): VocabWord => {
-  const srsValues = calculateSRSValues(word, quality);
+export const createUpdatedWord = (
+  word: VocabWord, 
+  quality: QualityRating, 
+  customSettings?: Partial<SRSSettings>
+): VocabWord => {
+  const srsValues = calculateSRSValues(word, quality, customSettings);
   
   // Update repetitions based on success/failure
   let newRepetitions = word.repetitions;

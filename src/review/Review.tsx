@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
+import { useCustomizationSettings } from '@/hooks/useCustomizationSettings';
 import { VocabWord, QualityRating } from '@/types';
 import {
   createUpdatedWord,
@@ -35,6 +36,7 @@ import {
 
 const Review: React.FC = () => {
   const { data, loading, error, updateWord, updateAnalytics, updateGamification } = useChromeStorage();
+  const { srs: srsSettings, study: studySettings, audio: audioSettings } = useCustomizationSettings();
   
   // Anti-paste handler with user feedback
   const handleAntiPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -178,7 +180,31 @@ const Review: React.FC = () => {
     // Special handling for retry mode
     if (isRetryMode) {
       if (isCorrect) {
-        // Correct answer in retry mode - save word with original quality and proceed
+        // Play success sound effect if enabled
+        if (audioSettings.soundEffects) {
+          // Create a simple success beep
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5 note
+          oscillator.frequency.setValueAtTime(659.25, audioContext.currentTime + 0.1); // E5 note
+          
+          gainNode.gain.setValueAtTime(audioSettings.speechVolume * 0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.3);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.3);
+        }
+
+        // Correct answer in retry mode - NOW update session stats for the original attempt
+        // This ensures we only count this word once in the session stats
+        const originalIsCorrect = false; // Original attempt was wrong, that's why we're in retry mode
+        setSessionStats(prev => updateSessionStats(prev, originalIsCorrect));
+        
         setRetryError('');
         const originalQuality = retryQuality || 1;
         
@@ -194,6 +220,25 @@ const Review: React.FC = () => {
         }, 50);
         return;
       } else {
+        // Play error sound effect if enabled
+        if (audioSettings.soundEffects) {
+          // Create a simple error beep
+          const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.frequency.setValueAtTime(220, audioContext.currentTime); // A3 note (lower, error sound)
+          
+          gainNode.gain.setValueAtTime(audioSettings.speechVolume * 0.3, audioContext.currentTime);
+          gainNode.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.2);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.2);
+        }
+
         // Wrong answer in retry mode - show error and clear input
         setRetryError('❌ Incorrect! Please try again with the correct spelling.');
         setUserAnswer('');
@@ -209,8 +254,14 @@ const Review: React.FC = () => {
       setSessionStats(prev => updateSessionStats(prev, isCorrect));
     }
     
-    // Auto-play pronunciation after answer check
-    playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl);
+    // Auto-play pronunciation after answer check (if enabled)
+    if (studySettings.autoPlayAudio) {
+      playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl, {
+        speechRate: audioSettings.speechRate,
+        speechVolume: audioSettings.speechVolume,
+        voiceSelection: audioSettings.voiceSelection
+      });
+    }
   };
 
   // Handle skip - show review step immediately
@@ -219,9 +270,15 @@ const Review: React.FC = () => {
     setShowAnswer(true);
     setShowReviewStep(true);
     
-    // Auto-play pronunciation after skip
+    // Auto-play pronunciation after skip (if enabled)
     const currentWord = reviewWords[currentWordIndex];
-    playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl);
+    if (studySettings.autoPlayAudio) {
+      playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl, {
+        speechRate: audioSettings.speechRate,
+        speechVolume: audioSettings.speechVolume,
+        voiceSelection: audioSettings.voiceSelection
+      });
+    }
   };
 
 
@@ -246,10 +303,10 @@ const Review: React.FC = () => {
         isSkipped: quality === 0
       });
       
-      // Check if this word requires retry (quality <= 2) - but only if NOT already in retry mode
-      if (requiresRetry(finalQuality) && !isRetryMode) {
-        // Update session stats for the failed attempt before entering retry mode
-        setSessionStats(prev => updateSessionStats(prev, isCorrect));
+      // Check if this word requires retry (quality <= 2) - but only if NOT already in retry mode and retry is enabled
+      if (requiresRetry(finalQuality) && !isRetryMode && studySettings.retryOnMistake) {
+        // DO NOT update session stats here - wait until retry is completed
+        // This prevents double counting when user fails then retries successfully
         
         // Enter retry mode - stay in showReviewStep with retry interface
         setIsRetryMode(true);
@@ -268,7 +325,7 @@ const Review: React.FC = () => {
       const actualQuality = isRetryMode ? (retryQuality || finalQuality) : finalQuality;
       
       // Create updated word with new SRS values
-      const updatedWord = createUpdatedWord(currentWord, actualQuality);
+      const updatedWord = createUpdatedWord(currentWord, actualQuality, srsSettings);
 
       // Update word, analytics, and gamification - wait for all to complete
       const updatePromises = [updateWord(currentWord.id, updatedWord)];
@@ -553,14 +610,16 @@ const Review: React.FC = () => {
           </div>
           
           {/* Progress Bar */}
-          <div className="mt-4">
-            <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
-              <div 
-                className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
-                style={{ width: `${progress}%` }}
-              ></div>
+          {studySettings.showProgress && (
+            <div className="mt-4">
+              <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
+                <div 
+                  className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
+                  style={{ width: `${progress}%` }}
+                ></div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 
@@ -581,7 +640,12 @@ const Review: React.FC = () => {
                     <button 
                       onClick={() => playWordPronunciation(
                         currentWord.word, 
-                        currentWord.pronunUrl || currentWord.audioUrl
+                        currentWord.pronunUrl || currentWord.audioUrl,
+                        {
+                          speechRate: audioSettings.speechRate,
+                          speechVolume: audioSettings.speechVolume,
+                          voiceSelection: audioSettings.voiceSelection
+                        }
                       )}
                       className="btn btn-outline hover-scale focus-ring px-5 py-2 mb-3"
                     >
@@ -602,13 +666,15 @@ const Review: React.FC = () => {
               {!showAnswer ? (
                 // Step 1: Input form for user answer
                 <div className="space-y-6">
-                  <button 
-                    onClick={() => setShowHint(!showHint)}
-                    className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-4"
-                  >
-                    <Lightbulb className="w-4 h-4 mr-2" />
-                    {showHint ? 'Hide' : 'Show'} Hint
-                  </button>
+                  {studySettings.enableHints && (
+                    <button 
+                      onClick={() => setShowHint(!showHint)}
+                      className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-4"
+                    >
+                      <Lightbulb className="w-4 h-4 mr-2" />
+                      {showHint ? 'Hide' : 'Show'} Hint
+                    </button>
+                  )}
                   
                   <div className="space-y-4">
                     <div className="text-lg text-foreground-secondary">What is the English word?</div>
@@ -759,7 +825,12 @@ const Review: React.FC = () => {
                       <button 
                         onClick={() => playWordPronunciation(
                           currentWord.word, 
-                          currentWord.pronunUrl || currentWord.audioUrl
+                          currentWord.pronunUrl || currentWord.audioUrl,
+                          {
+                            speechRate: audioSettings.speechRate,
+                            speechVolume: audioSettings.speechVolume,
+                            voiceSelection: audioSettings.voiceSelection
+                          }
                         )}
                         className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-6"
                       >

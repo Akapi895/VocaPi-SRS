@@ -296,10 +296,21 @@ export const maskWordInSentence = (
  * @param audioUrl Audio URL (optional)
  * @returns Promise that resolves when audio starts playing
  */
-export const playWordPronunciation = async (word: string, audioUrl?: string): Promise<void> => {
+export const playWordPronunciation = async (
+  word: string, 
+  audioUrl?: string, 
+  audioSettings?: {
+    speechRate?: number;
+    speechVolume?: number;
+    voiceSelection?: string;
+  }
+): Promise<void> => {
   if (audioUrl) {
     try {
       const audio = new Audio(audioUrl);
+      if (audioSettings?.speechVolume) {
+        audio.volume = audioSettings.speechVolume;
+      }
       await audio.play();
       return;
     } catch (error) {
@@ -311,7 +322,28 @@ export const playWordPronunciation = async (word: string, audioUrl?: string): Pr
   if ('speechSynthesis' in window) {
     const utterance = new SpeechSynthesisUtterance(word);
     utterance.lang = 'en-US';
-    utterance.rate = 0.8;
+    
+    // Apply audio settings
+    if (audioSettings) {
+      utterance.rate = audioSettings.speechRate || 1.0;
+      utterance.volume = audioSettings.speechVolume || 0.8;
+      
+      // Set voice if specified
+      if (audioSettings.voiceSelection && audioSettings.voiceSelection !== 'default') {
+        const voices = speechSynthesis.getVoices();
+        const selectedVoice = voices.find(voice => 
+          voice.name.toLowerCase().includes(audioSettings.voiceSelection!.toLowerCase())
+        );
+        if (selectedVoice) {
+          utterance.voice = selectedVoice;
+        }
+      }
+    } else {
+      // Default values
+      utterance.rate = 1.0;
+      utterance.volume = 0.8;
+    }
+    
     speechSynthesis.speak(utterance);
   } else {
     console.warn('Speech synthesis not supported');

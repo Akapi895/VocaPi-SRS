@@ -81,6 +81,21 @@
   .dark body {
     @apply bg-dark-background text-dark-foreground;
   }
+
+  /* High contrast mode */
+  .high-contrast {
+    --color-foreground: 0 0 0;
+    --color-background: 255 255 255;
+    --color-border: 0 0 0;
+    --color-primary: 0 0 255;
+  }
+
+  .dark.high-contrast {
+    --color-foreground: 255 255 255;
+    --color-background: 0 0 0;
+    --color-border: 255 255 255;
+    --color-primary: 255 255 0;
+  }
 }
 
 @layer components {

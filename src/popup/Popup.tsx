@@ -282,7 +282,7 @@ const Popup: React.FC = () => {
             <button 
               onClick={() => openExtensionPage('options.html')}
               className="btn btn-outline btn-sm p-3 hover-scale focus-ring"
-              title="Settings & Cloud Sync"
+              title="Settings"
             >
               <Settings className="w-4 h-4" />
             </button>
