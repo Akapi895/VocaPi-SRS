@@ -837,6 +837,494 @@ function playTextToSpeech(word: string): void {
   }
 }
 
+// Custom confirmation dialog
+interface ConfirmDialogOptions {
+  title: string;
+  message: string;
+  existingMeanings: string[];
+  newMeaning: string;
+  confirmText: string;
+  cancelText: string;
+}
+
+function showCustomConfirmDialog(options: ConfirmDialogOptions): Promise<boolean> {
+  return new Promise((resolve) => {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'vocab-srs-confirm-modal';
+    modal.className = 'vocab-srs-modal';
+    
+    modal.innerHTML = `
+      <div class="vocab-srs-modal-overlay">
+        <div class="vocab-srs-modal-content vocab-srs-confirm-dialog">
+          <div class="vocab-srs-modal-header">
+            <h3>${options.title}</h3>
+          </div>
+          <div class="vocab-srs-modal-body">
+            <div class="vocab-srs-confirm-message">
+              <p>${options.message}</p>
+            </div>
+            
+            <div class="vocab-srs-existing-meanings">
+              <div class="vocab-srs-meanings-label">Existing meanings:</div>
+              <ul class="vocab-srs-meanings-list">
+                ${options.existingMeanings.map(meaning => `<li>• ${meaning}</li>`).join('')}
+              </ul>
+            </div>
+            
+            <div class="vocab-srs-new-meaning">
+              <div class="vocab-srs-new-meaning-label">New meaning to add:</div>
+              <div class="vocab-srs-new-meaning-text">"${options.newMeaning}"</div>
+            </div>
+            
+            <div class="vocab-srs-confirm-question">
+              <div class="vocab-srs-question-icon">❓</div>
+              <div class="vocab-srs-question-text">Do you want to proceed with adding this new meaning?</div>
+            </div>
+          </div>
+          <div class="vocab-srs-modal-footer">
+            <button class="vocab-srs-btn-cancel" data-action="cancel">${options.cancelText}</button>
+            <button class="vocab-srs-btn-confirm" data-action="confirm">${options.confirmText}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add custom styles for confirm dialog
+    const confirmStyle = document.createElement('style');
+    confirmStyle.id = 'vocab-srs-confirm-styles';
+    confirmStyle.textContent = `
+      .vocab-srs-confirm-dialog {
+        max-width: 480px !important;
+      }
+      
+      .vocab-srs-confirm-message {
+        margin-bottom: 20px !important;
+        font-size: 15px !important;
+        color: #374151 !important;
+      }
+      
+      .vocab-srs-existing-meanings {
+        background: #f8fafc !important;
+        border: 2px solid #e2e8f0 !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        margin: 16px 0 !important;
+      }
+      
+      .vocab-srs-meanings-label {
+        font-weight: 600 !important;
+        color: #475569 !important;
+        font-size: 14px !important;
+        margin-bottom: 8px !important;
+      }
+      
+      .vocab-srs-meanings-list {
+        list-style: none !important;
+        padding: 0 !important;
+        margin: 0 !important;
+      }
+      
+      .vocab-srs-meanings-list li {
+        padding: 4px 0 !important;
+        color: #64748b !important;
+        font-size: 14px !important;
+        line-height: 1.4 !important;
+      }
+      
+      .vocab-srs-new-meaning {
+        background: linear-gradient(135deg, #ecfdf5, #f0fdf4) !important;
+        border: 2px solid #22c55e !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        margin: 16px 0 !important;
+      }
+      
+      .vocab-srs-new-meaning-label {
+        font-weight: 600 !important;
+        color: #16a34a !important;
+        font-size: 14px !important;
+        margin-bottom: 8px !important;
+      }
+      
+      .vocab-srs-new-meaning-text {
+        font-size: 15px !important;
+        color: #15803d !important;
+        font-weight: 500 !important;
+        font-style: italic !important;
+      }
+      
+      .vocab-srs-confirm-question {
+        display: flex !important;
+        align-items: center !important;
+        gap: 12px !important;
+        margin: 20px 0 !important;
+        padding: 16px !important;
+        background: #fef3c7 !important;
+        border: 2px solid #f59e0b !important;
+        border-radius: 12px !important;
+      }
+      
+      .vocab-srs-question-icon {
+        font-size: 24px !important;
+        flex-shrink: 0 !important;
+      }
+      
+      .vocab-srs-question-text {
+        font-size: 15px !important;
+        font-weight: 500 !important;
+        color: #92400e !important;
+      }
+      
+      .vocab-srs-btn-confirm {
+        background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+        color: white !important;
+        box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
+        border-radius: 10px !important;
+      }
+      
+      .vocab-srs-btn-confirm:hover {
+        background: linear-gradient(135deg, #34d399, #22c55e) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
+      }
+      
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        .vocab-srs-confirm-message {
+          color: #d1d5db !important;
+        }
+        
+        .vocab-srs-existing-meanings {
+          background: #374151 !important;
+          border-color: #4b5563 !important;
+        }
+        
+        .vocab-srs-meanings-label {
+          color: #d1d5db !important;
+        }
+        
+        .vocab-srs-meanings-list li {
+          color: #9ca3af !important;
+        }
+        
+        .vocab-srs-new-meaning {
+          background: linear-gradient(135deg, #064e3b, #065f46) !important;
+          border-color: #059669 !important;
+        }
+        
+        .vocab-srs-new-meaning-label {
+          color: #34d399 !important;
+        }
+        
+        .vocab-srs-new-meaning-text {
+          color: #6ee7b7 !important;
+        }
+        
+        .vocab-srs-confirm-question {
+          background: #451a03 !important;
+          border-color: #d97706 !important;
+        }
+        
+        .vocab-srs-question-text {
+          color: #fbbf24 !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(confirmStyle);
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const handleAction = (action: string) => {
+      // Remove modal and styles
+      document.body.removeChild(modal);
+      document.head.removeChild(confirmStyle);
+      
+      // Resolve promise based on action
+      resolve(action === 'confirm');
+    };
+
+    // Button event listeners
+    modal.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      const action = target.dataset.action;
+      if (action) {
+        handleAction(action);
+      }
+    });
+
+    // Close on overlay click
+    modal.querySelector('.vocab-srs-modal-overlay')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        handleAction('cancel');
+      }
+    });
+
+    // ESC key to cancel
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        document.removeEventListener('keydown', handleEscKey);
+        handleAction('cancel');
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+
+    // Focus on confirm button
+    setTimeout(() => {
+      const confirmBtn = modal.querySelector('.vocab-srs-btn-confirm') as HTMLElement;
+      confirmBtn?.focus();
+    }, 100);
+  });
+}
+
+// Custom error dialog
+interface ErrorDialogOptions {
+  title: string;
+  message: string;
+  details: string;
+  suggestion: string;
+  buttonText: string;
+}
+
+function showCustomErrorDialog(options: ErrorDialogOptions): Promise<void> {
+  return new Promise((resolve) => {
+    // Create modal
+    const modal = document.createElement('div');
+    modal.id = 'vocab-srs-error-modal';
+    modal.className = 'vocab-srs-modal';
+    
+    modal.innerHTML = `
+      <div class="vocab-srs-modal-overlay">
+        <div class="vocab-srs-modal-content vocab-srs-error-dialog">
+          <div class="vocab-srs-modal-header">
+            <h3>${options.title}</h3>
+          </div>
+          <div class="vocab-srs-modal-body">
+            <div class="vocab-srs-error-content">
+              <div class="vocab-srs-error-icon">
+                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <line x1="15" y1="9" x2="9" y2="15"/>
+                  <line x1="9" y1="9" x2="15" y2="15"/>
+                </svg>
+              </div>
+              
+              <div class="vocab-srs-error-message">
+                <p>${options.message}</p>
+              </div>
+              
+              <div class="vocab-srs-error-details">
+                <div class="vocab-srs-details-label">Details:</div>
+                <div class="vocab-srs-details-text">${options.details}</div>
+              </div>
+              
+              <div class="vocab-srs-error-suggestion">
+                <div class="vocab-srs-suggestion-icon">💡</div>
+                <div class="vocab-srs-suggestion-text">${options.suggestion}</div>
+              </div>
+            </div>
+          </div>
+          <div class="vocab-srs-modal-footer">
+            <button class="vocab-srs-btn-ok" data-action="ok">${options.buttonText}</button>
+          </div>
+        </div>
+      </div>
+    `;
+
+    // Add custom styles for error dialog
+    const errorStyle = document.createElement('style');
+    errorStyle.id = 'vocab-srs-error-styles';
+    errorStyle.textContent = `
+      .vocab-srs-error-dialog {
+        max-width: 450px !important;
+      }
+      
+      .vocab-srs-error-content {
+        text-align: center !important;
+      }
+      
+      .vocab-srs-error-icon {
+        margin: 0 auto 20px !important;
+        width: 64px !important;
+        height: 64px !important;
+        background: linear-gradient(135deg, #fef2f2, #fee2e2) !important;
+        border: 3px solid #f87171 !important;
+        border-radius: 50% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+      }
+      
+      .vocab-srs-error-icon svg {
+        color: #dc2626 !important;
+        width: 32px !important;
+        height: 32px !important;
+      }
+      
+      .vocab-srs-error-message {
+        margin-bottom: 20px !important;
+        font-size: 16px !important;
+        color: #374151 !important;
+        line-height: 1.5 !important;
+      }
+      
+      .vocab-srs-error-details {
+        background: #fef2f2 !important;
+        border: 2px solid #fecaca !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        margin: 16px 0 !important;
+        text-align: left !important;
+      }
+      
+      .vocab-srs-details-label {
+        font-weight: 600 !important;
+        color: #dc2626 !important;
+        font-size: 14px !important;
+        margin-bottom: 8px !important;
+      }
+      
+      .vocab-srs-details-text {
+        font-size: 14px !important;
+        color: #991b1b !important;
+        font-style: italic !important;
+      }
+      
+      .vocab-srs-error-suggestion {
+        background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
+        border: 2px solid #fbbf24 !important;
+        border-radius: 12px !important;
+        padding: 16px !important;
+        margin: 16px 0 !important;
+        display: flex !important;
+        align-items: flex-start !important;
+        gap: 12px !important;
+        text-align: left !important;
+      }
+      
+      .vocab-srs-suggestion-icon {
+        font-size: 20px !important;
+        flex-shrink: 0 !important;
+        margin-top: 2px !important;
+      }
+      
+      .vocab-srs-suggestion-text {
+        font-size: 14px !important;
+        color: #92400e !important;
+        line-height: 1.4 !important;
+      }
+      
+      .vocab-srs-btn-ok {
+        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+        color: white !important;
+        padding: 12px 32px !important;
+        border-radius: 10px !important;
+        font-size: 14px !important;
+        font-weight: 600 !important;
+        cursor: pointer !important;
+        transition: all 0.3s ease !important;
+        border: none !important;
+        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3) !important;
+        min-width: 120px !important;
+      }
+      
+      .vocab-srs-btn-ok:hover {
+        background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
+        transform: translateY(-2px) !important;
+        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
+      }
+      
+      /* Dark mode support */
+      @media (prefers-color-scheme: dark) {
+        .vocab-srs-error-message {
+          color: #d1d5db !important;
+        }
+        
+        .vocab-srs-error-icon {
+          background: linear-gradient(135deg, #450a0a, #7f1d1d) !important;
+          border-color: #ef4444 !important;
+        }
+        
+        .vocab-srs-error-icon svg {
+          color: #f87171 !important;
+        }
+        
+        .vocab-srs-error-details {
+          background: #450a0a !important;
+          border-color: #dc2626 !important;
+        }
+        
+        .vocab-srs-details-label {
+          color: #f87171 !important;
+        }
+        
+        .vocab-srs-details-text {
+          color: #fca5a5 !important;
+        }
+        
+        .vocab-srs-error-suggestion {
+          background: linear-gradient(135deg, #451a03, #78350f) !important;
+          border-color: #d97706 !important;
+        }
+        
+        .vocab-srs-suggestion-text {
+          color: #fbbf24 !important;
+        }
+      }
+    `;
+
+    document.head.appendChild(errorStyle);
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    const handleAction = () => {
+      // Remove modal and styles
+      document.body.removeChild(modal);
+      document.head.removeChild(errorStyle);
+      
+      // Resolve promise
+      resolve();
+    };
+
+    // Button event listener
+    modal.addEventListener('click', (e) => {
+      const target = e.target as HTMLElement;
+      if (target.dataset.action === 'ok') {
+        handleAction();
+      }
+    });
+
+    // Close on overlay click
+    modal.querySelector('.vocab-srs-modal-overlay')?.addEventListener('click', (e) => {
+      if (e.target === e.currentTarget) {
+        handleAction();
+      }
+    });
+
+    // ESC key to close
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        document.removeEventListener('keydown', handleEscKey);
+        handleAction();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscKey);
+
+    // Focus on OK button
+    setTimeout(() => {
+      const okBtn = modal.querySelector('.vocab-srs-btn-ok') as HTMLElement;
+      okBtn?.focus();
+    }, 100);
+  });
+}
+
 // Show add modal
 function showAddModal(word?: string) {
   if (isModalOpen) return;
@@ -961,7 +1449,8 @@ function showAddModal(word?: string) {
     }
     
     .vocab-srs-btn-cancel,
-    .vocab-srs-btn-save {
+    .vocab-srs-btn-save,
+    .vocab-srs-btn-confirm {
       flex: 1 !important;
       padding: 12px 20px !important;
       border-radius: 10px !important;
@@ -1137,7 +1626,14 @@ function showAddModal(word?: string) {
       );
       
       if (existingWord) {
-        showErrorPopup(`The word "${word}" with the meaning "${meaning}" already exists in your dictionary! You can add the same word with different meanings.`, 5000);
+        // Show custom error dialog for duplicate word+meaning
+        await showCustomErrorDialog({
+          title: '⚠️ Duplicate Entry',
+          message: `The word "<strong>${word}</strong>" with this exact meaning already exists in your dictionary.`,
+          details: `Existing meaning: "${existingWord.meaning}"`,
+          suggestion: 'You can add the same word with a different meaning, or edit the existing entry.',
+          buttonText: 'Got it'
+        });
         saveBtnElement.disabled = false;
         saveBtnElement.textContent = 'Save to Dictionary';
         return;
@@ -1149,10 +1645,17 @@ function showAddModal(word?: string) {
       );
       
       if (existingMeanings.length > 0) {
-        const meaningsList = existingMeanings.map((w: VocabWord) => `• ${w.meaning}`).join('\n');
-        const confirmMessage = `The word "${word}" already exists with these meanings:\n\n${meaningsList}\n\nDo you want to add this word with a new meaning: "${meaning}"?`;
+        // Show custom confirmation dialog instead of native alert
+        const shouldContinue = await showCustomConfirmDialog({
+          title: '🔍 Word Already Exists',
+          message: `The word "<strong>${word}</strong>" already exists in your dictionary with these meanings:`,
+          existingMeanings: existingMeanings.map((w: VocabWord) => w.meaning),
+          newMeaning: meaning,
+          confirmText: 'Add New Meaning',
+          cancelText: 'Cancel'
+        });
         
-        if (!confirm(confirmMessage)) {
+        if (!shouldContinue) {
           saveBtnElement.disabled = false;
           saveBtnElement.textContent = 'Save to Dictionary';
           return;

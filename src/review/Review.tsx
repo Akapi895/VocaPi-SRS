@@ -200,10 +200,8 @@ const Review: React.FC = () => {
           oscillator.stop(audioContext.currentTime + 0.3);
         }
 
-        // Correct answer in retry mode - NOW update session stats for the original attempt
-        // This ensures we only count this word once in the session stats
-        const originalIsCorrect = false; // Original attempt was wrong, that's why we're in retry mode
-        setSessionStats(prev => updateSessionStats(prev, originalIsCorrect));
+        // Correct answer in retry mode - session stats already updated in first attempt
+        // Don't update session stats again to avoid double counting
         
         setRetryError('');
         const originalQuality = retryQuality || 1;
@@ -249,10 +247,8 @@ const Review: React.FC = () => {
     // Normal mode
     setShowAnswer(true);
     
-    // Only update session stats if not in retry mode (to avoid double counting)
-    if (!isRetryMode) {
-      setSessionStats(prev => updateSessionStats(prev, isCorrect));
-    }
+    // Update session stats immediately for first attempt (not retry)
+    setSessionStats(prev => updateSessionStats(prev, isCorrect));
     
     // Auto-play pronunciation after answer check (if enabled)
     if (studySettings.autoPlayAudio) {
@@ -635,31 +631,34 @@ const Review: React.FC = () => {
               
               {showHint && (
                 <div className="space-y-4 mb-6">
-                  {/* Pronunciation Button */}
-                  {(currentWord.pronunUrl || currentWord.audioUrl) && (
-                    <button 
-                      onClick={() => playWordPronunciation(
-                        currentWord.word, 
-                        currentWord.pronunUrl || currentWord.audioUrl,
-                        {
-                          speechRate: audioSettings.speechRate,
-                          speechVolume: audioSettings.speechVolume,
-                          voiceSelection: audioSettings.voiceSelection
-                        }
-                      )}
-                      className="btn btn-outline hover-scale focus-ring px-5 py-2 mb-3"
-                    >
-                      <Volume2 className="w-4 h-4 mr-2" />
-                      Pronunciation
-                    </button>
-                  )}
-                  
-                  {/* Example with masked word */}
-                  {currentWord.example && (
-                    <div className="text-lg text-foreground-secondary p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
-                      {maskWordInSentence(currentWord.example, currentWord.word)}
-                    </div>
-                  )}
+                  {/* Pronunciation Button - Always show when hint is visible */}
+                  <div className="flex flex-col items-center space-y-3">
+                    {(currentWord.pronunUrl || currentWord.audioUrl) && (
+                      <button 
+                        onClick={() => playWordPronunciation(
+                          currentWord.word, 
+                          currentWord.pronunUrl || currentWord.audioUrl,
+                          {
+                            speechRate: audioSettings.speechRate,
+                            speechVolume: audioSettings.speechVolume,
+                            voiceSelection: audioSettings.voiceSelection
+                          }
+                        )}
+                        className="btn btn-outline hover-scale focus-ring px-5 py-2"
+                      >
+                        <Volume2 className="w-4 h-4 mr-2" />
+                        Play Pronunciation
+                      </button>
+                    )}
+                    
+                    {/* Example with masked word */}
+                    {currentWord.example && (
+                      <div className="text-lg text-foreground-secondary p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800 max-w-2xl">
+                        <div className="font-medium text-foreground mb-2">Example:</div>
+                        {maskWordInSentence(currentWord.example, currentWord.word)}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
               

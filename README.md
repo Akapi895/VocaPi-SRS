@@ -1,14 +1,15 @@
 # VocaPi - Vocabulary SRS Extension
 
-A comprehensive Chrome extension for learning vocabulary using Spaced Repetition System (SRS) with advanced analytics, gamification, and persistent data storage.
+A comprehensive Chrome extension for learning vocabulary using Spaced Repetition System (SRS) with advanced analytics, gamification, customizable study experience, and persistent data storage.
 
 ## Features
 
 ### Core Learning
 
-- **Spaced Repetition System (SRS)**: Advanced algorithm for optimal learning intervals
+- **Spaced Repetition System (SRS)**: Advanced customizable algorithm for optimal learning intervals
 - **Word Management**: Add, edit, and organize vocabulary with meanings, examples, and phonetic data
-- **Review System**: Interactive review sessions with quality tracking
+- **Interactive Review System**: Comprehensive review sessions with quality tracking and retry mechanism
+- **Smart Audio Integration**: Pronunciation playback with customizable speech settings
 - **Context Menu Integration**: Right-click on selected text to add words instantly
 - **Floating Button**: Quick word addition when text is selected
 
@@ -28,9 +29,18 @@ A comprehensive Chrome extension for learning vocabulary using Spaced Repetition
 - **Level Progression**: Level up based on your learning progress
 - **Daily Challenges**: Motivating daily learning goals
 
+### Customization & Personalization
+
+- **Study Customization Hub**: Comprehensive 6-tab settings interface
+- **SRS Algorithm Tuning**: Fine-tune ease factor, intervals, and difficulty parameters
+- **Theme Studio**: Customize colors, fonts, and visual appearance with real-time preview
+- **Accessibility Options**: Font scaling, high contrast mode, reduced motion settings
+- **Audio Settings**: Voice selection, speech rate, volume, and sound effects control
+- **Study Preferences**: Session length, break reminders, progress display, hint availability
+
 ### Data Management
 
-- **Import/Export**: Backup and restore vocabulary data
+- **Import/Export**: Backup and restore vocabulary data with complete settings
 - **Data Migration**: Automatic migration from old storage systems
 - **Cross-Device Sync**: Synchronize data across devices
 - **Persistent Storage**: Data remains safe across browser sessions
@@ -46,20 +56,47 @@ A comprehensive Chrome extension for learning vocabulary using Spaced Repetition
 
 ### Architecture
 
-- **Modular Design**: Organized feature-based architecture
+- **Modern React + TypeScript**: Built with React 18, TypeScript, and Vite for optimal performance
+- **Modular Hook System**: Custom hooks for settings management and real-time synchronization
 - **Service Worker**: Background processing and data management
 - **Content Scripts**: Page integration and word selection
 - **Popup Interface**: Main extension interface with analytics dashboard
-- **Options Page**: Advanced settings and data management
+- **Study Customization Hub**: Advanced 6-tab settings interface with real-time preview
 - **Analytics Engine**: Real-time learning progress tracking
+- **Tailwind CSS**: Modern responsive design with dark mode support
 
 ## Installation
 
-1. Clone or download this repository
-2. Open Chrome and go to `chrome://extensions/`
-3. Enable "Developer mode"
-4. Click "Load unpacked" and select the extension folder
-5. The extension will appear in your toolbar
+### Development Setup
+
+1. **Clone and Setup**:
+
+   ```bash
+   git clone https://github.com/yourusername/vocab-srs-extension.git
+   cd vocab-srs-extension
+   npm install
+   ```
+
+2. **Build Extension**:
+
+   ```bash
+   npm run dev     # Watch mode for development
+   npm run build   # Production build
+   ```
+
+3. **Load in Browser**:
+   - Open `chrome://extensions/`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select the `dist` folder
+
+### Initial Configuration
+
+4. **Extension Setup**:
+   - Click the extension icon in your toolbar
+   - Access Options page for Study Customization Hub
+   - Configure audio, display, and study behavior settings
+   - Customize review intervals and quality parameters
 
 ## Usage
 
@@ -73,9 +110,19 @@ A comprehensive Chrome extension for learning vocabulary using Spaced Repetition
 
 ### Learning & Review
 
-- **Start Review**: Click "Start Review" in the popup
-- **Quality Rating**: Rate your performance (1-5) after each word
-- **SRS Algorithm**: Words are scheduled based on your performance
+- **Start Review**: Click "Start Review" in the popup to begin spaced repetition learning
+- **Interactive Learning**: Multi-step review process with input validation and anti-cheat measures
+- **Smart Quality Rating**: Intelligent auto-rating based on performance with manual override option
+- **Adaptive Retry System**: Configurable retry mechanism for difficult words with audio feedback
+- **Enhanced Audio Experience**:
+  - Automatic pronunciation playback (configurable)
+  - Customizable voice selection, speech rate, and volume
+  - Audio feedback with beep sounds for correct/incorrect answers
+- **Progress Tracking**: Real-time progress indicators with customizable display options
+- **Hint System**: Optional hints to aid learning (can be enabled/disabled)
+- **Quality-Based Scheduling**: Dynamic interval adjustment based on recall quality (1-5 scale)
+- **Smart Hints**: Context-aware hints with example sentences (can be disabled)
+- **SRS Algorithm**: Words are scheduled based on your performance with customizable parameters
 - **Review Sessions**: Complete daily reviews to maintain streaks
 
 ### Analytics Dashboard
@@ -86,47 +133,61 @@ A comprehensive Chrome extension for learning vocabulary using Spaced Repetition
 - **Difficult Words**: Words that need more practice
 - **Quality Distribution**: How well you're mastering words
 
+### Study Customization
+
+- **SRS Algorithm Settings**: Adjust ease factor, intervals, difficulty penalties
+- **Theme Customization**: Real-time color and font customization with instant preview
+- **Accessibility**: Font scaling, high contrast, reduced motion, keyboard navigation
+- **Audio Preferences**: Voice selection, speech rate (0.5x-2.0x), volume control
+- **Study Session Settings**: Session length, break reminders, progress display
+- **Individual Tab Reset**: Reset specific setting categories to defaults
+
 ### Data Management
 
-- **Import Data**: Upload backup files to restore vocabulary
-- **Export Data**: Download your data for backup
-- **Options Page**: Access advanced settings and data management
-- **Reset Data**: Clear all data if needed
+- **Import Data**: Upload backup files to restore vocabulary with settings
+- **Export Data**: Download your data including all customization settings
+- **Study Customization Hub**: Advanced 6-tab interface for all settings
+- **Real-time Sync**: Settings changes apply immediately across all components
+- **Reset Options**: Individual tab reset or complete settings reset
 
 ## File Structure
 
 ```
 src/
-├── core/                    # Core functionality
-│   ├── api.js              # API communication
-│   ├── contentScript.js    # Content script integration
-│   ├── date.js             # Date utilities
-│   ├── env-config.js       # Environment configuration
-│   ├── id.js               # ID generation
-│   ├── logger.js           # Logging system
-│   ├── migration.js        # Data migration
-│   ├── serviceWorker.js    # Background service worker
-│   ├── storage.js          # Storage operations
-│   ├── text.js             # Text processing
-│   └── utils.js            # Utility functions
+├── main.css                # Global Tailwind CSS styles
+├── analytics/              # Analytics dashboard
+│   ├── Analytics.tsx       # Main analytics component
+│   ├── main.tsx           # Analytics entry point
+│   └── utils.ts           # Analytics utilities
 ├── content/
-│   └── index.js            # Content script
-├── features/               # Feature modules
-│   ├── analytics/          # Analytics system
-│   │   ├── core/          # Analytics core
-│   │   └── dashboard/     # Dashboard components
-│   ├── gamification/      # Gamification system
-│   ├── review/            # Review system
-│   └── srs/               # Spaced Repetition System
-├── managers/              # Manager modules
-│   ├── accessibility-manager.js
-│   ├── i18n-manager.js
-│   ├── keyboard-shortcuts.js
-│   └── theme-manager.js
-└── ui/                    # User interface
-    ├── css/               # Stylesheets
-    ├── html/              # HTML files
-    └── js/                # JavaScript files
+│   └── index.ts           # Content script with word selection
+├── hooks/                 # Custom React hooks
+│   ├── useChromeStorage.ts     # Chrome storage management
+│   ├── useChromeMessages.ts    # Chrome messaging
+│   └── useCustomizationSettings.ts # Settings management hook
+├── options/               # Study Customization Hub
+│   ├── Options.tsx        # 6-tab settings interface
+│   └── main.tsx          # Options entry point
+├── popup/                 # Main extension interface
+│   ├── Popup.tsx         # Popup with analytics dashboard
+│   └── main.tsx          # Popup entry point
+├── review/                # Advanced review system
+│   ├── Review.tsx        # Interactive review component
+│   ├── srs-algorithm.ts  # Customizable SRS algorithm
+│   ├── utils.ts          # Review utilities
+│   └── main.tsx          # Review entry point
+├── service-worker/        # Background processing
+│   └── index.ts          # Service worker
+├── types/                 # TypeScript definitions
+│   └── index.ts          # Global types
+├── utils/                 # Utilities
+│   └── theme.ts          # Theme management
+├── gamification/          # Gamification system
+│   ├── achievements/     # Achievement system
+│   ├── levels/          # Level progression
+│   └── rankings/        # User rankings
+└── assets/               # Static assets
+    └── icons/           # Extension icons
 ```
 
 ## Data Persistence
@@ -136,7 +197,12 @@ src/
 - **vocabWords**: Vocabulary entries with SRS data and metadata
 - **gamification**: User progress, achievements, and XP system
 - **analytics**: Learning statistics, streaks, and performance metrics
-- **settings**: Extension configuration and preferences
+- **customizationSettings**: Complete user preferences including:
+  - **srs**: Algorithm parameters (ease factor, intervals, penalties)
+  - **theme**: Colors, fonts, dark mode, animations
+  - **study**: Session length, hints, progress, retry settings
+  - **accessibility**: Font scaling, high contrast, motion preferences
+  - **audio**: Voice selection, speech rate, volume, sound effects
 - **dailyStats**: Daily learning activity and progress tracking
 
 ### Data Management
@@ -158,22 +224,36 @@ src/
 - **Chrome**: Version 88+ (Manifest V3 support)
 - **Edge**: Version 88+ (Chromium-based)
 - **Storage**: Chrome Storage API support
-- **Permissions**: Active tab, storage, and context menus
+- **Permissions**: Active tab, storage, context menus, and audio (for speech synthesis)
+- **Modern Browser Features**: Web Audio API for sound effects, Speech Synthesis API for pronunciation
 
 ## Development
 
 ### Local Development
 
-1. Make changes to source files
-2. Reload extension in Chrome
-3. Test functionality
-4. Check console for any errors
+1. **Development Workflow**:
+   ```bash
+   npm run dev    # Start development build with watch mode
+   ```
+2. **Extension Testing**:
+   - Make changes to source files in `src/`
+   - Reload extension in `chrome://extensions/`
+   - Test functionality across all components (Popup, Options, Review)
+   - Verify settings synchronization between tabs
+3. **Quality Assurance**:
+   - Test audio functionality and settings integration
+   - Verify SRS algorithm behavior with different quality ratings
+   - Check Study Customization Hub responsiveness
+   - Validate import/export functionality
 
 ### Debugging
 
-- Use Chrome DevTools for extension debugging
-- Check service worker logs in `chrome://extensions/`
-- Monitor IndexedDB in Application tab
+- **Chrome DevTools**: Use for React component debugging and console logs
+- **Service Worker Logs**: Check in `chrome://extensions/` for background task debugging
+- **Storage Inspection**: Monitor Chrome Storage in Application tab
+- **Settings Debug**: Use Options page to verify real-time settings synchronization
+- **Audio Debug**: Check Web Audio API and Speech Synthesis API in console
+- **Performance**: Monitor component re-renders and settings update frequency
 
 ## Troubleshooting
 
@@ -182,8 +262,11 @@ src/
 - **Data not persisting**: Check Chrome Storage permissions
 - **Import/Export failures**: Verify file format and permissions
 - **Analytics not updating**: Refresh the extension or restart browser
-- **Review not working**: Check if words are properly loaded
+- **Review not working**: Check if words are properly loaded and settings are synchronized
 - **Streak calculation errors**: Ensure daily stats are being recorded
+- **Audio not playing**: Verify audio permissions and Speech Synthesis API availability
+- **Settings not applying**: Check if real-time sync is working between Options and Review pages
+- **Study Customization Hub not loading**: Ensure all required permissions are granted
 
 ### Reset Extension
 
