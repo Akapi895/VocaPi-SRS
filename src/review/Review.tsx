@@ -763,7 +763,7 @@ const Review: React.FC = () => {
                       setTimeout(() => handleQualityRating(0), 1000);
                       return (
                         <div className="text-center text-foreground-secondary animate-pulse-gentle">
-                          Quality automatically set to 0 (used hint + incorrect)
+                          Quality automatically set to Blackout
                         </div>
                       );
                     } else if (usedHint && isCorrect) {
@@ -771,7 +771,7 @@ const Review: React.FC = () => {
                       setTimeout(() => handleQualityRating(2), 1000);
                       return (
                         <div className="text-center text-foreground-secondary animate-pulse-gentle">
-                          Quality automatically set to 2 (used hint + correct)
+                          Quality automatically set to Merely Recognized
                         </div>
                       );
                     } else if (!usedHint && !isCorrect) {
@@ -779,7 +779,7 @@ const Review: React.FC = () => {
                       setTimeout(() => handleQualityRating(1), 1000);
                       return (
                         <div className="text-center text-foreground-secondary animate-pulse-gentle">
-                          Quality automatically set to 1 (no hint + incorrect)
+                          Quality automatically set to Forgotten
                         </div>
                       );
                     } else if (!usedHint && isCorrect) {
@@ -787,18 +787,22 @@ const Review: React.FC = () => {
                       return (
                         <div className="space-y-4">
                           <div className="text-lg text-foreground-secondary">How difficult was this word?</div>
-                          <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
+                          <div className="grid grid-cols-3 gap-3 max-w-lg mx-auto">
                             {[3, 4, 5].map(qualityValue => (
                               <button
                                 key={qualityValue}
                                 onClick={() => handleQualityRating(qualityValue as QualityRating)}
-                                className={`btn btn-lg p-3 text-sm hover-scale focus-ring ${
-                                  qualityValue === 3 ? 'btn-warning' : 'btn-success'
+                                className={`btn btn-lg hover-scale focus-ring px-4 py-3 flex flex-col items-center justify-center min-h-[80px] ${
+                                  qualityValue === 3 ? 'btn-outline border-orange-400 text-orange-600 hover:bg-orange-50 dark:border-orange-500 dark:text-orange-400 dark:hover:bg-orange-900/20' :
+                                  qualityValue === 4 ? 'btn-secondary' : 
+                                  'btn-primary'
                                 }`}
                                 disabled={isPaused || isProcessing}
                               >
-                                {/* <div className="font-bold">{qualityValue}</div> */}
-                                <div className="text-xs">
+                                <div className="text-lg font-semibold mb-1">
+                                  {qualityValue === 3 ? '😅' : qualityValue === 4 ? '🙂' : '😎'}
+                                </div>
+                                <div className="text-sm font-medium">
                                   {qualityValue === 3 ? 'Hard to recall' :
                                    qualityValue === 4 ? 'Not bad' : 'Too Easy'}
                                 </div>

@@ -1441,6 +1441,55 @@ function showAddModal(word?: string) {
       color: #22c55e !important;
     }
     
+    /* Enhanced select dropdown styling */
+    #vocab-word-type {
+      width: 100% !important;
+      padding: 12px 40px 12px 16px !important;
+      font-size: 15px !important;
+      font-weight: 500 !important;
+      line-height: 1.5 !important;
+      color: #374151 !important;
+      background: #ffffff !important;
+      border: 2px solid #e5e7eb !important;
+      border-radius: 8px !important;
+      cursor: pointer !important;
+      appearance: none !important;
+      -webkit-appearance: none !important;
+      -moz-appearance: none !important;
+      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") !important;
+      background-position: right 12px center !important;
+      background-repeat: no-repeat !important;
+      background-size: 16px !important;
+      transition: all 0.2s ease !important;
+      min-height: 44px !important;
+    }
+    
+    #vocab-word-type:hover {
+      border-color: #22c55e !important;
+      background-color: #f8fafc !important;
+    }
+    
+    #vocab-word-type:focus {
+      outline: none !important;
+      border-color: #22c55e !important;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+      background-color: #ffffff !important;
+    }
+    
+    #vocab-word-type option {
+      padding: 8px 12px !important;
+      font-size: 14px !important;
+      font-weight: 500 !important;
+      color: #374151 !important;
+      background: #ffffff !important;
+    }
+    
+    #vocab-word-type option:checked,
+    #vocab-word-type option:hover {
+      background: #22c55e !important;
+      color: #ffffff !important;
+    }
+    
     .vocab-srs-modal-footer {
       display: flex !important;
       gap: 16px !important;
@@ -1520,6 +1569,36 @@ function showAddModal(word?: string) {
       
       .vocab-srs-play-audio svg {
         color: #34d399 !important;
+      }
+      
+      /* Dark mode for select dropdown */
+      #vocab-word-type {
+        color: #d1d5db !important;
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") !important;
+      }
+      
+      #vocab-word-type:hover {
+        border-color: #34d399 !important;
+        background-color: #4b5563 !important;
+      }
+      
+      #vocab-word-type:focus {
+        border-color: #34d399 !important;
+        background-color: #374151 !important;
+        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.1) !important;
+      }
+      
+      #vocab-word-type option {
+        color: #d1d5db !important;
+        background: #374151 !important;
+      }
+      
+      #vocab-word-type option:checked,
+      #vocab-word-type option:hover {
+        background: #34d399 !important;
+        color: #065f46 !important;
       }
     }
   `;
