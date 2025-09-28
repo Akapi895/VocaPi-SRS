@@ -140,9 +140,9 @@ export const calculateStreakInfo = (
 };
 
 /**
- * Generate weekly progress data from vocabulary words
+ * Generate weekly progress data from vocabulary words (last 7 days)
  * @param words Array of vocabulary words
- * @returns Array of weekly progress data
+ * @returns Array of weekly progress data for the last 7 days
  */
 export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[] => {
   const today = new Date();
@@ -152,14 +152,11 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
   const weeklyData: WeeklyProgressData[] = [];
   const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
   
-  // Get start of current week (Sunday)
-  const weekStart = new Date(today);
-  weekStart.setDate(today.getDate() - today.getDay());
-  
-  for (let i = 0; i < 7; i++) {
-    // Create a new date for each day to avoid mutation issues
-    const currentDay = new Date(weekStart);
-    currentDay.setDate(weekStart.getDate() + i);
+  // Generate data for the last 7 days (today and 6 days before)
+  for (let i = 6; i >= 0; i--) {
+    // Create a date for i days ago from today
+    const currentDay = new Date(today);
+    currentDay.setDate(today.getDate() - i);
     const dayStart = currentDay.getTime();
     const dayEnd = dayStart + (24 * 60 * 60 * 1000) - 1; // End of day
     
@@ -212,7 +209,7 @@ export const generateWeeklyProgress = (words: VocabWord[]): WeeklyProgressData[]
     );
     
     weeklyData.push({
-      day: dayNames[i],
+      day: dayNames[currentDay.getDay()], // Get day name based on actual day of week
       words: uniqueWordsWorkedOn, // UNIQUE words interacted with (no double counting)
       time: estimatedTime,
       added: wordsAddedCount,
@@ -324,10 +321,17 @@ export const getAnalyticsSummary = (data: any) => {
   const analytics = data?.analytics || {};
   const gamification = data?.gamification || {};
   
+  console.log('Raw data in getAnalyticsSummary:', { 
+    wordsCount: words.length, 
+    analyticsKeys: Object.keys(analytics), 
+    gamificationKeys: Object.keys(gamification) 
+  });
+  
   const coreStats = calculateCoreStatistics(words, analytics);
   const wordDistribution = calculateWordDistribution(words);
   const streakInfo = calculateStreakInfo(gamification, analytics);
   const weeklyProgress = generateWeeklyProgress(words);
+  console.log('Generated weeklyProgress:', weeklyProgress);
   const studyPatterns = analyzeStudyPatterns(words);
   const difficultWords = getDifficultWords(words);
   

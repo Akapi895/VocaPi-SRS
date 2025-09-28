@@ -25,8 +25,61 @@ import {
 } from 'lucide-react';
 
 const Analytics: React.FC = () => {
-  const { data, loading, error } = useChromeStorage();
+  const { data, loading, error, saveData } = useChromeStorage();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
+
+  // Auto-add test data if no words exist (for development)
+  React.useEffect(() => {
+    if (data && (!data.vocabWords || data.vocabWords.length === 0)) {
+      console.log('No words found, adding test data...');
+      
+      const testWords = [
+        {
+          id: 'test-1',
+          word: 'sophisticated',
+          meaning: 'Having great knowledge and experience',
+          phonetic: '/səˈfɪstɪkeɪtɪd/',
+          pronunUrl: '',
+          wordType: 'adjective' as const,
+          createdAt: Date.now() - 6 * 24 * 60 * 60 * 1000, // 6 days ago
+          updatedAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
+          interval: 1, repetitions: 2, easeFactor: 2.5,
+          nextReview: Date.now() + 24 * 60 * 60 * 1000,
+          quality: 4, totalReviews: 3, correctReviews: 2,
+          lastReviewTime: Date.now() - 1 * 24 * 60 * 60 * 1000 // Yesterday
+        },
+        {
+          id: 'test-2',
+          word: 'meticulous',
+          meaning: 'Very careful and precise',
+          phonetic: '/məˈtɪkjələs/',
+          pronunUrl: '',
+          wordType: 'adjective' as const,
+          createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000, // 3 days ago
+          updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
+          interval: 1, repetitions: 1, easeFactor: 2.5,
+          nextReview: Date.now() + 24 * 60 * 60 * 1000,
+          quality: 3, totalReviews: 2, correctReviews: 1,
+          lastReviewTime: Date.now() - 2 * 24 * 60 * 60 * 1000 // 2 days ago
+        },
+        {
+          id: 'test-3',
+          word: 'paradigm',
+          meaning: 'A model or pattern',
+          phonetic: '/ˈpærədaɪm/',
+          pronunUrl: '',
+          wordType: 'noun' as const,
+          createdAt: Date.now() - 60 * 60 * 1000, // 1 hour ago (today)
+          updatedAt: Date.now() - 60 * 60 * 1000,
+          interval: 1, repetitions: 0, easeFactor: 2.5,
+          nextReview: Date.now() + 24 * 60 * 60 * 1000,
+          quality: 0, totalReviews: 0, correctReviews: 0
+        }
+      ];
+      
+      saveData({ vocabWords: testWords });
+    }
+  }, [data, saveData]);
 
   if (loading) {
     return (
@@ -58,6 +111,7 @@ const Analytics: React.FC = () => {
 
   // Get comprehensive analytics summary using utils
   const analyticsSummary = getAnalyticsSummary(data);
+  console.log('Analytics Summary:', analyticsSummary);
   const {
     coreStats,
     wordDistribution: wordsByDifficulty,
@@ -71,6 +125,8 @@ const Analytics: React.FC = () => {
     responseTimeAnalytics,
     consistencyScore
   } = analyticsSummary;
+  
+  console.log('Weekly Progress Data:', weeklyProgress);
 
   // Extract commonly used values for easier access
   const { totalWords, accuracy, dueWords, averageSessionTime, totalStudyTime } = coreStats;
@@ -259,10 +315,21 @@ const Analytics: React.FC = () => {
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             Weekly Progress
+            {/* Debug info */}
+            <span className="text-sm bg-primary-100 text-primary-700 px-2 py-1 rounded">
+              Last 7 days • {weeklyProgress.reduce((sum, d) => sum + d.words, 0)} total words
+            </span>
           </h2>
           
-          <div className="space-y-4">
-            {weeklyProgress.map((day, _) => (
+          {weeklyProgress.length === 0 ? (
+            <div className="text-center py-8 text-foreground-secondary">
+              <Calendar className="w-12 h-12 mx-auto mb-3 opacity-50" />
+              <p>No weekly progress data yet</p>
+              <p className="text-sm">Add some vocabulary words to see your progress!</p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {weeklyProgress.map((day, _) => (
               <div key={day.day} className="flex items-center gap-4">
                 <div className="w-12 text-sm font-medium text-gray-600">
                   {day.day}
@@ -293,8 +360,9 @@ const Analytics: React.FC = () => {
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Learning Patterns & Performance */}

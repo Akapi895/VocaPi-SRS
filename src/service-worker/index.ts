@@ -26,7 +26,7 @@ chrome.runtime.onInstalled.addListener(async () => {
         try {
           await chrome.scripting.executeScript({
             target: { tabId: tab.id },
-            files: ['src/content/index.ts']
+            files: ['src/content/index.js']
           });
         } catch (error) {
           console.log(`Failed to inject content script into tab ${tab.id}:`, error);

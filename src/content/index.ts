@@ -67,39 +67,45 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
     styleElement.textContent = `
       .vocab-srs-popup-message {
         position: fixed;
-        top: 20px;
-        right: 20px;
+        top: 24px;
+        right: 24px;
         z-index: 10002;
-        min-width: 300px;
-        max-width: 400px;
-        border-radius: 12px;
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        animation: vocab-srs-slide-in 0.3s ease-out;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        min-width: 340px;
+        max-width: 450px;
+        border-radius: 16px;
+        box-shadow: 0 16px 60px rgba(0, 0, 0, 0.12), 0 8px 30px rgba(0, 0, 0, 0.08);
+        backdrop-filter: blur(16px) saturate(180%);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        animation: vocab-srs-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        overflow: hidden;
+        transform-origin: top right;
       }
       
       .vocab-srs-popup-success {
-        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
         color: white;
+        border-left: 4px solid #34d399;
       }
       
       .vocab-srs-popup-error {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
         color: white;
+        border-left: 4px solid #f87171;
       }
       
       .vocab-srs-popup-info {
-        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
         color: white;
+        border-left: 4px solid #34d399;
       }
       
       .vocab-srs-popup-content {
         display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 16px 20px;
+        align-items: flex-start;
+        gap: 16px;
+        padding: 20px 24px;
+        position: relative;
       }
       
       .vocab-srs-popup-icon {
@@ -107,60 +113,129 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
         display: flex;
         align-items: center;
         justify-content: center;
+        width: 32px;
+        height: 32px;
+        background: rgba(255, 255, 255, 0.15);
+        border-radius: 10px;
+        backdrop-filter: blur(8px);
+        margin-top: 2px;
+      }
+      
+      .vocab-srs-popup-icon svg {
+        width: 18px;
+        height: 18px;
+        stroke-width: 2.5;
       }
       
       .vocab-srs-popup-text {
         flex: 1;
-        font-size: 14px;
+        font-size: 15px;
         font-weight: 500;
-        line-height: 1.4;
+        line-height: 1.5;
+        margin-top: 4px;
+        letter-spacing: -0.01em;
       }
       
       .vocab-srs-popup-close {
-        background: none;
+        background: rgba(255, 255, 255, 0.1);
         border: none;
         color: currentColor;
-        font-size: 20px;
+        font-size: 18px;
         cursor: pointer;
         padding: 0;
-        width: 24px;
-        height: 24px;
+        width: 32px;
+        height: 32px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 4px;
-        transition: background-color 0.2s;
+        border-radius: 8px;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
         flex-shrink: 0;
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        backdrop-filter: blur(8px);
       }
       
       .vocab-srs-popup-close:hover {
         background: rgba(255, 255, 255, 0.2);
+        transform: scale(1.05);
+      }
+      
+      .vocab-srs-popup-close:active {
+        transform: scale(0.95);
       }
       
       @keyframes vocab-srs-slide-in {
-        from {
-          transform: translateX(100%);
+        0% {
+          transform: translateX(100%) scale(0.9);
           opacity: 0;
         }
-        to {
-          transform: translateX(0);
+        50% {
+          opacity: 0.8;
+        }
+        100% {
+          transform: translateX(0) scale(1);
           opacity: 1;
         }
       }
       
       @keyframes vocab-srs-slide-out {
-        from {
-          transform: translateX(0);
+        0% {
+          transform: translateX(0) scale(1);
           opacity: 1;
         }
-        to {
-          transform: translateX(100%);
+        100% {
+          transform: translateX(100%) scale(0.95);
           opacity: 0;
         }
       }
       
       .vocab-srs-popup-message.vocab-srs-closing {
-        animation: vocab-srs-slide-out 0.3s ease-in forwards;
+        animation: vocab-srs-slide-out 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
+      }
+      
+      /* Add subtle glow effect */
+      .vocab-srs-popup-success::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(135deg, #34d399, #10b981);
+        border-radius: 18px;
+        z-index: -1;
+        opacity: 0.3;
+        filter: blur(8px);
+      }
+      
+      .vocab-srs-popup-error::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(135deg, #f87171, #ef4444);
+        border-radius: 18px;
+        z-index: -1;
+        opacity: 0.3;
+        filter: blur(8px);
+      }
+      
+      .vocab-srs-popup-info::before {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        background: linear-gradient(135deg, #34d399, #10b981);
+        border-radius: 18px;
+        z-index: -1;
+        opacity: 0.3;
+        filter: blur(8px);
       }
     `;
     document.head.appendChild(styleElement);
@@ -176,7 +251,7 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
       if (popup.parentNode) {
         document.body.removeChild(popup);
       }
-    }, 300);
+    }, 400);
   };
 
   // Add close button event listener
@@ -206,6 +281,9 @@ function init() {
   }
   isInitialized = true;
   
+  // Inject extension styles
+  injectExtensionStyles();
+  
   // Load word highlighting setting from storage
   loadWordHighlightingSetting();
   
@@ -220,6 +298,238 @@ function init() {
   
   // Set up observer for dynamic content changes
   setupDynamicContentObserver();
+  
+  // Debug: Mark content script as loaded
+  console.log('VocaPi: Content script fully initialized');
+  (window as any).vocapi_content_loaded = true;
+}
+
+// Inject extension styles into content script
+function injectExtensionStyles() {
+  const styleId = 'vocab-srs-extension-styles';
+  if (document.getElementById(styleId)) {
+    return; // Already injected
+  }
+  
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    /* VocaPi Extension Styles */
+    .vocab-srs-floating-btn {
+      position: fixed !important;
+      z-index: 999999 !important;
+      display: none;
+      pointer-events: none !important;
+      animation: vocab-srs-float 3s ease-in-out infinite !important;
+    }
+    
+    .vocab-srs-btn {
+      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+      color: white !important;
+      padding: 10px 16px !important;
+      border-radius: 24px !important;
+      font-size: 13px !important;
+      font-weight: 500 !important;
+      display: flex !important;
+      align-items: center !important;
+      gap: 8px !important;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
+      cursor: pointer !important;
+      pointer-events: all !important;
+      transition: all 0.3s ease !important;
+      border: none !important;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      white-space: nowrap !important;
+      backdrop-filter: blur(10px) !important;
+    }
+    
+    .vocab-srs-btn:hover {
+      transform: translateY(-3px) scale(1.05) !important;
+      box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
+      background: linear-gradient(135deg, #34d399, #22c55e) !important;
+    }
+    
+    .vocab-srs-btn:active {
+      transform: translateY(-1px) scale(1.02) !important;
+    }
+    
+    /* Modal Styles */
+    .vocab-srs-modal {
+      position: fixed !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      z-index: 10001 !important;
+      animation: vocab-srs-fadeIn 0.3s ease-out !important;
+    }
+    
+    .vocab-srs-modal-overlay {
+      position: absolute !important;
+      top: 0 !important;
+      left: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      background: rgba(0, 0, 0, 0.6) !important;
+      backdrop-filter: blur(8px) !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      padding: 20px !important;
+    }
+    
+    .vocab-srs-modal-content {
+      background: white !important;
+      border-radius: 16px !important;
+      width: 100% !important;
+      max-width: 420px !important;
+      max-height: 90vh !important;
+      overflow-y: auto !important;
+      box-shadow: 0 25px 50px rgba(0, 0, 0, 0.25) !important;
+      border: 1px solid #e5e7eb !important;
+      animation: vocab-srs-slideUp 0.4s ease-out !important;
+    }
+    
+    .vocab-srs-modal-header {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: space-between !important;
+      padding: 24px 28px !important;
+      border-bottom: 1px solid #e5e7eb !important;
+    }
+    
+    .vocab-srs-modal-header h3 {
+      margin: 0 !important;
+      font-size: 20px !important;
+      font-weight: 600 !important;
+      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
+      -webkit-background-clip: text !important;
+      background-clip: text !important;
+      -webkit-text-fill-color: transparent !important;
+    }
+    
+    .vocab-srs-modal-close {
+      background: none !important;
+      border: none !important;
+      font-size: 24px !important;
+      color: #6b7280 !important;
+      cursor: pointer !important;
+      padding: 8px !important;
+      border-radius: 8px !important;
+      transition: all 0.2s ease !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+    }
+    
+    .vocab-srs-modal-close:hover {
+      color: #374151 !important;
+      background: #f3f4f6 !important;
+      transform: scale(1.1) !important;
+    }
+    
+    .vocab-srs-modal-body {
+      padding: 28px !important;
+    }
+    
+    .vocab-srs-form-group {
+      margin-bottom: 24px !important;
+    }
+    
+    .vocab-srs-form-group label {
+      display: block !important;
+      margin-bottom: 8px !important;
+      font-weight: 500 !important;
+      color: #374151 !important;
+      font-size: 14px !important;
+    }
+    
+    .vocab-srs-form-group input,
+    .vocab-srs-form-group select {
+      width: 100% !important;
+      padding: 12px 16px !important;
+      border: 2px solid #e5e7eb !important;
+      border-radius: 10px !important;
+      font-size: 14px !important;
+      transition: all 0.2s ease !important;
+      background: white !important;
+      color: #374151 !important;
+      font-family: inherit !important;
+      box-sizing: border-box !important;
+    }
+    
+    .vocab-srs-form-group input:focus,
+    .vocab-srs-form-group select:focus {
+      outline: none !important;
+      border-color: #22c55e !important;
+      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
+    }
+    
+    .vocab-srs-form-group input:read-only {
+      background: #f9fafb !important;
+      cursor: default !important;
+    }
+    
+    /* Dark mode support */
+    @media (prefers-color-scheme: dark) {
+      .vocab-srs-modal-content {
+        background: #1f2937 !important;
+        border-color: #374151 !important;
+      }
+      
+      .vocab-srs-modal-header {
+        border-bottom-color: #374151 !important;
+      }
+      
+      .vocab-srs-modal-close {
+        color: #9ca3af !important;
+      }
+      
+      .vocab-srs-modal-close:hover {
+        color: #d1d5db !important;
+        background: #374151 !important;
+      }
+      
+      .vocab-srs-form-group label {
+        color: #d1d5db !important;
+      }
+      
+      .vocab-srs-form-group input,
+      .vocab-srs-form-group select {
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+        color: #d1d5db !important;
+      }
+      
+      .vocab-srs-form-group input:read-only {
+        background: #2d3748 !important;
+      }
+    }
+    
+    /* Animations */
+    @keyframes vocab-srs-float {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-6px); }
+    }
+    
+    @keyframes vocab-srs-fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    
+    @keyframes vocab-srs-slideUp {
+      from {
+        transform: translateY(30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+  `;
+  
+  document.head.appendChild(style);
 }
 
 // Load word highlighting setting from storage
@@ -306,13 +616,17 @@ function handleTextSelection(event?: Event) {
     const selection = window.getSelection();
     const selectionText = selection ? selection.toString().trim() : '';
     
+    console.log('VocaPi: Text selection changed:', { selectionText, wordHighlightingEnabled });
+    
     if (selection && selectionText) {
       selectedText = selectionText;
+      console.log('VocaPi: Showing floating button for:', selectionText);
       showFloatingButton();
     } else {
       // Chỉ hide button nếu không có modal mở
       if (!isModalOpen) {
         selectedText = '';
+        console.log('VocaPi: Hiding floating button - no selection');
         hideFloatingButton();
       }
     }
@@ -321,6 +635,13 @@ function handleTextSelection(event?: Event) {
 
 // Create floating button
 function createFloatingButton() {
+  // Check if button already exists
+  const existingButton = document.getElementById('vocab-srs-floating-btn');
+  if (existingButton) {
+    console.log('VocaPi: Floating button already exists');
+    return;
+  }
+  
   const button = document.createElement('div');
   button.id = 'vocab-srs-floating-btn';
   button.className = 'vocab-srs-floating-btn';
@@ -334,11 +655,13 @@ function createFloatingButton() {
   `;
   
   document.body.appendChild(button);
+  console.log('VocaPi: Floating button created');
   
   // Add click handler
   button.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
+    console.log('VocaPi: Floating button clicked');
     showAddModal(selectedText);
   });
 }
@@ -347,10 +670,16 @@ function createFloatingButton() {
 function showFloatingButton() {
   // Kiểm tra trạng thái wordHighlightingEnabled trước khi hiển thị
   if (!wordHighlightingEnabled) {
+    console.log('VocaPi: Word highlighting disabled, not showing button');
     return;
   }
   
   const button = document.getElementById('vocab-srs-floating-btn');
+  
+  if (!button) {
+    console.error('VocaPi: Floating button not found in DOM');
+    return;
+  }
   
   if (button) {
     const selection = window.getSelection();
@@ -360,6 +689,13 @@ function showFloatingButton() {
       
       // Đảm bảo rect có giá trị hợp lệ
       if (rect.width > 0 || rect.height > 0) {
+        console.log('VocaPi: Showing button at position:', { 
+          left: rect.left, 
+          top: rect.bottom, 
+          width: rect.width, 
+          height: rect.height 
+        });
+        
         // Reset all hiding styles
         button.style.display = 'block';
         button.style.visibility = 'visible';
@@ -376,6 +712,8 @@ function showFloatingButton() {
         button.style.left = `${left}px`;
         button.style.top = `${top}px`;
         button.style.position = 'absolute'; // Đảm bảo position absolute
+        
+        console.log('VocaPi: Button positioned at:', { left, top });
         
         // Đảm bảo button không bị che khuất bởi viewport
         setTimeout(() => {
@@ -597,13 +935,12 @@ function showAddModal(word?: string) {
     </div>
   `;
   
-  // Modal styles are now defined in main.css
-  modal.id = 'vocab-srs-modal';
+  // Set modal classes
   modal.className = 'vocab-srs-modal';
   
-  // Add additional styles for specific elements not covered by main.css
-  const style = document.createElement('style');
-  style.textContent = `
+  // Add additional styles for specific elements
+  const additionalStyle = document.createElement('style');
+  additionalStyle.textContent = `
     .vocab-srs-phonetic-group {
       display: flex !important;
       gap: 10px !important;
@@ -615,8 +952,8 @@ function showAddModal(word?: string) {
     }
     
     .vocab-srs-play-audio {
-      background: rgb(var(--color-background-secondary)) !important;
-      border: 2px solid rgb(var(--color-border)) !important;
+      background: #f9fafb !important;
+      border: 2px solid #e5e7eb !important;
       border-radius: 8px !important;
       padding: 10px !important;
       cursor: pointer !important;
@@ -629,8 +966,8 @@ function showAddModal(word?: string) {
     }
     
     .vocab-srs-play-audio:hover {
-      background: rgb(var(--color-primary) / 0.1) !important;
-      border-color: rgb(var(--color-primary)) !important;
+      background: rgba(34, 197, 94, 0.1) !important;
+      border-color: #22c55e !important;
       transform: scale(1.05) !important;
     }
     
@@ -645,14 +982,14 @@ function showAddModal(word?: string) {
     }
     
     .vocab-srs-play-audio svg {
-      color: rgb(var(--color-primary)) !important;
+      color: #22c55e !important;
     }
     
     .vocab-srs-modal-footer {
       display: flex !important;
       gap: 16px !important;
       padding: 24px 28px !important;
-      border-top: 1px solid rgb(var(--color-border)) !important;
+      border-top: 1px solid #e5e7eb !important;
     }
     
     .vocab-srs-btn-cancel,
@@ -668,24 +1005,24 @@ function showAddModal(word?: string) {
     }
     
     .vocab-srs-btn-cancel {
-      background: rgb(var(--color-background-tertiary)) !important;
-      color: rgb(var(--color-foreground)) !important;
-      border: 2px solid rgb(var(--color-border)) !important;
+      background: #f3f4f6 !important;
+      color: #374151 !important;
+      border: 2px solid #e5e7eb !important;
     }
     
     .vocab-srs-btn-cancel:hover {
-      background: rgb(var(--color-background-secondary)) !important;
+      background: #e5e7eb !important;
       transform: translateY(-1px) !important;
     }
     
     .vocab-srs-btn-save {
-      background: linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-primary-dark))) !important;
+      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
       color: white !important;
-      box-shadow: var(--shadow-green-glow) !important;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
     }
     
     .vocab-srs-btn-save:hover {
-      background: linear-gradient(135deg, rgb(var(--color-primary-light)), rgb(var(--color-primary))) !important;
+      background: linear-gradient(135deg, #34d399, #22c55e) !important;
       transform: translateY(-2px) !important;
       box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
     }
@@ -696,9 +1033,41 @@ function showAddModal(word?: string) {
       transform: none !important;
       box-shadow: none !important;
     }
+    
+    /* Dark mode styles for modal buttons */
+    @media (prefers-color-scheme: dark) {
+      .vocab-srs-modal-footer {
+        border-top-color: #374151 !important;
+      }
+      
+      .vocab-srs-btn-cancel {
+        background: #374151 !important;
+        color: #d1d5db !important;
+        border-color: #4b5563 !important;
+      }
+      
+      .vocab-srs-btn-cancel:hover {
+        background: #4b5563 !important;
+        color: #f9fafb !important;
+      }
+      
+      .vocab-srs-play-audio {
+        background: #374151 !important;
+        border-color: #4b5563 !important;
+      }
+      
+      .vocab-srs-play-audio:hover {
+        background: rgba(34, 197, 94, 0.2) !important;
+        border-color: #22c55e !important;
+      }
+      
+      .vocab-srs-play-audio svg {
+        color: #34d399 !important;
+      }
+    }
   `;
   
-  document.head.appendChild(style);
+  document.head.appendChild(additionalStyle);
   document.body.appendChild(modal);
   
   // Add event listeners
@@ -709,7 +1078,7 @@ function showAddModal(word?: string) {
   
   const closeModal = () => {
     document.body.removeChild(modal);
-    document.head.removeChild(style);
+    document.head.removeChild(additionalStyle);
     isModalOpen = false;
     
     // Remove ESC key listener when modal closes
