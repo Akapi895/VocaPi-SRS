@@ -158,19 +158,28 @@ const Review: React.FC = () => {
   const [retryQuality, setRetryQuality] = useState<QualityRating | null>(null);
   const [retryError, setRetryError] = useState<string>('');
   const [isPracticeSession, setIsPracticeSession] = useState(false);
+  const [isInitialized, setIsInitialized] = useState(false);
 
-  // Initialize review session
+  // Initialize review session (only once)
   useEffect(() => {
-    if (data) {
+    if (data && data.vocabWords && !isInitialized) {
       const dueWords = getWordsForReview(data.vocabWords);
+      
       if (dueWords.length > 0) {
-        // Shuffle words for better learning
-        const shuffled = shuffleArray(dueWords);
+        // Deduplicate words by ID to prevent duplicates
+        const uniqueWords = dueWords.filter((word, index, arr) => 
+          arr.findIndex(w => w.id === word.id) === index
+        );
+        
+        // Shuffle unique words for better learning
+        const shuffled = shuffleArray(uniqueWords);
+
         setReviewWords(shuffled);
         setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
+        setIsInitialized(true);
       }
     }
-  }, [data]);
+  }, [data, isInitialized]);
 
   // Handle answer submission
   const handleAnswerSubmit = () => {
@@ -354,8 +363,16 @@ const Review: React.FC = () => {
       await Promise.all(updatePromises);
 
       // Move to next word or complete review
-      if (currentWordIndex < reviewWords.length - 1) {
-        // Reset all states first before moving to next word
+      if (reviewWords.length > 1) {
+        // Remove the current word from review queue and reset states
+        const updatedReviewWords = reviewWords.filter((_, index) => index !== currentWordIndex);
+        setReviewWords(updatedReviewWords);
+        
+        // Reset current word index if it's now out of bounds
+        const newIndex = currentWordIndex >= updatedReviewWords.length ? 0 : currentWordIndex;
+        setCurrentWordIndex(newIndex);
+        
+        // Reset all states for next word
         setShowAnswer(false);
         setUserAnswer('');
         setShowHint(false);
@@ -365,8 +382,6 @@ const Review: React.FC = () => {
         setIsRetryMode(false);
         setRetryQuality(null);
         setRetryError('');
-        // Then move to next word
-        setCurrentWordIndex(prev => prev + 1);
       } else {
         // Complete review session
         const endTime = Date.now();
@@ -476,6 +491,7 @@ const Review: React.FC = () => {
         totalTime: 0
       });
       setSessionComplete(false);
+      setIsInitialized(false); 
     }
   };
 

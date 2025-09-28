@@ -189,6 +189,7 @@ export interface ExportData {
   gamification: any;
   analytics: any;
   settings: any;
+  reviewSessions: any[];
   exportDate: string;
   version: string;
 }
@@ -204,8 +205,9 @@ export const createExportData = (data: any): ExportData => {
     gamification: data.gamification || {},
     analytics: data.analytics || {},
     settings: data.settings || {},
+    reviewSessions: data.reviewSessions || [],
     exportDate: new Date().toISOString(),
-    version: '1.0.1' // Match analytics export version
+    version: '1.1.0'
   };
 };
 
@@ -274,6 +276,11 @@ export const validateImportData = (importData: any): { isValid: boolean; error?:
       if (!word.id || !word.word || !word.meaning) {
         return { isValid: false, error: 'Invalid word data structure. Each word must have id, word, and meaning.' };
       }
+      
+      // Ensure required fields have proper types
+      if (typeof word.id !== 'string' || typeof word.word !== 'string' || typeof word.meaning !== 'string') {
+        return { isValid: false, error: 'Invalid word data types. ID, word, and meaning must be strings.' };
+      }
     }
 
     return { 
@@ -323,7 +330,8 @@ export const processDataImport = async (
       vocabWords: importData.vocabWords,
       gamification: importData.gamification || currentData?.gamification || {},
       analytics: importData.analytics || currentData?.analytics || {},
-      settings: importData.settings || currentData?.settings || {}
+      settings: importData.settings || currentData?.settings || {},
+      reviewSessions: importData.reviewSessions || currentData?.reviewSessions || []
     };
 
     return { 
