@@ -109,8 +109,40 @@ const Analytics: React.FC = () => {
     );
   }
 
-  // Get comprehensive analytics summary using utils
-  const analyticsSummary = getAnalyticsSummary(data);
+  // Filter data based on selected period
+  const getFilteredWords = (words: any[], period: 'week' | 'month' | 'year') => {
+    if (!words || words.length === 0) return [];
+    
+    const now = Date.now();
+    const periods = {
+      week: 7 * 24 * 60 * 60 * 1000,     // 7 days
+      month: 30 * 24 * 60 * 60 * 1000,   // 30 days  
+      year: 365 * 24 * 60 * 60 * 1000    // 365 days
+    };
+    
+    const cutoffTime = now - periods[period];
+    
+    return words.filter(word => {
+      // Include words added in the period
+      const addedInPeriod = word.createdAt && word.createdAt >= cutoffTime;
+      // Include words reviewed in the period
+      const reviewedInPeriod = word.lastReviewTime && word.lastReviewTime >= cutoffTime;
+      
+      return addedInPeriod || reviewedInPeriod;
+    });
+  };
+
+  // Get filtered data based on selected period
+  const filteredWords = selectedPeriod ? getFilteredWords(data?.vocabWords || [], selectedPeriod) : (data?.vocabWords || []);
+  
+  // Create filtered data object for analytics
+  const filteredData = {
+    ...data,
+    vocabWords: filteredWords
+  };
+
+  // Get comprehensive analytics summary using filtered data
+  const analyticsSummary = getAnalyticsSummary(filteredData);
   console.log('Analytics Summary:', analyticsSummary);
   const {
     coreStats,
@@ -155,21 +187,34 @@ const Analytics: React.FC = () => {
                 <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
                   <BarChart3 className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                   Learning Analytics
+                  <span className="text-sm bg-primary-100 dark:bg-primary-900/30 text-primary-700 dark:text-primary-300 px-2 py-1 rounded-full font-normal">
+                    {selectedPeriod === 'week' ? 'Last 7 Days' : 
+                     selectedPeriod === 'month' ? 'Last 30 Days' : 'Last 365 Days'}
+                  </span>
                 </h1>
-                <p className="text-sm text-foreground-secondary">Track your vocabulary learning progress</p>
+                <p className="text-sm text-foreground-secondary">
+                  Track your vocabulary learning progress • {filteredWords.length} words in period
+                </p>
               </div>
             </div>
             
             <div className="flex items-center gap-3">
-              <select
-                value={selectedPeriod}
-                onChange={(e) => setSelectedPeriod(e.target.value as any)}
-                className="input input-focus text-sm"
-              >
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-                <option value="year">This Year</option>
-              </select>
+              <div className="relative">
+                <select
+                  value={selectedPeriod}
+                  onChange={(e) => setSelectedPeriod(e.target.value as any)}
+                  className="input input-focus text-sm pr-10"
+                >
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                  <option value="year">This Year</option>
+                </select>
+                {filteredWords.length !== (data?.vocabWords?.length || 0) && (
+                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary-500 rounded-full animate-pulse" 
+                       title={`Filtered: ${filteredWords.length} / ${data?.vocabWords?.length || 0} words`}>
+                  </div>
+                )}
+              </div>
               
               <button 
                 onClick={exportAnalytics}
@@ -315,10 +360,6 @@ const Analytics: React.FC = () => {
           <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
             <Calendar className="w-5 h-5 text-blue-600" />
             Weekly Progress
-            {/* Debug info */}
-            <span className="text-sm bg-primary-100 text-primary-700 px-2 py-1 rounded">
-              Last 7 days • {weeklyProgress.reduce((sum, d) => sum + d.words, 0)} total words
-            </span>
           </h2>
           
           {weeklyProgress.length === 0 ? (
