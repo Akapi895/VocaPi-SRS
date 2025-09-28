@@ -7,30 +7,23 @@ let isModalOpen = false;
 let wordHighlightingEnabled = true;
 let isInitialized = false;
 
-// Show success popup message
 function showSuccessPopup(message: string, duration = 3000) {
   showPopupMessage(message, 'success', duration);
 }
 
-// Show error popup message  
 function showErrorPopup(message: string, duration = 4000) {
   showPopupMessage(message, 'error', duration);
 }
 
-// Generic popup message function
 function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 'info', duration = 3000) {
-  // Remove any existing popup message
   const existingPopup = document.getElementById('vocab-srs-popup-message');
   if (existingPopup) {
     document.body.removeChild(existingPopup);
   }
 
-  // Create popup message element
   const popup = document.createElement('div');
   popup.id = 'vocab-srs-popup-message';
   popup.className = `vocab-srs-popup-message vocab-srs-popup-${type}`;
-  
-  // Choose icon based on type
   let icon = '';
   if (type === 'success') {
     icon = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -65,46 +58,52 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
     styleElement = document.createElement('style');
     styleElement.id = 'vocab-srs-popup-styles';
     styleElement.textContent = `
+      /* Toast Notifications */
       .vocab-srs-popup-message {
         position: fixed;
-        top: 24px;
-        right: 24px;
-        z-index: 10002;
-        min-width: 340px;
-        max-width: 450px;
-        border-radius: 16px;
-        box-shadow: 0 16px 60px rgba(0, 0, 0, 0.12), 0 8px 30px rgba(0, 0, 0, 0.08);
-        backdrop-filter: blur(16px) saturate(180%);
-        border: 1px solid rgba(255, 255, 255, 0.18);
-        animation: vocab-srs-slide-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        overflow: hidden;
-        transform-origin: top right;
+        bottom: 20px;
+        right: 20px;
+        background: white;
+        padding: 16px 20px;
+        border-radius: 8px;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 14px;
+        font-weight: 500;
+        z-index: 10001;
+        transform: translateY(50px);
+        opacity: 0;
+        transition: all 0.3s ease-out;
+        max-width: 300px;
+      }
+      
+      .vocab-srs-popup-show {
+        transform: translateY(0);
+        opacity: 1;
       }
       
       .vocab-srs-popup-success {
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
-        color: white;
-        border-left: 4px solid #34d399;
+        border-left: 4px solid #059669;
+        color: #047857;
+        background-color: #f0fdfa;
       }
       
       .vocab-srs-popup-error {
-        background: linear-gradient(135deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%);
-        color: white;
-        border-left: 4px solid #f87171;
+        border-left: 4px solid #ef4444;
+        color: #dc2626;
+        background: white;
       }
       
       .vocab-srs-popup-info {
-        background: linear-gradient(135deg, #22c55e 0%, #16a34a 50%, #15803d 100%);
-        color: white;
-        border-left: 4px solid #34d399;
+        border-left: 4px solid #059669;
+        color: #047857;
+        background-color: #f0fdfa;
       }
       
       .vocab-srs-popup-content {
         display: flex;
-        align-items: flex-start;
-        gap: 16px;
-        padding: 20px 24px;
+        align-items: center;
+        gap: 12px;
         position: relative;
       }
       
@@ -113,155 +112,78 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
         display: flex;
         align-items: center;
         justify-content: center;
-        width: 32px;
-        height: 32px;
-        background: rgba(255, 255, 255, 0.15);
-        border-radius: 10px;
-        backdrop-filter: blur(8px);
-        margin-top: 2px;
       }
       
       .vocab-srs-popup-icon svg {
-        width: 18px;
-        height: 18px;
-        stroke-width: 2.5;
+        width: 16px;
+        height: 16px;
+        stroke-width: 2;
       }
       
       .vocab-srs-popup-text {
         flex: 1;
-        font-size: 15px;
-        font-weight: 500;
-        line-height: 1.5;
-        margin-top: 4px;
-        letter-spacing: -0.01em;
+        font-size: inherit;
+        font-weight: inherit;
+        line-height: 1.4;
       }
       
       .vocab-srs-popup-close {
-        background: rgba(255, 255, 255, 0.1);
+        background: none;
         border: none;
         color: currentColor;
-        font-size: 18px;
+        font-size: 16px;
         cursor: pointer;
-        padding: 0;
-        width: 32px;
-        height: 32px;
+        padding: 4px;
+        width: 20px;
+        height: 20px;
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 8px;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        border-radius: 4px;
+        transition: all 0.2s ease;
         flex-shrink: 0;
-        position: absolute;
-        top: 16px;
-        right: 16px;
-        backdrop-filter: blur(8px);
+        opacity: 0.7;
+        margin-left: 8px;
       }
       
       .vocab-srs-popup-close:hover {
-        background: rgba(255, 255, 255, 0.2);
-        transform: scale(1.05);
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.1);
       }
       
       .vocab-srs-popup-close:active {
         transform: scale(0.95);
       }
       
-      @keyframes vocab-srs-slide-in {
-        0% {
-          transform: translateX(100%) scale(0.9);
-          opacity: 0;
-        }
-        50% {
-          opacity: 0.8;
-        }
-        100% {
-          transform: translateX(0) scale(1);
-          opacity: 1;
-        }
-      }
-      
-      @keyframes vocab-srs-slide-out {
-        0% {
-          transform: translateX(0) scale(1);
-          opacity: 1;
-        }
-        100% {
-          transform: translateX(100%) scale(0.95);
-          opacity: 0;
-        }
-      }
-      
       .vocab-srs-popup-message.vocab-srs-closing {
-        animation: vocab-srs-slide-out 0.4s cubic-bezier(0.4, 0, 1, 1) forwards;
-      }
-      
-      /* Add subtle glow effect */
-      .vocab-srs-popup-success::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(135deg, #34d399, #10b981);
-        border-radius: 18px;
-        z-index: -1;
-        opacity: 0.3;
-        filter: blur(8px);
-      }
-      
-      .vocab-srs-popup-error::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(135deg, #f87171, #ef4444);
-        border-radius: 18px;
-        z-index: -1;
-        opacity: 0.3;
-        filter: blur(8px);
-      }
-      
-      .vocab-srs-popup-info::before {
-        content: '';
-        position: absolute;
-        top: -2px;
-        left: -2px;
-        right: -2px;
-        bottom: -2px;
-        background: linear-gradient(135deg, #34d399, #10b981);
-        border-radius: 18px;
-        z-index: -1;
-        opacity: 0.3;
-        filter: blur(8px);
+        transform: translateY(50px);
+        opacity: 0;
       }
     `;
     document.head.appendChild(styleElement);
   }
 
-  // Add popup to body
   document.body.appendChild(popup);
+  
+  setTimeout(() => {
+    popup.classList.add('vocab-srs-popup-show');
+  }, 10);
 
-  // Close function
   const closePopup = () => {
+    popup.classList.remove('vocab-srs-popup-show');
     popup.classList.add('vocab-srs-closing');
     setTimeout(() => {
       if (popup.parentNode) {
         document.body.removeChild(popup);
       }
-    }, 400);
+    }, 300);
   };
 
-  // Add close button event listener
   const closeBtn = popup.querySelector('.vocab-srs-popup-close');
   closeBtn?.addEventListener('click', closePopup);
 
-  // Auto close after duration
   setTimeout(closePopup, duration);
 
-  // Close on click outside (optional)
   const handleOutsideClick = (event: MouseEvent) => {
     if (!popup.contains(event.target as Node)) {
       closePopup();
@@ -274,41 +196,38 @@ function showPopupMessage(message: string, type: 'success' | 'error' | 'info' = 
   }, 100);
 }
 
-// Initialize content script
 function init() {
-  if (isInitialized) {
-    return;
+  try {
+    if (isInitialized) {
+      return;
+    }
+    isInitialized = true;
+    
+    injectExtensionStyles();
+    loadWordHighlightingSetting();
+    attachEventListenersToAllElements();
+    chrome.runtime.onMessage.addListener(handleMessage);
+    createFloatingButton();
+    setupDynamicContentObserver();
+    
+    setTimeout(() => {
+      if (document.readyState === 'complete') {
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim() && wordHighlightingEnabled) {
+          selectedText = selection.toString().trim();
+          showFloatingButton();
+        }
+      }
+    }, 1000);
+  } catch (error) {
+    console.error('VocaPi: Error during initialization:', error);
   }
-  isInitialized = true;
-  
-  // Inject extension styles
-  injectExtensionStyles();
-  
-  // Load word highlighting setting from storage
-  loadWordHighlightingSetting();
-  
-  // Attach event listeners to all existing elements
-  attachEventListenersToAllElements();
-  
-  // Listen for messages from popup
-  chrome.runtime.onMessage.addListener(handleMessage);
-  
-  // Add floating button when text is selected
-  createFloatingButton();
-  
-  // Set up observer for dynamic content changes
-  setupDynamicContentObserver();
-  
-  // Debug: Mark content script as loaded
-  console.log('VocaPi: Content script fully initialized');
-  (window as any).vocapi_content_loaded = true;
 }
 
-// Inject extension styles into content script
 function injectExtensionStyles() {
   const styleId = 'vocab-srs-extension-styles';
   if (document.getElementById(styleId)) {
-    return; // Already injected
+    return;
   }
   
   const style = document.createElement('style');
@@ -317,10 +236,14 @@ function injectExtensionStyles() {
     /* VocaPi Extension Styles */
     .vocab-srs-floating-btn {
       position: fixed !important;
-      z-index: 999999 !important;
-      display: none;
+      z-index: 2147483647 !important;
+      display: none !important;
       pointer-events: none !important;
       animation: vocab-srs-float 3s ease-in-out infinite !important;
+      will-change: transform !important;
+      backface-visibility: hidden !important;
+      transform: translateZ(0) !important;
+      contain: layout style paint !important;
     }
     
     .vocab-srs-btn {
@@ -333,7 +256,7 @@ function injectExtensionStyles() {
       display: flex !important;
       align-items: center !important;
       gap: 8px !important;
-      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
+      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.1) !important;
       cursor: pointer !important;
       pointer-events: all !important;
       transition: all 0.3s ease !important;
@@ -341,6 +264,10 @@ function injectExtensionStyles() {
       font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
       white-space: nowrap !important;
       backdrop-filter: blur(10px) !important;
+      min-width: 140px !important;
+      min-height: 36px !important;
+      position: relative !important;
+      isolation: isolate !important;
     }
     
     .vocab-srs-btn:hover {
@@ -537,114 +464,144 @@ async function loadWordHighlightingSetting() {
   try {
     const result = await chrome.storage.local.get(['settings']);
     const settings = result.settings;
-    // Use notifications as proxy for word highlighting (as in popup)
     wordHighlightingEnabled = settings?.notifications ?? true;
   } catch (error) {
-    console.log('Failed to load word highlighting setting:', error);
-    // Default to enabled
     wordHighlightingEnabled = true;
   }
 }
 
-// Attach event listeners to all existing elements on the page
 function attachEventListenersToAllElements() {
-  // Remove any existing listeners first to avoid duplicates
   document.removeEventListener('mouseup', handleTextSelection);
   document.removeEventListener('keyup', handleTextSelection);
+  document.removeEventListener('touchend', handleTextSelection);
+  document.removeEventListener('click', handleTextSelection);
+  document.removeEventListener('selectionchange', handleTextSelection);
+  window.removeEventListener('scroll', handleScrollAndCheck);
   
-  // Use event delegation on document level for better coverage
   document.addEventListener('mouseup', handleTextSelection, true);
   document.addEventListener('keyup', handleTextSelection, true);
-  
-  // Also listen to specific events that might trigger selection
   document.addEventListener('touchend', handleTextSelection, true);
   document.addEventListener('click', handleTextSelection, true);
-  
-  // Listen to selection changes globally
   document.addEventListener('selectionchange', handleTextSelection, true);
+  
+  window.addEventListener('scroll', handleScrollAndCheck, { passive: true });
+  window.addEventListener('resize', handleScrollAndCheck, { passive: true });
 }
 
-// Set up observer for dynamic content changes
+function handleScrollAndCheck() {
+  clearTimeout((window as any).vocapiScrollTimeout);
+  (window as any).vocapiScrollTimeout = setTimeout(() => {
+    const selection = window.getSelection();
+    if (selection && selection.toString().trim() && wordHighlightingEnabled) {
+      selectedText = selection.toString().trim();
+      showFloatingButton();
+    }
+  }, 100);
+}
+
 function setupDynamicContentObserver() {
-  // Use MutationObserver to watch for DOM changes
   const observer = new MutationObserver((mutations) => {
-    // Since we're using event delegation, we don't need to attach listeners to new elements
-    // Just ensure the floating button positioning works with new content
+    let hasSignificantChanges = false;
+    
     mutations.forEach((mutation) => {
-      if (mutation.type === 'childList' && mutation.addedNodes.length > 0) {
-        // Content changed, re-check selection if there's any
-        setTimeout(() => {
-          const selection = window.getSelection();
-          if (selection && selection.toString().trim() && wordHighlightingEnabled) {
-            selectedText = selection.toString().trim();
-            showFloatingButton();
+      if (mutation.type === 'childList') {
+        if (mutation.addedNodes.length > 0) {
+          for (const node of mutation.addedNodes) {
+            if (node.nodeType === Node.ELEMENT_NODE && (node as Element).children.length > 0) {
+              hasSignificantChanges = true;
+              break;
+            }
           }
-        }, 100);
+        }
+        
+        if (mutation.removedNodes.length > 0) {
+          hasSignificantChanges = true;
+        }
+      }
+      
+      if (mutation.type === 'attributes' && 
+          ['class', 'style', 'hidden'].includes(mutation.attributeName || '')) {
+        hasSignificantChanges = true;
       }
     });
+    
+    if (hasSignificantChanges) {
+      setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim() && wordHighlightingEnabled) {
+          selectedText = selection.toString().trim();
+          showFloatingButton();
+        }
+      }, 150);
+    }
   });
 
-  // Start observing
-  observer.observe(document.body, {
+  observer.observe(document.documentElement, {
     childList: true,
-    subtree: true
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['class', 'style', 'hidden'],
+    characterData: false
   });
 }
 
-// Handle text selection
 function handleTextSelection(event?: Event) {
-  // Nếu click vào floating button hoặc modal, không xử lý selection
-  if (event && event.target) {
-    const target = event.target as Element;
-    if (target.closest('#vocab-srs-floating-btn') || 
-        target.closest('#vocab-srs-modal') || 
-        target.id === 'vocab-srs-floating-btn' ||
-        target.id === 'vocab-srs-modal') {
-      return;
-    }
-  }
-  
-  // Nếu word highlighting bị tắt, ẩn nút và return
-  if (!wordHighlightingEnabled) {
-    hideFloatingButton();
-    selectedText = '';
-    return;
-  }
-  
-  // Delay để đảm bảo selection đã hoàn thành
-  setTimeout(() => {
-    const selection = window.getSelection();
-    const selectionText = selection ? selection.toString().trim() : '';
-    
-    console.log('VocaPi: Text selection changed:', { selectionText, wordHighlightingEnabled });
-    
-    if (selection && selectionText) {
-      selectedText = selectionText;
-      console.log('VocaPi: Showing floating button for:', selectionText);
-      showFloatingButton();
-    } else {
-      // Chỉ hide button nếu không có modal mở
-      if (!isModalOpen) {
-        selectedText = '';
-        console.log('VocaPi: Hiding floating button - no selection');
-        hideFloatingButton();
+  try {
+    if (event && event.target) {
+      const target = event.target as Element;
+      if (target.closest('#vocab-srs-floating-btn') || 
+          target.closest('#vocab-srs-modal') || 
+          target.id === 'vocab-srs-floating-btn' ||
+          target.id === 'vocab-srs-modal') {
+        return;
       }
     }
-  }, 10);
+    
+    if (!wordHighlightingEnabled) {
+      hideFloatingButton();
+      selectedText = '';
+      return;
+    }
+    
+    clearTimeout((window as any).vocapiSelectionTimeout);
+    
+    (window as any).vocapiSelectionTimeout = setTimeout(() => {
+      try {
+        const selection = window.getSelection();
+        const selectionText = selection ? selection.toString().trim() : '';
+        
+        if (selection && selectionText && selection.rangeCount > 0) {
+          selectedText = selectionText;
+          showFloatingButton();
+        } else {
+          if (!isModalOpen) {
+            selectedText = '';
+            hideFloatingButton();
+          }
+        }
+      } catch (error) {
+        console.error('VocaPi: Error in selection timeout handler:', error);
+      }
+    }, 10);
+  } catch (error) {
+    console.error('VocaPi: Error in handleTextSelection:', error);
+  }
 }
 
-// Create floating button
 function createFloatingButton() {
-  // Check if button already exists
   const existingButton = document.getElementById('vocab-srs-floating-btn');
   if (existingButton) {
-    console.log('VocaPi: Floating button already exists');
-    return;
+    return existingButton;
   }
   
   const button = document.createElement('div');
   button.id = 'vocab-srs-floating-btn';
   button.className = 'vocab-srs-floating-btn';
+  
+  button.setAttribute('role', 'button');
+  button.setAttribute('tabindex', '0');
+  button.setAttribute('aria-label', 'Add selected word to dictionary');
+  
   button.innerHTML = `
     <div class="vocab-srs-btn">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
@@ -654,89 +611,112 @@ function createFloatingButton() {
     </div>
   `;
   
-  document.body.appendChild(button);
-  console.log('VocaPi: Floating button created');
+  button.style.display = 'none';
+  button.style.position = 'fixed';
+  button.style.zIndex = '2147483647';
+  button.style.pointerEvents = 'none';
   
-  // Add click handler
+  document.body.appendChild(button);
+  
   button.addEventListener('click', (e) => {
     e.preventDefault();
     e.stopPropagation();
-    console.log('VocaPi: Floating button clicked');
     showAddModal(selectedText);
   });
+  
+  button.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      e.stopPropagation();
+      showAddModal(selectedText);
+    }
+  });
+  
+  return button;
 }
 
-// Show floating button
 function showFloatingButton() {
-  // Kiểm tra trạng thái wordHighlightingEnabled trước khi hiển thị
   if (!wordHighlightingEnabled) {
-    console.log('VocaPi: Word highlighting disabled, not showing button');
     return;
   }
   
-  const button = document.getElementById('vocab-srs-floating-btn');
+  const selection = window.getSelection();
+  
+  if (!selection || selection.toString().trim() === '') {
+    hideFloatingButton();
+    return;
+  }
+  
+  const selectionText = selection.toString().trim();
+  
+  let button = document.getElementById('vocab-srs-floating-btn');
+  if (!button) {
+    button = createFloatingButton();
+  }
   
   if (!button) {
-    console.error('VocaPi: Floating button not found in DOM');
     return;
   }
   
-  if (button) {
-    const selection = window.getSelection();
-    if (selection && selection.rangeCount > 0 && selection.toString().trim()) {
-      const range = selection.getRangeAt(0);
-      const rect = range.getBoundingClientRect();
-      
-      // Đảm bảo rect có giá trị hợp lệ
-      if (rect.width > 0 || rect.height > 0) {
-        console.log('VocaPi: Showing button at position:', { 
-          left: rect.left, 
-          top: rect.bottom, 
-          width: rect.width, 
-          height: rect.height 
-        });
-        
-        // Reset all hiding styles
-        button.style.display = 'block';
-        button.style.visibility = 'visible';
-        button.style.opacity = '1';
-        button.style.pointerEvents = 'all';
-        
-        // Tính toán vị trí với scroll offset
-        const scrollX = window.pageXOffset || document.documentElement.scrollLeft;
-        const scrollY = window.pageYOffset || document.documentElement.scrollTop;
-        
-        const left = rect.left + scrollX;
-        const top = rect.bottom + scrollY + 5;
-        
-        button.style.left = `${left}px`;
-        button.style.top = `${top}px`;
-        button.style.position = 'absolute'; // Đảm bảo position absolute
-        
-        console.log('VocaPi: Button positioned at:', { left, top });
-        
-        // Đảm bảo button không bị che khuất bởi viewport
-        setTimeout(() => {
-          const buttonRect = button.getBoundingClientRect();
-          const viewportWidth = window.innerWidth;
-          const viewportHeight = window.innerHeight;
-          
-          // Adjust horizontal position if button goes outside viewport
-          if (buttonRect.right > viewportWidth) {
-            button.style.left = `${viewportWidth - buttonRect.width - 10 + scrollX}px`;
-          }
-          
-          // Adjust vertical position if button goes outside viewport
-          if (buttonRect.bottom > viewportHeight) {
-            button.style.top = `${rect.top + scrollY - buttonRect.height - 5}px`;
-          }
-        }, 0);
-      }
+  if (selection.rangeCount === 0) {
+    hideFloatingButton();
+    return;
+  }
+  
+  try {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    
+    if (rect.width === 0 && rect.height === 0) {
+      hideFloatingButton();
+      return;
     }
+    
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    let left = rect.left + (rect.width / 2) - 75;
+    let top = rect.bottom + 8;
+    
+    if (left < 10) left = 10;
+    if (left + 150 > viewportWidth - 10) left = viewportWidth - 160;
+    if (top > viewportHeight - 50) top = rect.top - 50;
+    if (top < 10) top = 10;
+    
+    button.style.cssText = `
+      display: flex !important;
+      position: fixed !important;
+      left: ${left}px !important;
+      top: ${top}px !important;
+      visibility: visible !important;
+      opacity: 1 !important;
+      pointer-events: auto !important;
+      z-index: 2147483647 !important;
+      width: 150px !important;
+      height: 40px !important;
+      background: var(--vocab-srs-primary, #22c55e) !important;
+      color: white !important;
+      border-radius: 8px !important;
+      border: none !important;
+      cursor: pointer !important;
+      transform: translateZ(0) !important;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1) !important;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+      font-size: 14px !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 8px !important;
+      padding: 0 12px !important;
+    `;
+    
+    button.offsetHeight;
+    selectedText = selectionText;
+    
+  } catch (error) {
+    hideFloatingButton();
   }
 }
 
-// Hide floating button
 function hideFloatingButton() {
   const button = document.getElementById('vocab-srs-floating-btn');
   if (button) {
@@ -809,21 +789,9 @@ async function fetchWordData(word: string): Promise<{ phonetic: string; pronunUr
       }
     }
     
-    console.log(`Dictionary API returned status ${response.status} for word: ${word}`);
     return fallbackData;
     
   } catch (error) {
-    if (error instanceof Error) {
-      if (error.name === 'AbortError') {
-        console.log('Dictionary API request timed out for word:', word);
-      } else {
-        console.log('Dictionary API error for word:', word, error.message);
-      }
-    } else {
-      console.log('Unknown error fetching word data for:', word);
-    }
-    
-    // Always return fallback data instead of throwing
     return fallbackData;
   }
 }
@@ -864,7 +832,7 @@ function playTextToSpeech(word: string): void {
       
       window.speechSynthesis.speak(utterance);
     } catch (error) {
-      console.log('Text-to-speech failed:', error);
+      // Silent fail
     }
   }
 }

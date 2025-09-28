@@ -333,7 +333,7 @@ const Popup: React.FC = () => {
               />
             </div>
             
-            <div className="space-y-3 max-h-96 overflow-y-auto scrollbar-thin">
+            <div className="space-y-3 max-h-96 overflow-y-auto overflow-scrollbar-hidden">
               {getCurrentFilteredWords().map((word) => (
                 <div key={word.id} className="card p-3 hover-lift card-interactive animate-fade-in-up">
                   <div className="flex justify-between items-start">

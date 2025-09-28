@@ -12,6 +12,14 @@
         padding: 0;
         transition: background-color 0.3s ease, color 0.3s ease;
         overflow: hidden;
+        /* Hide scrollbar for body */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* Internet Explorer 10+ */
+      }
+      
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      body::-webkit-scrollbar {
+        display: none;
       }
       
       /* Popup root container */
@@ -21,6 +29,14 @@
         max-width: 400px;
         max-height: 600px;
         overflow: auto;
+        /* Hide scrollbar */
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none; /* Internet Explorer 10+ */
+      }
+      
+      /* Hide scrollbar for Chrome, Safari and Opera */
+      #popup-root::-webkit-scrollbar {
+        display: none;
       }
       
       /* Prevent flash of unstyled content */

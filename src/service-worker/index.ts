@@ -1,24 +1,17 @@
-// Service Worker for VocaPi extension
 import { VocabWord, GamificationData, AnalyticsData, Settings } from '@/types';
 
-// Initialize service worker
 chrome.runtime.onInstalled.addListener(async () => {
-  console.log('VocaPi extension installed');
-  
-  // Create context menu
   chrome.contextMenus.create({
     id: 'add-to-dictionary',
     title: 'Add to Dictionary',
     contexts: ['selection']
   });
   
-  // Set up alarms for daily reminders
   chrome.alarms.create('daily-reminder', {
     delayInMinutes: 1,
-    periodInMinutes: 24 * 60 // 24 hours
+    periodInMinutes: 24 * 60
   });
   
-  // Inject content script into all existing tabs
   try {
     const tabs = await chrome.tabs.query({});
     for (const tab of tabs) {
@@ -29,12 +22,12 @@ chrome.runtime.onInstalled.addListener(async () => {
             files: ['src/content/index.js']
           });
         } catch (error) {
-          console.log(`Failed to inject content script into tab ${tab.id}:`, error);
+          // Silent fail
         }
       }
     }
   } catch (error) {
-    console.error('Failed to inject content scripts:', error);
+    // Silent fail
   }
 });
 
@@ -49,7 +42,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
           data: { word: info.selectionText }
         });
       } catch (error) {
-        console.error('Failed to send message to content script:', error);
+        // Silent fail
       }
     }
   }
@@ -97,7 +90,7 @@ async function checkDailyReminder() {
       });
     }
   } catch (error) {
-    console.error('Failed to check daily reminder:', error);
+    // Silent fail
   }
 }
 
@@ -159,7 +152,6 @@ async function handleGetData(sendResponse: (response: any) => void) {
     
     sendResponse({ success: true, data: result });
   } catch (error) {
-    console.error('Failed to get data:', error);
     sendResponse({ error: 'Failed to get data' });
   }
 }
@@ -197,7 +189,6 @@ async function handleSaveWord(wordData: VocabWord, sendResponse: (response: any)
     
     sendResponse({ success: true, word: newWord });
   } catch (error) {
-    console.error('Failed to save word:', error);
     sendResponse({ error: 'Failed to save word' });
   }
 }
@@ -224,7 +215,6 @@ async function handleUpdateWord(updateData: { id: string; updates: Partial<Vocab
     await chrome.storage.local.set({ vocabWords: words });
     sendResponse({ success: true, word: words[wordIndex] });
   } catch (error) {
-    console.error('Failed to update word:', error);
     sendResponse({ error: 'Failed to update word' });
   }
 }
@@ -240,7 +230,6 @@ async function handleDeleteWord(wordId: string, sendResponse: (response: any) =>
     
     sendResponse({ success: true });
   } catch (error) {
-    console.error('Failed to delete word:', error);
     sendResponse({ error: 'Failed to delete word' });
   }
 }
@@ -268,7 +257,6 @@ async function handleStartReview(sendResponse: (response: any) => void) {
     
     sendResponse({ success: true, dueWords });
   } catch (error) {
-    console.error('Failed to start review:', error);
     sendResponse({ error: 'Failed to start review' });
   }
 }
@@ -287,7 +275,6 @@ async function handleUpdateAnalytics(analyticsData: Partial<AnalyticsData>, send
     await chrome.storage.local.set({ analytics: updatedAnalytics });
     sendResponse({ success: true, analytics: updatedAnalytics });
   } catch (error) {
-    console.error('Failed to update analytics:', error);
     sendResponse({ error: 'Failed to update analytics' });
   }
 }
@@ -306,7 +293,6 @@ async function handleUpdateGamification(gamificationData: Partial<GamificationDa
     await chrome.storage.local.set({ gamification: updatedGamification });
     sendResponse({ success: true, gamification: updatedGamification });
   } catch (error) {
-    console.error('Failed to update gamification:', error);
     sendResponse({ error: 'Failed to update gamification' });
   }
 }
@@ -328,15 +314,14 @@ async function updateAnalyticsAfterWordAdd() {
     
     await chrome.storage.local.set({ analytics: updatedAnalytics });
   } catch (error) {
-    console.error('Failed to update analytics after word add:', error);
+    // Silent fail
   }
 }
 
 // Handle storage changes
-chrome.storage.onChanged.addListener((changes, namespace) => {
+chrome.storage.onChanged.addListener((_, namespace) => {
   if (namespace === 'local') {
     // Handle storage changes if needed
-    console.log('Storage changed:', changes);
   }
 });
 
@@ -352,17 +337,15 @@ chrome.tabs.onUpdated.addListener(async (tabId, changeInfo, tab) => {
         files: ['src/content/index.js']
       });
     } catch (error) {
-      console.log(`Failed to inject content script into new tab ${tabId}:`, error);
+      // Silent fail
     }
   }
 });
 
-// Handle extension startup
 chrome.runtime.onStartup.addListener(() => {
-  console.log('VocaPi extension started');
+  // Extension started
 });
 
-// Handle extension suspend
 chrome.runtime.onSuspend.addListener(() => {
-  console.log('VocaPi extension suspended');
+  // Extension suspended
 });

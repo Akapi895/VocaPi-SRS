@@ -27,7 +27,6 @@ import {
   Volume2,
   Check,
   SkipForward,
-  BookOpen,
   Play,
   Pause,
   RotateCw,
@@ -183,15 +182,16 @@ const Review: React.FC = () => {
         setRetryError('');
         const originalQuality = retryQuality || 1;
         
-        // Reset retry mode states
+        // Reset retry mode states first
         setIsRetryMode(false);
         setRetryQuality(null);
         setUserAnswer('');
         
         // Process the word with original quality and move to next word
+        // Use setTimeout to ensure state updates are processed
         setTimeout(() => {
           processQualityRating(originalQuality);
-        }, 100); // Small delay to ensure state is updated
+        }, 50);
         return;
       } else {
         // Wrong answer in retry mode - show error and clear input
@@ -203,7 +203,11 @@ const Review: React.FC = () => {
     
     // Normal mode
     setShowAnswer(true);
-    setSessionStats(prev => updateSessionStats(prev, isCorrect));
+    
+    // Only update session stats if not in retry mode (to avoid double counting)
+    if (!isRetryMode) {
+      setSessionStats(prev => updateSessionStats(prev, isCorrect));
+    }
     
     // Auto-play pronunciation after answer check
     playWordPronunciation(currentWord.word, currentWord.pronunUrl || currentWord.audioUrl);
@@ -242,8 +246,11 @@ const Review: React.FC = () => {
         isSkipped: quality === 0
       });
       
-      // Check if this word requires retry (quality <= 2)
+      // Check if this word requires retry (quality <= 2) - but only if NOT already in retry mode
       if (requiresRetry(finalQuality) && !isRetryMode) {
+        // Update session stats for the failed attempt before entering retry mode
+        setSessionStats(prev => updateSessionStats(prev, isCorrect));
+        
         // Enter retry mode - stay in showReviewStep with retry interface
         setIsRetryMode(true);
         setRetryQuality(finalQuality);
@@ -257,6 +264,7 @@ const Review: React.FC = () => {
       }
       
       // If we're in retry mode, use the original quality from first attempt
+      // If not in retry mode, use the calculated final quality
       const actualQuality = isRetryMode ? (retryQuality || finalQuality) : finalQuality;
       
       // Create updated word with new SRS values
@@ -297,6 +305,7 @@ const Review: React.FC = () => {
         setSelectedQuality(null);
         setIsRetryMode(false);
         setRetryQuality(null);
+        setRetryError('');
         // Then move to next word
         setCurrentWordIndex(prev => prev + 1);
       } else {
@@ -498,9 +507,9 @@ const Review: React.FC = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={handleBack}
-                className="btn btn-text btn-sm hover-scale focus-ring"
+                className="btn btn-text btn-sm hover-scale focus-ring px-4 py-2"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <ArrowLeft className="w-4 h-4 mr-2" />
                 Back
               </button>
               <div>
@@ -526,9 +535,9 @@ const Review: React.FC = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={togglePause}
-                className="btn btn-outline btn-sm hover-scale focus-ring"
+                className="btn btn-outline btn-sm hover-scale focus-ring px-4 py-2"
               >
-                {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                {isPaused ? <Play className="w-4 h-4 mr-2" /> : <Pause className="w-4 h-4 mr-2" />}
                 {isPaused ? 'Resume' : 'Pause'}
               </button>
               
@@ -574,9 +583,9 @@ const Review: React.FC = () => {
                         currentWord.word, 
                         currentWord.pronunUrl || currentWord.audioUrl
                       )}
-                      className="btn btn-outline hover-scale focus-ring"
+                      className="btn btn-outline hover-scale focus-ring px-5 py-2 mb-3"
                     >
-                      <Volume2 className="w-4 h-4" />
+                      <Volume2 className="w-4 h-4 mr-2" />
                       Pronunciation
                     </button>
                   )}
@@ -595,9 +604,9 @@ const Review: React.FC = () => {
                 <div className="space-y-6">
                   <button 
                     onClick={() => setShowHint(!showHint)}
-                    className="btn btn-outline hover-scale focus-ring"
+                    className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-4"
                   >
-                    <Lightbulb className="w-4 h-4" />
+                    <Lightbulb className="w-4 h-4 mr-2" />
                     {showHint ? 'Hide' : 'Show'} Hint
                   </button>
                   
@@ -620,21 +629,21 @@ const Review: React.FC = () => {
                       autoComplete="off" // Disable autocomplete
                       spellCheck={false} // Disable spell check suggestions
                     />
-                    <div className="flex gap-3 justify-center">
+                    <div className="flex gap-4 justify-center mt-6">
                       <button 
                         onClick={handleAnswerSubmit}
-                        className="btn btn-primary btn-lg hover-scale focus-ring"
+                        className="btn btn-primary btn-lg hover-scale focus-ring px-8 py-4"
                         disabled={!isValidInput(userAnswer) || isPaused}
                       >
-                        <Check className="w-5 h-5" />
+                        <Check className="w-5 h-5 mr-2" />
                         Check Answer
                       </button>
                       <button 
                         onClick={handleSkip}
-                        className="btn btn-outline btn-lg hover-scale focus-ring"
+                        className="btn btn-outline btn-lg hover-scale focus-ring px-8 py-4"
                         disabled={isPaused}
                       >
-                        <SkipForward className="w-5 h-5" />
+                        <SkipForward className="w-5 h-5 mr-2" />
                         Skip
                       </button>
                     </div>
@@ -712,10 +721,10 @@ const Review: React.FC = () => {
                                 }`}
                                 disabled={isPaused || isProcessing}
                               >
-                                <div className="font-bold">{qualityValue}</div>
+                                {/* <div className="font-bold">{qualityValue}</div> */}
                                 <div className="text-xs">
-                                  {qualityValue === 3 ? 'Correct, hard' :
-                                   qualityValue === 4 ? 'Correct, easy' : 'Perfect'}
+                                  {qualityValue === 3 ? 'Hard to recall' :
+                                   qualityValue === 4 ? 'Not bad' : 'Too Easy'}
                                 </div>
                               </button>
                             ))}
@@ -752,9 +761,9 @@ const Review: React.FC = () => {
                           currentWord.word, 
                           currentWord.pronunUrl || currentWord.audioUrl
                         )}
-                        className="btn btn-outline mb-4 hover-scale focus-ring"
+                        className="btn btn-outline hover-scale focus-ring px-6 py-3 mb-6"
                       >
-                        <Volume2 className="w-4 h-4" />
+                        <Volume2 className="w-4 h-4 mr-2" />
                         Listen to Pronunciation
                       </button>
                     )}
@@ -808,13 +817,13 @@ const Review: React.FC = () => {
                             </div>
                           )}
                           
-                          <div className="text-center">
+                          <div className="text-center mt-4">
                             <button 
                               onClick={handleAnswerSubmit}
-                              className="btn btn-warning btn-lg"
+                              className="btn btn-warning btn-lg px-8 py-4"
                               disabled={!isValidInput(userAnswer) || isPaused}
                             >
-                              <Check className="w-5 h-5" />
+                              <Check className="w-5 h-5 mr-2" />
                               Submit Retry
                             </button>
                           </div>
@@ -826,17 +835,17 @@ const Review: React.FC = () => {
                     <div className="space-y-4">
                       <button 
                         onClick={() => processQualityRating(selectedQuality!)}
-                        className="btn btn-primary btn-lg"
+                        className="btn btn-primary btn-lg px-8 py-4 mt-6"
                         disabled={isProcessing}
                       >
                           {isProcessing ? (
                             <>
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
                               Processing...
                             </>
                           ) : (
                             <>
-                              <ArrowRight className="w-5 h-5" />
+                              <ArrowRight className="w-5 h-5 mr-2" />
                               Continue to Next Word
                             </>
                           )}
@@ -906,19 +915,19 @@ const Review: React.FC = () => {
                 </div>
               </div>
               
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <button 
                   onClick={handleRestart}
-                  className="btn btn-primary btn-lg w-full"
+                  className="btn btn-primary btn-lg w-full px-8 py-4"
                 >
-                  <RotateCw className="w-5 h-5" />
+                  <RotateCw className="w-5 h-5 mr-3" />
                   Review Again
                 </button>
                 <button 
                   onClick={() => window.close()}
-                  className="btn btn-secondary w-full"
+                  className="btn btn-secondary w-full px-8 py-4"
                 >
-                  <Check className="w-4 h-4" />
+                  <Check className="w-4 h-4 mr-3" />
                   Finish Review
                 </button>
               </div>
@@ -940,16 +949,16 @@ const Review: React.FC = () => {
                 : 'Are you sure you want to stop this review session? You will see your progress statistics.'
               }
             </p>
-            <div className="flex gap-3 justify-end">
+            <div className="flex gap-4 justify-end">
               <button 
                 onClick={cancelAction}
-                className="btn btn-outline"
+                className="btn btn-outline px-6 py-3"
               >
                 Cancel
               </button>
               <button 
                 onClick={confirmAction}
-                className="btn btn-primary"
+                className="btn btn-primary px-6 py-3"
               >
                 {pendingAction === 'pause' ? 'Pause' : 'Stop'}
               </button>
@@ -997,7 +1006,7 @@ const Review: React.FC = () => {
               </div>
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-4">
               {pendingAction === 'pause' ? (
                 <>
                   <button 
@@ -1005,16 +1014,16 @@ const Review: React.FC = () => {
                       setShowStatsModal(false);
                       setIsPaused(false);
                     }}
-                    className="btn btn-primary w-full"
+                    className="btn btn-primary w-full px-8 py-4"
                   >
-                    <Play className="w-4 h-4" />
+                    <Play className="w-4 h-4 mr-3" />
                     Resume Review
                   </button>
                   <button 
                     onClick={() => window.close()}
-                    className="btn btn-secondary w-full"
+                    className="btn btn-secondary w-full px-8 py-4"
                   >
-                    <Check className="w-4 h-4" />
+                    <Check className="w-4 h-4 mr-3" />
                     End Review
                   </button>
                 </>
@@ -1022,17 +1031,10 @@ const Review: React.FC = () => {
                 <>
                   <button 
                     onClick={() => window.close()}
-                    className="btn btn-primary w-full"
+                    className="btn btn-primary w-full px-8 py-4"
                   >
-                    <Check className="w-4 h-4" />
+                    <Check className="w-4 h-4 mr-3" />
                     Close Review
-                  </button>
-                  <button 
-                    onClick={() => chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') })}
-                    className="btn btn-secondary w-full"
-                  >
-                    <BookOpen className="w-4 h-4" />
-                    Back to Main
                   </button>
                 </>
               )}

@@ -713,4 +713,14 @@
   .shadow-green-glow {
     box-shadow: var(--shadow-green-glow);
   }
+  
+  /* Hide scrollbar utility */
+  .overflow-scrollbar-hidden {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* Internet Explorer 10+ */
+  }
+  
+  .overflow-scrollbar-hidden::-webkit-scrollbar {
+    display: none; /* Chrome, Safari and Opera */
+  }
 }
