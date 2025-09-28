@@ -323,55 +323,16 @@ function handleTextSelection(event?: Event) {
 function createFloatingButton() {
   const button = document.createElement('div');
   button.id = 'vocab-srs-floating-btn';
+  button.className = 'vocab-srs-floating-btn';
   button.innerHTML = `
     <div class="vocab-srs-btn">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
         <path d="M12 5v14M5 12h14"/>
       </svg>
       <span>Add to Dictionary</span>
     </div>
   `;
   
-  // Add styles
-  const style = document.createElement('style');
-  style.textContent = `
-    #vocab-srs-floating-btn {
-      position: fixed;
-      z-index: 999999;
-      display: none;
-      pointer-events: none;
-    }
-    
-    .vocab-srs-btn {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      padding: 8px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 500;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-      cursor: pointer;
-      pointer-events: all;
-      transition: all 0.2s ease;
-      border: none;
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-      white-space: nowrap;
-    }
-    
-    .vocab-srs-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
-    }
-    
-    .vocab-srs-btn:active {
-      transform: translateY(0);
-    }
-  `;
-  
-  document.head.appendChild(style);
   document.body.appendChild(button);
   
   // Add click handler
@@ -636,198 +597,104 @@ function showAddModal(word?: string) {
     </div>
   `;
   
-  // Add modal styles
+  // Modal styles are now defined in main.css
+  modal.id = 'vocab-srs-modal';
+  modal.className = 'vocab-srs-modal';
+  
+  // Add additional styles for specific elements not covered by main.css
   const style = document.createElement('style');
   style.textContent = `
-    #vocab-srs-modal {
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      z-index: 10001;
-    }
-    
-    .vocab-srs-modal-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.5);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 20px;
-    }
-    
-    .vocab-srs-modal-content {
-      background: white;
-      border-radius: 12px;
-      width: 100%;
-      max-width: 400px;
-      max-height: 90vh;
-      overflow-y: auto;
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
-    }
-    
-    .vocab-srs-modal-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 20px 24px;
-      border-bottom: 1px solid #e5e7eb;
-    }
-    
-    .vocab-srs-modal-header h3 {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: #1f2937;
-    }
-    
-    .vocab-srs-modal-close {
-      background: none;
-      border: none;
-      font-size: 24px;
-      color: #6b7280;
-      cursor: pointer;
-      padding: 0;
-      width: 24px;
-      height: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    
-    .vocab-srs-modal-close:hover {
-      color: #374151;
-    }
-    
-    .vocab-srs-modal-body {
-      padding: 24px;
-    }
-    
-    .vocab-srs-form-group {
-      margin-bottom: 20px;
-    }
-    
-    .vocab-srs-form-group label {
-      display: block;
-      margin-bottom: 6px;
-      font-weight: 500;
-      color: #374151;
-      font-size: 14px;
-    }
-    
-    .vocab-srs-form-group input,
-    .vocab-srs-form-group select {
-      width: 100%;
-      padding: 10px 12px;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      font-size: 14px;
-      transition: border-color 0.2s;
-      background: white;
-    }
-    
-    .vocab-srs-form-group input:focus,
-    .vocab-srs-form-group select:focus {
-      outline: none;
-      border-color: #667eea;
-      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
-    }
-    
-    .vocab-srs-form-group input[readonly] {
-      background: #f9fafb;
-      color: #6b7280;
-    }
-    
     .vocab-srs-phonetic-group {
-      display: flex;
-      gap: 8px;
-      align-items: center;
+      display: flex !important;
+      gap: 10px !important;
+      align-items: center !important;
     }
     
     .vocab-srs-phonetic-group input {
-      flex: 1;
+      flex: 1 !important;
     }
     
     .vocab-srs-play-audio {
-      background: #f3f4f6;
-      border: 1px solid #d1d5db;
-      border-radius: 6px;
-      padding: 8px;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      transition: all 0.2s;
-      min-width: 36px;
-      height: 36px;
+      background: rgb(var(--color-background-secondary)) !important;
+      border: 2px solid rgb(var(--color-border)) !important;
+      border-radius: 8px !important;
+      padding: 10px !important;
+      cursor: pointer !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      transition: all 0.2s ease !important;
+      min-width: 42px !important;
+      height: 42px !important;
     }
     
     .vocab-srs-play-audio:hover {
-      background: #e5e7eb;
-      border-color: #9ca3af;
+      background: rgb(var(--color-primary) / 0.1) !important;
+      border-color: rgb(var(--color-primary)) !important;
+      transform: scale(1.05) !important;
     }
     
     .vocab-srs-play-audio:active {
-      background: #d1d5db;
+      transform: scale(0.98) !important;
     }
     
     .vocab-srs-play-audio:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+      opacity: 0.5 !important;
+      cursor: not-allowed !important;
+      transform: none !important;
     }
     
     .vocab-srs-play-audio svg {
-      color: #6b7280;
+      color: rgb(var(--color-primary)) !important;
     }
     
     .vocab-srs-modal-footer {
-      display: flex;
-      gap: 12px;
-      padding: 20px 24px;
-      border-top: 1px solid #e5e7eb;
+      display: flex !important;
+      gap: 16px !important;
+      padding: 24px 28px !important;
+      border-top: 1px solid rgb(var(--color-border)) !important;
     }
     
     .vocab-srs-btn-cancel,
     .vocab-srs-btn-save {
-      flex: 1;
-      padding: 10px 16px;
-      border-radius: 6px;
-      font-size: 14px;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.2s;
+      flex: 1 !important;
+      padding: 12px 20px !important;
+      border-radius: 10px !important;
+      font-size: 14px !important;
+      font-weight: 600 !important;
+      cursor: pointer !important;
+      transition: all 0.3s ease !important;
+      border: none !important;
     }
     
     .vocab-srs-btn-cancel {
-      background: #f3f4f6;
-      color: #374151;
-      border: 1px solid #d1d5db;
+      background: rgb(var(--color-background-tertiary)) !important;
+      color: rgb(var(--color-foreground)) !important;
+      border: 2px solid rgb(var(--color-border)) !important;
     }
     
     .vocab-srs-btn-cancel:hover {
-      background: #e5e7eb;
+      background: rgb(var(--color-background-secondary)) !important;
+      transform: translateY(-1px) !important;
     }
     
     .vocab-srs-btn-save {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white;
-      border: none;
+      background: linear-gradient(135deg, rgb(var(--color-primary)), rgb(var(--color-primary-dark))) !important;
+      color: white !important;
+      box-shadow: var(--shadow-green-glow) !important;
     }
     
     .vocab-srs-btn-save:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+      background: linear-gradient(135deg, rgb(var(--color-primary-light)), rgb(var(--color-primary))) !important;
+      transform: translateY(-2px) !important;
+      box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
     }
     
     .vocab-srs-btn-save:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      transform: none;
+      opacity: 0.6 !important;
+      cursor: not-allowed !important;
+      transform: none !important;
+      box-shadow: none !important;
     }
   `;
   

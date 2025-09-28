@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
-import { Settings } from '@/types';
 import { 
   Settings as SettingsIcon,
   Cloud,
@@ -13,14 +12,12 @@ import {
   Info,
   Shield,
   Zap,
-  Clock,
   Trash2,
   Save,
-  ExternalLink
 } from 'lucide-react';
 
 const Options: React.FC = () => {
-  const { data, loading, error, updateSettings } = useChromeStorage();
+  const { data, loading } = useChromeStorage();
   
   const [firebaseConfig, setFirebaseConfig] = useState({
     apiKey: '',
@@ -172,32 +169,32 @@ const Options: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading settings...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-foreground-secondary">Loading settings...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary p-6">
       <div className="max-w-4xl mx-auto">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2 flex items-center justify-center gap-3">
-            <SettingsIcon className="w-8 h-8 text-blue-600" />
+          <h1 className="text-3xl font-bold text-foreground mb-2 flex items-center justify-center gap-3 gradient-text">
+            <SettingsIcon className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             VocaPi Settings
           </h1>
-          <p className="text-gray-600">Configure cloud synchronization and other preferences</p>
+          <p className="text-foreground-secondary">Configure cloud synchronization and other preferences</p>
         </div>
 
         {/* Quick Setup Guide */}
         {showGuide && (
-          <div className="card p-6 mb-8 bg-blue-50 border-blue-200">
+          <div className="card hover-lift p-6 mb-8 bg-primary-50 dark:bg-primary-900/20 border-primary-200 dark:border-primary-800">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-blue-900 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-primary-900 dark:text-primary-100 flex items-center gap-2">
                 <Info className="w-5 h-5" />
                 Quick Setup Guide
               </h3>
@@ -210,24 +207,24 @@ const Options: React.FC = () => {
             </div>
             
             <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 bg-white rounded-lg border border-blue-200">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
+              <div className="flex items-start gap-4 p-4 bg-background rounded-lg border border-primary-200 dark:border-primary-800">
+                <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                   1
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900">Create Firebase Project</h4>
-                  <p className="text-sm text-gray-600">
-                    Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">Firebase Console</a> and create a new project
+                  <h4 className="font-semibold text-primary-900 dark:text-primary-100">Create Firebase Project</h4>
+                  <p className="text-sm text-foreground-secondary">
+                    Go to <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-primary-600 dark:text-primary-400 hover:underline">Firebase Console</a> and create a new project
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-start gap-4 p-4 bg-white rounded-lg border border-blue-200">
-                <div className="w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
+              <div className="flex items-start gap-4 p-4 bg-background rounded-lg border border-primary-200 dark:border-primary-800">
+                <div className="w-8 h-8 bg-primary-600 text-white rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0">
                   2
                 </div>
                 <div>
-                  <h4 className="font-semibold text-blue-900">Add Web App</h4>
+                  <h4 className="font-semibold text-primary-900 dark:text-primary-100">Add Web App</h4>
                   <p className="text-sm text-gray-600">
                     In Project Settings, add a web app and copy the configuration values
                   </p>

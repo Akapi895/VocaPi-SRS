@@ -435,10 +435,10 @@ const Review: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading review session...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-foreground-secondary">Loading review session...</p>
         </div>
       </div>
     );
@@ -446,13 +446,13 @@ const Review: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">⚠️</div>
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-danger-600 dark:text-danger-400 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="btn btn-secondary"
+            className="btn btn-secondary hover-scale focus-ring"
           >
             Try Again
           </button>
@@ -463,18 +463,18 @@ const Review: React.FC = () => {
 
   if (reviewWords.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center max-w-md mx-auto p-6">
           <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">No Words to Review!</h2>
-          <p className="text-gray-600 mb-6">
+          <h2 className="text-2xl font-bold text-foreground mb-2">No Words to Review!</h2>
+          <p className="text-foreground-secondary mb-6">
             Great job! You've completed all your reviews for today. 
             Come back later for more words to review.
           </p>
           <div className="space-y-3">
             <button 
               onClick={() => window.close()}
-              className="btn btn-primary w-full"
+              className="btn btn-primary w-full hover-scale focus-ring"
             >
               <Check className="w-4 h-4" />
               Close Review
@@ -490,32 +490,32 @@ const Review: React.FC = () => {
   const accuracy = calculateAccuracy(sessionStats);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-background shadow-soft border-b border-border">
         <div className="max-w-4xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button 
                 onClick={handleBack}
-                className="btn btn-text btn-sm"
+                className="btn btn-text btn-sm hover-scale focus-ring"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
               <div>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-lg font-semibold text-gray-900">Review Session</h1>
+                  <h1 className="text-lg font-semibold text-foreground">Review Session</h1>
                   {isRetryMode && (
-                    <span className="bg-amber-100 text-amber-800 text-xs px-2 py-1 rounded-full font-medium">
+                    <span className="bg-warning-100 dark:bg-warning-900/30 text-warning-800 dark:text-warning-300 text-xs px-3 py-1 rounded-full font-medium animate-pulse-gentle">
                       Retry Mode
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-600">
+                <p className="text-sm text-foreground-secondary">
                   {currentWordIndex + 1} of {reviewWords.length} words
                   {isRetryMode && retryQuality !== null && (
-                    <span className="text-amber-600 ml-2">
+                    <span className="text-warning-600 dark:text-warning-400 ml-2">
                       • Please retype this word correctly
                     </span>
                   )}
@@ -526,17 +526,17 @@ const Review: React.FC = () => {
             <div className="flex items-center gap-4">
               <button 
                 onClick={togglePause}
-                className="btn btn-outline btn-sm"
+                className="btn btn-outline btn-sm hover-scale focus-ring"
               >
                 {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
                 {isPaused ? 'Resume' : 'Pause'}
               </button>
               
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-foreground">
                   {Math.round(accuracy)}% accuracy
                 </div>
-                <div className="text-xs text-gray-600">
+                <div className="text-xs text-foreground-secondary">
                   {sessionStats.correct}/{sessionStats.total} correct
                 </div>
               </div>
@@ -545,9 +545,9 @@ const Review: React.FC = () => {
           
           {/* Progress Bar */}
           <div className="mt-4">
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
               <div 
-                className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
@@ -560,8 +560,8 @@ const Review: React.FC = () => {
         {!sessionComplete ? (
           <div className="space-y-6">
             {/* Flashcard */}
-            <div className="card p-8 text-center min-h-[400px] flex flex-col justify-center">
-              <div className="text-3xl font-semibold mb-4 text-gray-900">
+            <div className="card hover-lift p-8 text-center min-h-[400px] flex flex-col justify-center bg-gradient-to-br from-background to-surface border-primary-100 dark:border-primary-900/30">
+              <div className="text-3xl font-semibold mb-4 text-foreground gradient-text">
                 {currentWord.meaning}
               </div>
               
@@ -574,7 +574,7 @@ const Review: React.FC = () => {
                         currentWord.word, 
                         currentWord.pronunUrl || currentWord.audioUrl
                       )}
-                      className="btn btn-outline"
+                      className="btn btn-outline hover-scale focus-ring"
                     >
                       <Volume2 className="w-4 h-4" />
                       Pronunciation
@@ -583,7 +583,7 @@ const Review: React.FC = () => {
                   
                   {/* Example with masked word */}
                   {currentWord.example && (
-                    <div className="text-lg text-gray-600 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                    <div className="text-lg text-foreground-secondary p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800">
                       {maskWordInSentence(currentWord.example, currentWord.word)}
                     </div>
                   )}
@@ -595,14 +595,14 @@ const Review: React.FC = () => {
                 <div className="space-y-6">
                   <button 
                     onClick={() => setShowHint(!showHint)}
-                    className="btn btn-outline"
+                    className="btn btn-outline hover-scale focus-ring"
                   >
                     <Lightbulb className="w-4 h-4" />
                     {showHint ? 'Hide' : 'Show'} Hint
                   </button>
                   
                   <div className="space-y-4">
-                    <div className="text-lg text-gray-700">What is the English word?</div>
+                    <div className="text-lg text-foreground-secondary">What is the English word?</div>
                     <input 
                       type="text"
                       value={userAnswer}
@@ -613,7 +613,7 @@ const Review: React.FC = () => {
                       onContextMenu={handleContextMenu}
                       onDrop={(e) => e.preventDefault()} // Prevent drag & drop
                       onDragOver={(e) => e.preventDefault()}
-                      className="input text-lg text-center max-w-md mx-auto"
+                      className="input input-focus text-lg text-center max-w-md mx-auto"
                       placeholder="Type your answer..."
                       autoFocus
                       disabled={isPaused}
@@ -623,7 +623,7 @@ const Review: React.FC = () => {
                     <div className="flex gap-3 justify-center">
                       <button 
                         onClick={handleAnswerSubmit}
-                        className="btn btn-primary btn-lg"
+                        className="btn btn-primary btn-lg hover-scale focus-ring"
                         disabled={!isValidInput(userAnswer) || isPaused}
                       >
                         <Check className="w-5 h-5" />
@@ -631,7 +631,7 @@ const Review: React.FC = () => {
                       </button>
                       <button 
                         onClick={handleSkip}
-                        className="btn btn-outline btn-lg"
+                        className="btn btn-outline btn-lg hover-scale focus-ring"
                         disabled={isPaused}
                       >
                         <SkipForward className="w-5 h-5" />
@@ -645,23 +645,23 @@ const Review: React.FC = () => {
                 <div className="space-y-6">
                   <div className="space-y-3">
                     <div className="text-lg">
-                      <span className="text-gray-600">Your answer:</span>
+                      <span className="text-foreground-secondary">Your answer:</span>
                       <span className={`ml-3 font-medium text-lg ${
                         userAnswer.toLowerCase() === currentWord.word.toLowerCase() 
-                          ? 'text-green-600' 
-                          : 'text-red-600'
+                          ? 'text-success-600 dark:text-success-400' 
+                          : 'text-danger-600 dark:text-danger-400'
                       }`}>
                         {userAnswer || 'Skipped'}
                       </span>
                     </div>
                     <div className="text-lg">
-                      <span className="text-gray-600">Correct answer:</span>
-                      <span className="ml-3 font-medium text-lg text-green-600">
+                      <span className="text-foreground-secondary">Correct answer:</span>
+                      <span className="ml-3 font-medium text-lg text-success-600 dark:text-success-400">
                         {currentWord.word}
                       </span>
                     </div>
                     {currentWord.phonetic && (
-                      <div className="text-lg text-gray-500">
+                      <div className="text-lg text-foreground-muted">
                         {currentWord.phonetic}
                       </div>
                     )}
@@ -677,7 +677,7 @@ const Review: React.FC = () => {
                       // Used hint + wrong = quality 0 (auto)
                       setTimeout(() => handleQualityRating(0), 1000);
                       return (
-                        <div className="text-center text-gray-600">
+                        <div className="text-center text-foreground-secondary animate-pulse-gentle">
                           Quality automatically set to 0 (used hint + incorrect)
                         </div>
                       );
@@ -685,7 +685,7 @@ const Review: React.FC = () => {
                       // Used hint + correct = quality 2 (auto)
                       setTimeout(() => handleQualityRating(2), 1000);
                       return (
-                        <div className="text-center text-gray-600">
+                        <div className="text-center text-foreground-secondary animate-pulse-gentle">
                           Quality automatically set to 2 (used hint + correct)
                         </div>
                       );
@@ -693,7 +693,7 @@ const Review: React.FC = () => {
                       // No hint + wrong = quality 1 (auto)
                       setTimeout(() => handleQualityRating(1), 1000);
                       return (
-                        <div className="text-center text-gray-600">
+                        <div className="text-center text-foreground-secondary animate-pulse-gentle">
                           Quality automatically set to 1 (no hint + incorrect)
                         </div>
                       );
@@ -701,13 +701,13 @@ const Review: React.FC = () => {
                       // No hint + correct = allow user to choose 3-5
                       return (
                         <div className="space-y-4">
-                          <div className="text-lg text-gray-700">How difficult was this word?</div>
+                          <div className="text-lg text-foreground-secondary">How difficult was this word?</div>
                           <div className="grid grid-cols-3 gap-2 max-w-md mx-auto">
                             {[3, 4, 5].map(qualityValue => (
                               <button
                                 key={qualityValue}
                                 onClick={() => handleQualityRating(qualityValue as QualityRating)}
-                                className={`btn btn-lg p-3 text-sm ${
+                                className={`btn btn-lg p-3 text-sm hover-scale focus-ring ${
                                   qualityValue === 3 ? 'btn-warning' : 'btn-success'
                                 }`}
                                 disabled={isPaused || isProcessing}
@@ -731,18 +731,18 @@ const Review: React.FC = () => {
                 <div className="space-y-6">
                   {/* Review Step - Show word details and audio */}
                   <div className="space-y-4">
-                    <div className="text-2xl font-bold text-green-600 mb-4">
+                    <div className="text-2xl font-bold text-success-600 dark:text-success-400 mb-4 gradient-text">
                       {currentWord.word}
                     </div>
                     
                     {currentWord.phonetic && (
-                      <div className="text-lg text-gray-500 mb-4">
+                      <div className="text-lg text-foreground-muted mb-4">
                         {currentWord.phonetic}
                       </div>
                     )}
                     
-                    <div className="text-lg text-gray-700 mb-4">
-                      <strong>Meaning:</strong> {currentWord.meaning}
+                    <div className="text-lg text-foreground-secondary mb-4">
+                      <strong className="text-foreground">Meaning:</strong> {currentWord.meaning}
                     </div>
                     
                     {/* Audio Button */}
@@ -752,7 +752,7 @@ const Review: React.FC = () => {
                           currentWord.word, 
                           currentWord.pronunUrl || currentWord.audioUrl
                         )}
-                        className="btn btn-outline mb-4"
+                        className="btn btn-outline mb-4 hover-scale focus-ring"
                       >
                         <Volume2 className="w-4 h-4" />
                         Listen to Pronunciation
@@ -761,8 +761,8 @@ const Review: React.FC = () => {
                     
                     {/* Example */}
                     {currentWord.example && (
-                      <div className="text-lg text-gray-600 p-4 bg-blue-50 rounded-lg border border-blue-200 mb-4">
-                        <strong>Example:</strong> {currentWord.example}
+                      <div className="text-lg text-foreground-secondary p-4 bg-primary-50 dark:bg-primary-900/20 rounded-lg border border-primary-200 dark:border-primary-800 mb-4">
+                        <strong className="text-foreground">Example:</strong> {currentWord.example}
                       </div>
                     )}
                   </div>
@@ -771,7 +771,7 @@ const Review: React.FC = () => {
                   {isRetryMode ? (
                     // Show retry interface within review step
                     <div className="space-y-6">
-                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-6">
+                      <div className="bg-warning-50 dark:bg-warning-900/20 border border-warning-200 dark:border-warning-800 rounded-lg p-6">
                         <div className="text-center mb-4">
                           <div className="text-2xl mb-2">🔄</div>
                           <div className="text-lg font-semibold text-amber-800 mb-2">

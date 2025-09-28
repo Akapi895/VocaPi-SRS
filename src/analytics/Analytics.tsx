@@ -30,10 +30,10 @@ const Analytics: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading analytics...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mx-auto mb-4"></div>
+          <p className="text-foreground-secondary">Loading analytics...</p>
         </div>
       </div>
     );
@@ -41,13 +41,13 @@ const Analytics: React.FC = () => {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary flex items-center justify-center">
         <div className="text-center">
           <div className="text-6xl mb-4">⚠️</div>
-          <p className="text-red-600 mb-4">{error}</p>
+          <p className="text-danger-600 dark:text-danger-400 mb-4">{error}</p>
           <button 
             onClick={() => window.location.reload()}
-            className="btn btn-secondary"
+            className="btn btn-secondary hover-scale focus-ring"
           >
             Try Again
           </button>
@@ -82,25 +82,25 @@ const Analytics: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary">
       {/* Header */}
-      <div className="bg-white shadow-sm border-b border-gray-200">
+      <div className="bg-background shadow-soft border-b border-border">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button 
                 onClick={() => window.close()}
-                className="btn btn-text btn-sm"
+                className="btn btn-text btn-sm hover-scale focus-ring"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                  <BarChart3 className="w-6 h-6 text-blue-600" />
+                <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <BarChart3 className="w-6 h-6 text-primary-600 dark:text-primary-400" />
                   Learning Analytics
                 </h1>
-                <p className="text-sm text-gray-600">Track your vocabulary learning progress</p>
+                <p className="text-sm text-foreground-secondary">Track your vocabulary learning progress</p>
               </div>
             </div>
             
@@ -108,7 +108,7 @@ const Analytics: React.FC = () => {
               <select
                 value={selectedPeriod}
                 onChange={(e) => setSelectedPeriod(e.target.value as any)}
-                className="input text-sm"
+                className="input input-focus text-sm"
               >
                 <option value="week">This Week</option>
                 <option value="month">This Month</option>
@@ -117,7 +117,7 @@ const Analytics: React.FC = () => {
               
               <button 
                 onClick={exportAnalytics}
-                className="btn btn-outline btn-sm"
+                className="btn btn-outline btn-sm hover-scale focus-ring"
               >
                 <Download className="w-4 h-4" />
                 Export
@@ -130,66 +130,66 @@ const Analytics: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card p-6">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Words</p>
-                <p className="text-3xl font-bold text-blue-600">{totalWords}</p>
+                <p className="text-sm font-medium text-foreground-secondary">Total Words</p>
+                <p className="text-3xl font-bold text-primary-600 dark:text-primary-400 gradient-text">{totalWords}</p>
               </div>
-              <BookOpen className="w-8 h-8 text-blue-600" />
+              <BookOpen className="w-8 h-8 text-primary-600 dark:text-primary-400" />
             </div>
             <div className="mt-4">
-              <div className="flex justify-between text-sm text-gray-600">
-                <span>New: {wordsByDifficulty.new}</span>
-                <span>Learning: {wordsByDifficulty.learning}</span>
-                <span>Review: {wordsByDifficulty.review}</span>
+              <div className="flex justify-between text-sm text-foreground-secondary">
+                <span>New: <span className="text-accent-600 dark:text-accent-400 font-medium">{wordsByDifficulty.new}</span></span>
+                <span>Learning: <span className="text-warning-600 dark:text-warning-400 font-medium">{wordsByDifficulty.learning}</span></span>
+                <span>Review: <span className="text-success-600 dark:text-success-400 font-medium">{wordsByDifficulty.review}</span></span>
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Current Streak</p>
-                <p className="text-3xl font-bold text-green-600">{currentStreak}</p>
+                <p className="text-sm font-medium text-foreground-secondary">Current Streak</p>
+                <p className="text-3xl font-bold text-success-600 dark:text-success-400 gradient-text">{currentStreak}</p>
               </div>
-              <Target className="w-8 h-8 text-green-600" />
+              <Target className="w-8 h-8 text-success-600 dark:text-success-400" />
             </div>
             <div className="mt-4">
-              <div className="text-sm text-gray-600">
-                Longest: {longestStreak} days
+              <div className="text-sm text-foreground-secondary">
+                Longest: <span className="text-success-600 dark:text-success-400 font-medium">{longestStreak} days</span>
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Study Time</p>
-                <p className="text-3xl font-bold text-purple-600">
+                <p className="text-sm font-medium text-foreground-secondary">Total Study Time</p>
+                <p className="text-3xl font-bold text-accent-600 dark:text-accent-400 gradient-text">
                   {formatTime(Math.round(totalStudyTime / 1000 / 60))}
                 </p>
               </div>
-              <Clock className="w-8 h-8 text-purple-600" />
+              <Clock className="w-8 h-8 text-accent-600 dark:text-accent-400" />
             </div>
             <div className="mt-4">
-              <div className="text-sm text-gray-600">
-                Avg session: {formatTime(Math.round(averageSessionTime / 1000 / 60))}
+              <div className="text-sm text-foreground-secondary">
+                Avg session: <span className="text-accent-600 dark:text-accent-400 font-medium">{formatTime(Math.round(averageSessionTime / 1000 / 60))}</span>
               </div>
             </div>
           </div>
 
-          <div className="card p-6">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Accuracy</p>
-                <p className="text-3xl font-bold text-orange-600">{Math.round(accuracy)}%</p>
+                <p className="text-sm font-medium text-foreground-secondary">Accuracy</p>
+                <p className="text-3xl font-bold text-warning-600 dark:text-warning-400 gradient-text">{Math.round(accuracy)}%</p>
               </div>
-              <TrendingUp className="w-8 h-8 text-orange-600" />
+              <TrendingUp className="w-8 h-8 text-warning-600 dark:text-warning-400" />
             </div>
             <div className="mt-4">
-              <div className="text-sm text-gray-600">
-                Due now: {dueWords} words
+              <div className="text-sm text-foreground-secondary">
+                Due now: <span className="text-danger-600 dark:text-danger-400 font-medium">{dueWords} words</span>
               </div>
             </div>
           </div>

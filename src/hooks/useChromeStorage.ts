@@ -11,6 +11,11 @@ export const useChromeStorage = () => {
       setLoading(true);
       setError(null);
       
+      // Check if chrome.storage is available
+      if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) {
+        throw new Error('Chrome storage API is not available');
+      }
+      
       const result = await chrome.storage.local.get([
         'vocabWords',
         'gamification',
