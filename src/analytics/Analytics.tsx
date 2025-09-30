@@ -217,7 +217,7 @@ const Analytics: React.FC = () => {
                 className="btn btn-outline btn-sm hover-scale focus-ring"
               >
                 <Download className="w-4 h-4" />
-                Export
+                <span className="ml-2">Export</span>
               </button>
             </div>
           </div>
