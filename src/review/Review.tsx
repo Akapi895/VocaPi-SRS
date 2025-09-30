@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
 import { useCustomizationSettings } from '@/hooks/useCustomizationSettings';
+import { useTheme } from '@/utils/theme';
 import { VocabWord, QualityRating } from '@/types';
 import {
   createUpdatedWord,
@@ -31,12 +32,21 @@ import {
   Play,
   Pause,
   RotateCw,
-  ArrowRight
+  ArrowRight,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 const Review: React.FC = () => {
   const { data, loading, error, updateWord, updateAnalytics, updateGamification } = useChromeStorage();
   const { srs: srsSettings, study: studySettings, audio: audioSettings } = useCustomizationSettings();
+  const { isDark, toggleTheme, colors } = useTheme();
+  
+  // Dynamic styles based on theme
+  const getProgressStyle = (percentage: number) => ({
+    width: `${percentage}%`,
+    backgroundColor: colors.primary
+  });
   
   // Anti-paste handler with user feedback
   const handleAntiPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -654,6 +664,18 @@ const Review: React.FC = () => {
             
             <div className="flex items-center gap-4">
               <button 
+                onClick={toggleTheme}
+                className="btn btn-outline btn-sm hover-scale focus-ring"
+                title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4" />
+                ) : (
+                  <Moon className="w-4 h-4" />
+                )}
+              </button>
+              
+              <button 
                 onClick={togglePause}
                 className="btn btn-outline btn-sm hover-scale focus-ring px-4 py-2"
               >
@@ -694,7 +716,7 @@ const Review: React.FC = () => {
         {!sessionComplete ? (
           <div className="space-y-6">
             {/* Flashcard */}
-            <div className="card hover-lift p-8 text-center min-h-[400px] flex flex-col justify-center bg-gradient-to-br from-background to-surface border-primary-100 dark:border-primary-900/30">
+            <div className="card hover-lift p-8 text-center min-h-[400px] flex flex-col justify-center bg-gradient-to-br from-background to-background-secondary dark:from-dark-background-secondary dark:to-dark-background border-primary-100 dark:border-primary-800 shadow-lg dark:shadow-2xl">
               <div className="text-3xl font-semibold mb-4 text-foreground gradient-text">
                 {currentWord.meaning}
               </div>
@@ -1009,60 +1031,60 @@ const Review: React.FC = () => {
 
             {/* Session Stats */}
             <div className="grid grid-cols-3 gap-4">
-              <div className="card p-4 text-center">
-                <div className="text-2xl font-bold text-blue-600">
+              <div className="card hover-lift p-4 text-center bg-gradient-to-br from-background to-surface dark:from-dark-background-secondary dark:to-dark-background">
+                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {sessionStats.total}
                 </div>
-                <div className="text-sm text-gray-600">Words Reviewed</div>
+                <div className="text-sm text-foreground-muted">Words Reviewed</div>
               </div>
-              <div className="card p-4 text-center">
-                <div className="text-2xl font-bold text-green-600">
+              <div className="card hover-lift p-4 text-center bg-gradient-to-br from-background to-surface dark:from-dark-background-secondary dark:to-dark-background">
+                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {Math.round(accuracy)}%
                 </div>
-                <div className="text-sm text-gray-600">Accuracy</div>
+                <div className="text-sm text-foreground-muted">Accuracy</div>
               </div>
-              <div className="card p-4 text-center">
-                <div className="text-2xl font-bold text-purple-600">
+              <div className="card hover-lift p-4 text-center bg-gradient-to-br from-background to-surface dark:from-dark-background-secondary dark:to-dark-background">
+                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {getDisplayTime()}m
                 </div>
-                <div className="text-sm text-gray-600">Time Spent</div>
+                <div className="text-sm text-foreground-muted">Time Spent</div>
               </div>
             </div>
           </div>
         ) : (
           /* Session Complete */
           <div className="text-center max-w-2xl mx-auto">
-            <div className="card p-8">
+            <div className="card hover-lift p-8 bg-gradient-to-br from-background to-surface dark:from-dark-background-secondary dark:to-dark-background shadow-lg dark:shadow-2xl">
               <div className="text-6xl mb-6">🎉</div>
-              <h2 className="text-3xl font-bold text-gray-900 mb-4">Review Complete!</h2>
-              <p className="text-lg text-gray-600 mb-8">
+              <h2 className="text-3xl font-bold text-foreground mb-4">Review Complete!</h2>
+              <p className="text-lg text-foreground-secondary mb-8">
                 Great job! You've completed your review session.
               </p>
               
               <div className="grid grid-cols-2 gap-6 mb-8">
-                <div className="p-4 bg-blue-50 rounded-lg">
-                  <div className="text-3xl font-bold text-blue-600 mb-2">
+                <div className="p-4 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg hover-lift">
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                     {sessionStats.total}
                   </div>
-                  <div className="text-sm text-gray-600">Words Reviewed</div>
+                  <div className="text-sm text-foreground-muted">Words Reviewed</div>
                 </div>
-                <div className="p-4 bg-green-50 rounded-lg">
-                  <div className="text-3xl font-bold text-green-600 mb-2">
+                <div className="p-4 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg hover-lift">
+                  <div className="text-3xl font-bold text-green-600 dark:text-green-400 mb-2">
                     {Math.round(accuracy)}%
                   </div>
-                  <div className="text-sm text-gray-600">Accuracy</div>
+                  <div className="text-sm text-foreground-muted">Accuracy</div>
                 </div>
-                <div className="p-4 bg-purple-50 rounded-lg">
-                  <div className="text-3xl font-bold text-purple-600 mb-2">
+                <div className="p-4 bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800 rounded-lg hover-lift">
+                  <div className="text-3xl font-bold text-purple-600 dark:text-purple-400 mb-2">
                     {getDisplayTime()}m
                   </div>
-                  <div className="text-sm text-gray-600">Time Spent</div>
+                  <div className="text-sm text-foreground-muted">Time Spent</div>
                 </div>
-                <div className="p-4 bg-orange-50 rounded-lg">
-                  <div className="text-3xl font-bold text-orange-600 mb-2">
+                <div className="p-4 bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 rounded-lg hover-lift">
+                  <div className="text-3xl font-bold text-orange-600 dark:text-orange-400 mb-2">
                     {sessionStats.correct}
                   </div>
-                  <div className="text-sm text-gray-600">Correct Answers</div>
+                  <div className="text-sm text-foreground-muted">Correct Answers</div>
                 </div>
               </div>
               

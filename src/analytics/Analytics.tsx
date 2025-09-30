@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useChromeStorage } from '@/hooks/useChromeStorage';
+import { useTheme } from '@/utils/theme';
 import {
   getAnalyticsSummary,
   formatTime,
@@ -21,12 +22,17 @@ import {
   Download,
   Timer,
   Gauge,
-  CheckCircle2
+  CheckCircle2,
+  Moon,
+  Sun
 } from 'lucide-react';
 
 const Analytics: React.FC = () => {
   const { data, loading, error, saveData } = useChromeStorage();
+  const { isDark, toggleTheme } = useTheme();
   const [selectedPeriod, setSelectedPeriod] = useState<'week' | 'month' | 'year'>('week');
+  const [showAllDifficultWords, setShowAllDifficultWords] = useState(false);
+  const [difficultWordsPage, setDifficultWordsPage] = useState(0);
 
   // Auto-add test data if no words exist (for development)
   React.useEffect(() => {
@@ -165,6 +171,35 @@ const Analytics: React.FC = () => {
     exportAnalyticsData(data);
   };
 
+  // Toggle function for difficult words
+  const toggleShowAllDifficultWords = () => {
+    setShowAllDifficultWords(!showAllDifficultWords);
+    setDifficultWordsPage(0); // Reset to first page when toggling
+  };
+
+  // Pagination logic for difficult words
+  const WORDS_PER_PAGE = 12;
+  const shouldUsePagination = difficultWords.length > 24; // Use pagination for large lists
+  
+  const getDifficultWordsToShow = () => {
+    const sortedWords = difficultWords.sort((a, b) => a.successRate - b.successRate);
+    
+    if (shouldUsePagination && showAllDifficultWords) {
+      // Show paginated results for very large lists
+      const startIndex = difficultWordsPage * WORDS_PER_PAGE;
+      return sortedWords.slice(startIndex, startIndex + WORDS_PER_PAGE);
+    } else if (showAllDifficultWords) {
+      // Show all words for moderately large lists
+      return sortedWords;
+    } else {
+      // Show first 9 words by default
+      return sortedWords.slice(0, Math.min(9, sortedWords.length));
+    }
+  };
+
+  const totalPages = Math.ceil(difficultWords.length / WORDS_PER_PAGE);
+  const wordsToShow = getDifficultWordsToShow();
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-primary-50 to-accent-50 dark:from-dark-background dark:to-dark-background-secondary">
       {/* Header */}
@@ -213,6 +248,18 @@ const Analytics: React.FC = () => {
               </div>
               
               <button 
+                onClick={toggleTheme}
+                className="btn btn-outline btn-sm hover-scale focus-ring"
+                title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+              >
+                {isDark ? (
+                  <Sun className="w-4 h-4" />
+                ) : (
+                  <Moon className="w-4 h-4" />
+                )}
+              </button>
+              
+              <button 
                 onClick={exportAnalytics}
                 className="btn btn-outline btn-sm hover-scale focus-ring"
               >
@@ -227,7 +274,7 @@ const Analytics: React.FC = () => {
       <div className="max-w-7xl mx-auto px-6 py-8">
         {/* Overview Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-background-secondary dark:from-dark-background-secondary dark:to-dark-background shadow-lg dark:shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground-secondary">Total Words</p>
@@ -244,7 +291,7 @@ const Analytics: React.FC = () => {
             </div>
           </div>
 
-          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-background-secondary dark:from-dark-background-secondary dark:to-dark-background shadow-lg dark:shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground-secondary">Current Streak</p>
@@ -259,7 +306,7 @@ const Analytics: React.FC = () => {
             </div>
           </div>
 
-          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-background-secondary dark:from-dark-background-secondary dark:to-dark-background shadow-lg dark:shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground-secondary">Total Study Time</p>
@@ -276,7 +323,7 @@ const Analytics: React.FC = () => {
             </div>
           </div>
 
-          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-surface">
+          <div className="card hover-lift p-6 bg-gradient-to-br from-background to-background-secondary dark:from-dark-background-secondary dark:to-dark-background shadow-lg dark:shadow-2xl">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-medium text-foreground-secondary">Accuracy</p>
@@ -301,7 +348,7 @@ const Analytics: React.FC = () => {
           
           {/* User Rank */}
           <div className="mb-6 text-center">
-            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-gray-100 to-gray-200 px-4 py-2 rounded-full">
+            <div className="inline-flex items-center gap-2 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600 px-4 py-2 rounded-full">
               <span className="text-2xl">{userRank.icon}</span>
               <span className={`font-bold ${userRank.color}`}>{userRank.name}</span>
             </div>
@@ -312,40 +359,40 @@ const Analytics: React.FC = () => {
               <div className="w-20 h-20 bg-gradient-to-r from-yellow-400 to-orange-500 rounded-full flex items-center justify-center mx-auto mb-3 relative">
                 <span className="text-2xl font-bold text-white">{levelProgress.currentLevel}</span>
               </div>
-              <h3 className="font-semibold text-gray-900">Level {levelProgress.currentLevel}</h3>
-              <p className="text-sm text-gray-600">Current level</p>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">Level {levelProgress.currentLevel}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Current level</p>
             </div>
             
             <div className="text-center">
               <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Zap className="w-10 h-10 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">{levelProgress.progressXP}</h3>
-              <p className="text-sm text-gray-600">Experience Points</p>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{levelProgress.progressXP}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Experience Points</p>
             </div>
             
             <div className="text-center">
               <div className="w-20 h-20 bg-gradient-to-r from-green-400 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Activity className="w-10 h-10 text-white" />
               </div>
-              <h3 className="font-semibold text-gray-900">{currentStreak}</h3>
-              <p className="text-sm text-gray-600">Day Streak</p>
+              <h3 className="font-semibold text-gray-900 dark:text-gray-100">{currentStreak}</h3>
+              <p className="text-sm text-gray-600 dark:text-gray-400">Day Streak</p>
             </div>
           </div>
           
           {/* Level Progress Bar */}
           <div className="mb-4">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
               <span>Level {levelProgress.currentLevel}</span>
               <span>{levelProgress.remainingXP} XP to Level {levelProgress.nextLevel}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-3">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
               <div 
                 className="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500"
                 style={{ width: `${levelProgress.progressPercentage}%` }}
               ></div>
             </div>
-            <div className="text-center text-sm text-gray-600 mt-1">
+            <div className="text-center text-sm text-gray-600 dark:text-gray-400 mt-1">
               {levelProgress.progressXP} / {levelProgress.neededXP} XP
             </div>
           </div>
@@ -368,28 +415,28 @@ const Analytics: React.FC = () => {
             <div className="space-y-4">
               {weeklyProgress.map((day, _) => (
               <div key={day.day} className="flex items-center gap-4">
-                <div className="w-12 text-sm font-medium text-gray-600">
+                <div className="w-12 text-sm font-medium text-gray-600 dark:text-gray-400">
                   {day.day}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
-                    <div className="text-sm text-gray-600">{day.words} words</div>
-                    <div className="text-sm text-gray-600">•</div>
-                    <div className="text-sm text-gray-600">{formatTime(day.time)}</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{day.words} words</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">•</div>
+                    <div className="text-sm text-gray-600 dark:text-gray-400">{formatTime(day.time)}</div>
                     {day.added > 0 && (
                       <>
-                        <div className="text-sm text-gray-600">•</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">•</div>
                         <div className="text-sm text-green-600">+{day.added} new</div>
                       </>
                     )}
                     {day.reviewed > 0 && (
                       <>
-                        <div className="text-sm text-gray-600">•</div>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">•</div>
                         <div className="text-sm text-blue-600">{day.reviewed} reviewed</div>
                       </>
                     )}
                   </div>
-                  <div className="w-full bg-gray-200 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                     <div 
                       className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
                       style={{ width: `${Math.min((day.words / Math.max(...weeklyProgress.map(d => d.words), 1)) * 100, 100)}%` }}
@@ -412,20 +459,20 @@ const Analytics: React.FC = () => {
             
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Best Study Time</span>
-                <span className="font-medium">{studyPatterns.bestStudyTime}</span>
+                <span className="text-gray-600 dark:text-gray-400">Best Study Time</span>
+                <span className="font-medium text-foreground">{studyPatterns.bestStudyTime}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Most Active Day</span>
-                <span className="font-medium">{studyPatterns.mostActiveDay}</span>
+                <span className="text-gray-600 dark:text-gray-400">Most Active Day</span>
+                <span className="font-medium text-foreground">{studyPatterns.mostActiveDay}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Total Sessions</span>
-                <span className="font-medium">{studyPatterns.totalSessions}</span>
+                <span className="text-gray-600 dark:text-gray-400">Total Sessions</span>
+                <span className="font-medium text-foreground">{studyPatterns.totalSessions}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-gray-600">Average Session</span>
-                <span className="font-medium">{formatTime(Math.round(averageSessionTime / 1000 / 60))}</span>
+                <span className="text-gray-600 dark:text-gray-400">Average Session</span>
+                <span className="font-medium text-foreground">{formatTime(Math.round(averageSessionTime / 1000 / 60))}</span>
               </div>
             </div>
           </div>
@@ -444,7 +491,7 @@ const Analytics: React.FC = () => {
               }`}>
                 {consistencyScore}%
               </div>
-              <div className="text-sm text-gray-600 mb-3">Consistency Score</div>
+              <div className="text-sm text-gray-600 dark:text-gray-400 mb-3">Consistency Score</div>
               
               {/* Consistency Progress Ring */}
               <div className="relative w-20 h-20 mx-auto">
@@ -480,7 +527,7 @@ const Analytics: React.FC = () => {
               </div>
             </div>
             
-            <div className="text-center text-xs text-gray-600">
+            <div className="text-center text-xs text-gray-600 dark:text-gray-400">
               {consistencyScore >= 80 ? 'Excellent consistency!' :
                consistencyScore >= 60 ? 'Good study habits' :
                consistencyScore >= 40 ? 'Room for improvement' : 'Try to study more regularly'}
@@ -498,16 +545,16 @@ const Analytics: React.FC = () => {
                 <div className="text-2xl font-bold text-orange-600 mb-1">
                   {responseTimeAnalytics.averageResponseTime}s
                 </div>
-                <div className="text-sm text-gray-600">Average Response</div>
+                <div className="text-sm text-gray-600 dark:text-gray-400">Average Response</div>
               </div>
               
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-green-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600">Easy</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Easy</span>
                   </div>
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-foreground">
                     {responseTimeAnalytics.byDifficulty.easy.length > 0 
                       ? Math.round((responseTimeAnalytics.byDifficulty.easy.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.easy.length) * 10) / 10
                       : 0}s
@@ -517,9 +564,9 @@ const Analytics: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-yellow-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600">Medium</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Medium</span>
                   </div>
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-foreground">
                     {responseTimeAnalytics.byDifficulty.medium.length > 0 
                       ? Math.round((responseTimeAnalytics.byDifficulty.medium.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.medium.length) * 10) / 10
                       : 0}s
@@ -529,9 +576,9 @@ const Analytics: React.FC = () => {
                 <div className="flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                    <span className="text-sm text-gray-600">Hard</span>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">Hard</span>
                   </div>
-                  <div className="text-sm font-medium">
+                  <div className="text-sm font-medium text-foreground">
                     {responseTimeAnalytics.byDifficulty.hard.length > 0 
                       ? Math.round((responseTimeAnalytics.byDifficulty.hard.reduce((sum, w) => sum + w.estimatedResponseTime, 0) / responseTimeAnalytics.byDifficulty.hard.length) * 10) / 10
                       : 0}s
@@ -539,7 +586,7 @@ const Analytics: React.FC = () => {
                 </div>
               </div>
               
-              <div className="text-xs text-gray-500 text-center mt-3">
+              <div className="text-xs text-gray-500 dark:text-gray-400 text-center mt-3">
                 *Estimated based on difficulty and accuracy
               </div>
             </div>
@@ -558,15 +605,15 @@ const Analytics: React.FC = () => {
               achievements.map((achievement: any, index: number) => (
                 <div key={index} className={`flex items-center gap-3 p-3 rounded-lg transition-all duration-200 ${
                   achievement.unlocked 
-                    ? 'bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-200' 
-                    : 'bg-gray-50 border border-gray-200 opacity-60'
+                    ? 'bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-700' 
+                    : 'bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 opacity-60'
                 }`}>
                   <div className="text-2xl">{achievement.icon}</div>
                   <div className="flex-1">
-                    <div className={`font-medium ${achievement.unlocked ? 'text-gray-900' : 'text-gray-500'}`}>
+                    <div className={`font-medium ${achievement.unlocked ? 'text-gray-900 dark:text-gray-100' : 'text-gray-500 dark:text-gray-400'}`}>
                       {achievement.name}
                     </div>
-                    <div className={`text-sm ${achievement.unlocked ? 'text-gray-600' : 'text-gray-400'}`}>
+                    <div className={`text-sm ${achievement.unlocked ? 'text-gray-600 dark:text-gray-400' : 'text-gray-400 dark:text-gray-500'}`}>
                       {achievement.description}
                     </div>
                   </div>
@@ -578,7 +625,7 @@ const Analytics: React.FC = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400">
                 <Award className="w-12 h-12 mx-auto mb-2 opacity-50" />
                 <p>Start learning to unlock achievements!</p>
               </div>
@@ -587,11 +634,11 @@ const Analytics: React.FC = () => {
           
           {/* Achievement Progress */}
           <div className="mt-4 pt-4 border-t border-gray-200">
-            <div className="flex justify-between text-sm text-gray-600 mb-2">
+            <div className="flex justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
               <span>Achievement Progress</span>
               <span>{achievements.filter(a => a.unlocked).length} / {achievements.length}</span>
             </div>
-            <div className="w-full bg-gray-200 rounded-full h-2">
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-yellow-500 to-orange-600 h-2 rounded-full transition-all duration-300"
                 style={{ width: `${achievements.length > 0 ? (achievements.filter(a => a.unlocked).length / achievements.length) * 100 : 0}%` }}
@@ -603,24 +650,255 @@ const Analytics: React.FC = () => {
         {/* Difficult Words */}
         {difficultWords.length > 0 && (
           <div className="card p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-              <Target className="w-5 h-5 text-red-600" />
-              Words Needing More Practice
-            </h3>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                <Target className="w-5 h-5 text-red-600 dark:text-red-400" />
+                <h3 className="text-lg font-semibold">Difficult Words</h3>
+                <span className="text-sm bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 px-2 py-1 rounded-full font-normal">
+                  {difficultWords.length} words need practice
+                </span>
+              </div>
+              
+              {/* Show more/less toggle for large lists */}
+              {difficultWords.length > 9 && (
+                <button
+                  onClick={toggleShowAllDifficultWords}
+                  className="btn btn-outline btn-sm hover-scale focus-ring"
+                >
+                  {showAllDifficultWords ? (
+                    <>
+                      <span>Show Less</span>
+                      <span className="ml-1">↑</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Show All ({difficultWords.length})</span>
+                      <span className="ml-1">↓</span>
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
+            
+            {/* Performance warning and quick stats for large lists */}
+            {difficultWords.length > 20 && (
+              <div className="mb-4 p-4 bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                <div className="flex items-start gap-3">
+                  <span className="text-2xl">📊</span>
+                  <div className="flex-1">
+                    <div className="text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-2">
+                      Large Vocabulary Challenge Detected
+                    </div>
+                    <div className="text-sm text-yellow-700 dark:text-yellow-300 mb-3">
+                      You have {difficultWords.length} words that need practice. Here's a quick breakdown:
+                    </div>
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                          {difficultWords.filter(w => w.successRate < 30).length}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Critical</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                          {difficultWords.filter(w => w.successRate >= 30 && w.successRate < 50).length}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Poor</div>
+                      </div>
+                      <div>
+                        <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+                          {difficultWords.filter(w => w.successRate >= 50 && w.successRate < 70).length}
+                        </div>
+                        <div className="text-xs text-gray-600 dark:text-gray-400">Moderate</div>
+                      </div>
+                    </div>
+                    <div className="mt-3 text-xs text-yellow-600 dark:text-yellow-400">
+                      💡 Tip: Focus on critical words first for maximum learning efficiency
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {difficultWords.map((word: any, index: number) => (
-                <div key={index} className="p-4 bg-red-50 rounded-lg border border-red-200">
-                  <div className="font-medium text-gray-900">{word.word}</div>
-                  <div className="text-sm text-gray-600">{word.meaning}</div>
-                  <div className="text-xs text-red-600 mt-2">
-                    Success rate: {Math.round(word.successRate)}%
+              {wordsToShow.map((word: any, index: number) => (
+                <div key={index} className="group relative p-5 bg-gradient-to-br from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 rounded-xl border border-red-200 dark:border-red-700 hover:shadow-lg hover:scale-105 transition-all duration-200 hover-lift">
+                  {/* Word Header */}
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h4 className="font-bold text-lg text-gray-900 dark:text-gray-100 mb-1 group-hover:text-red-700 dark:group-hover:text-red-300 transition-colors">
+                        {word.word}
+                      </h4>
+                      {word.phonetic && (
+                        <div className="text-xs text-gray-500 dark:text-gray-400 font-mono bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded inline-block">
+                          {word.phonetic}
+                        </div>
+                      )}
+                    </div>
+                    <div className={`text-2xl ${
+                      word.successRate < 30 ? 'text-red-500' :
+                      word.successRate < 50 ? 'text-orange-500' : 
+                      'text-yellow-500'
+                    }`}>
+                      {word.successRate < 30 ? '🔥' : word.successRate < 50 ? '⚠️' : '📚'}
+                    </div>
                   </div>
-                  <div className="text-xs text-gray-500">
-                    {word.totalReviews} reviews • {word.correctReviews} correct
+                  
+                  {/* Meaning */}
+                  <div className="mb-4">
+                    <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
+                      {word.meaning}
+                    </p>
+                    {word.wordType && (
+                      <span className="inline-block mt-2 text-xs bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2 py-1 rounded-full">
+                        {word.wordType}
+                      </span>
+                    )}
+                  </div>
+                  
+                  {/* Success Rate Progress Bar */}
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Success Rate</span>
+                      <span className={`text-sm font-bold ${
+                        word.successRate < 30 ? 'text-red-600 dark:text-red-400' :
+                        word.successRate < 50 ? 'text-orange-600 dark:text-orange-400' :
+                        word.successRate < 70 ? 'text-yellow-600 dark:text-yellow-400' :
+                        'text-green-600 dark:text-green-400'
+                      }`}>
+                        {Math.round(word.successRate)}%
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full transition-all duration-500 ${
+                          word.successRate < 30 ? 'bg-gradient-to-r from-red-500 to-red-600' :
+                          word.successRate < 50 ? 'bg-gradient-to-r from-orange-500 to-red-500' :
+                          word.successRate < 70 ? 'bg-gradient-to-r from-yellow-500 to-orange-500' :
+                          'bg-gradient-to-r from-green-500 to-emerald-500'
+                        }`}
+                        style={{ width: `${word.successRate}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                  
+                  {/* Statistics */}
+                  <div className="flex justify-between items-center text-xs">
+                    <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+                      <Activity className="w-3 h-3" />
+                      <span>{word.totalReviews} reviews</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                      <CheckCircle2 className="w-3 h-3" />
+                      <span>{word.correctReviews} correct</span>
+                    </div>
+                  </div>
+                  
+                  {/* Difficulty Indicator */}
+                  <div className="absolute top-3 right-3">
+                    <div className={`w-3 h-3 rounded-full ${
+                      word.successRate < 30 ? 'bg-red-500' :
+                      word.successRate < 50 ? 'bg-orange-500' :
+                      word.successRate < 70 ? 'bg-yellow-500' : 'bg-green-500'
+                    } opacity-70 group-hover:opacity-100 transition-opacity`}
+                         title={`${Math.round(word.successRate)}% success rate`}>
+                    </div>
                   </div>
                 </div>
               ))}
+            </div>
+            
+            {/* Pagination Controls for very large lists */}
+            {shouldUsePagination && showAllDifficultWords && totalPages > 1 && (
+              <div className="mt-6 flex justify-center items-center gap-4">
+                <button
+                  onClick={() => setDifficultWordsPage(Math.max(0, difficultWordsPage - 1))}
+                  disabled={difficultWordsPage === 0}
+                  className="btn btn-outline btn-sm hover-scale focus-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  ← Previous
+                </button>
+                
+                <div className="flex items-center gap-2">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i;
+                    } else if (difficultWordsPage < 3) {
+                      pageNum = i;
+                    } else if (difficultWordsPage >= totalPages - 3) {
+                      pageNum = totalPages - 5 + i;
+                    } else {
+                      pageNum = difficultWordsPage - 2 + i;
+                    }
+                    
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setDifficultWordsPage(pageNum)}
+                        className={`w-8 h-8 rounded text-sm transition-colors ${
+                          pageNum === difficultWordsPage
+                            ? 'bg-primary-600 text-white'
+                            : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                        }`}
+                      >
+                        {pageNum + 1}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button
+                  onClick={() => setDifficultWordsPage(Math.min(totalPages - 1, difficultWordsPage + 1))}
+                  disabled={difficultWordsPage === totalPages - 1}
+                  className="btn btn-outline btn-sm hover-scale focus-ring disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Next →
+                </button>
+                
+                <div className="text-sm text-gray-600 dark:text-gray-400 ml-4">
+                  Page {difficultWordsPage + 1} of {totalPages} • Showing {wordsToShow.length} of {difficultWords.length} words
+                </div>
+              </div>
+            )}
+            
+            {/* Loading indicator when switching pages */}
+            {shouldUsePagination && showAllDifficultWords && (
+              <div className="mt-4 text-center">
+                <div className="text-sm text-gray-500 dark:text-gray-400">
+                  📄 Using pagination for better performance with {difficultWords.length} words
+                </div>
+              </div>
+            )}
+            
+            {/* Summary Stats */}
+            <div className="mt-6 pt-4 border-t border-red-200 dark:border-red-800">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                <div>
+                  <div className="text-lg font-bold text-red-600 dark:text-red-400">
+                    {difficultWords.filter(w => w.successRate < 30).length}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Critical (&lt;30%)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-orange-600 dark:text-orange-400">
+                    {difficultWords.filter(w => w.successRate >= 30 && w.successRate < 50).length}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Poor (30-50%)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-yellow-600 dark:text-yellow-400">
+                    {difficultWords.filter(w => w.successRate >= 50 && w.successRate < 70).length}
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Moderate (50-70%)</div>
+                </div>
+                <div>
+                  <div className="text-lg font-bold text-gray-600 dark:text-gray-400">
+                    {Math.round(difficultWords.reduce((sum, w) => sum + w.successRate, 0) / difficultWords.length)}%
+                  </div>
+                  <div className="text-xs text-gray-600 dark:text-gray-400">Average Success</div>
+                </div>
+              </div>
             </div>
           </div>
         )}
