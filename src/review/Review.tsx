@@ -451,6 +451,36 @@ const Review: React.FC = () => {
       // Wait for all updates to complete before proceeding
       await Promise.all(updatePromises);
 
+      // Check and update daily streak after each successful word review (not just at session end)
+      if (!isPracticeSession && data) {
+        try {
+          // Get fresh data from storage to include the just-updated word
+          const freshData = await chrome.storage.local.get(['vocabWords']);
+          const updatedWords = freshData.vocabWords || data.vocabWords;
+          
+          const wordsReviewedToday = countWordsReviewedToday(updatedWords);
+          
+          const streakUpdate = updateDailyStreak({
+            currentGamification: data.gamification,
+            wordsReviewedToday
+          });
+          
+          // Update streak if it changed
+          if (streakUpdate.streakIncremented || streakUpdate.shouldResetStreak || 
+              streakUpdate.streak !== (data.gamification?.streak || 0)) {
+            const streakGamificationUpdate = {
+              ...data.gamification,
+              streak: streakUpdate.streak,
+              lastStreakUpdate: streakUpdate.lastStreakUpdate
+            };
+            
+            await updateGamification(streakGamificationUpdate);
+          }
+        } catch (error) {
+          console.warn('Failed to update streak after word review:', error);
+        }
+      }
+
       // Move to next word or complete review
       if (reviewWords.length > 1) {
         // Remove the current word from review queue by ID to prevent duplicates
@@ -702,8 +732,8 @@ const Review: React.FC = () => {
             <div className="mt-4">
               <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
                 <div 
-                  className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
+                  className="h-2 rounded-full transition-all duration-500 ease-out"
+                  style={getProgressStyle(progress)}
                 ></div>
               </div>
             </div>

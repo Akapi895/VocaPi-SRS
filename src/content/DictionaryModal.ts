@@ -302,8 +302,6 @@ export class DictionaryModal {
 
   private async performDictionaryLookup(word: string): Promise<void> {
     try {
-      console.log('🚀 Starting dictionary lookup for:', word);
-      
       // Show loading state
       if (this.modal) {
         const bodyEl = this.modal.querySelector('.vocab-srs-modal-body');
@@ -323,14 +321,12 @@ export class DictionaryModal {
       
       // Update modal content based on lookup results
       if (result && result.entries.length > 0) {
-        console.log('✅ Dictionary lookup successful, showing results');
         this.currentTab = 'lookup';
         
         // Update modal content in-place instead of recreating
         this.updateModalContent();
         
         // Auto-fetch phonetic using cascade system after displaying results
-        console.log('🔍 Auto-fetching phonetic and audio using cascade system');
         setTimeout(() => {
           this.cascadePhoneticFetch(word).then(() => {
             // Auto-play audio after cascade fetch completes
@@ -338,7 +334,6 @@ export class DictionaryModal {
           });
         }, 300); // Small delay to let UI update first
       } else {
-        console.log('❌ No dictionary results found, switching to input tab');
         this.currentTab = 'input';
         this.lookupResults = null;
         
@@ -363,7 +358,6 @@ export class DictionaryModal {
         this.updateModalContent();
         
         // Auto-fetch phonetic and audio for the word after switching to input tab
-        console.log('🔍 Auto-fetching phonetic and audio for manual entry');
         await this.fetchPhoneticForWord(word);
         
         // Auto-play audio after fetching phonetic
@@ -371,7 +365,7 @@ export class DictionaryModal {
       }
       
     } catch (error) {
-      console.error('❌ Dictionary lookup failed:', error);
+      console.error('Dictionary lookup failed:', error);
       
       // Show error message
       if (this.modal) {
@@ -395,7 +389,6 @@ export class DictionaryModal {
       this.updateModalContent();
       
       // Auto-fetch phonetic and audio even after error
-      console.log('🔍 Auto-fetching phonetic after dictionary error');
       await this.fetchPhoneticForWord(word);
       
       // Auto-play audio after error recovery
@@ -405,26 +398,21 @@ export class DictionaryModal {
 
   private async searchDictionary(word: string): Promise<DictLookupResult | null> {
     try {
-      console.log('🔍 Starting dictionary search for:', word);
-      
       // Try online API first with short timeout
       try {
         const onlineResult = await this.searchOnlineAPI(word);
         if (onlineResult) {
-          console.log('✅ Found word in online API');
           return onlineResult;
         }
-        console.log('⚠️ Word not found in online API');
       } catch (onlineError) {
-        console.log('❌ Online API failed:', onlineError instanceof Error ? onlineError.message : String(onlineError));
+        // Online API failed, continue to fallback
       }
       
       // Fallback to simple mock dictionary for now
-      console.log('📝 Using simple fallback dictionary');
       return this.createSimpleDictionaryEntry(word);
       
     } catch (error) {
-      console.error('❌ Dictionary search error:', error);
+      console.error('Dictionary search error:', error);
       return this.createSimpleDictionaryEntry(word);
     }
   }
@@ -465,11 +453,8 @@ export class DictionaryModal {
 
   private async searchOnlineAPI(word: string): Promise<DictLookupResult | null> {
     try {
-      console.log('🌐 Searching online API for:', word);
-      
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('⏰ Online API timeout after 3 seconds');
         controller.abort();
       }, 3000); // Reduced to 3 seconds
       
@@ -485,13 +470,11 @@ export class DictionaryModal {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.log('❌ Online API response not OK:', response.status);
         return null;
       }
 
       const data = await response.json();
       if (!data || !Array.isArray(data) || data.length === 0) {
-        console.log('❌ No data from online API');
         return null;
       }
 
@@ -532,11 +515,9 @@ export class DictionaryModal {
         entries
       } : null;
 
-      console.log('📝 Online API result:', result ? 'Found' : 'Not found');
       return result;
 
     } catch (error) {
-      console.error('❌ Online API search failed:', error);
       return null;
     }
   }
@@ -979,28 +960,21 @@ export class DictionaryModal {
   }
 
   private async cascadePhoneticFetch(word: string): Promise<{phonetic?: string, audioUrl?: string, source: string}> {
-    console.log('🔍 Starting cascade phonetic fetch for:', word);
-    
     // 1. First try: Dictionary lookup (if we have lookupResults)
     if (this.lookupResults && this.lookupResults.entries.length > 0) {
-      console.log('📚 Trying dictionary lookup first...');
       const result = this.extractPhoneticFromDictionary(word);
       if (result.phonetic || result.audioUrl) {
-        console.log('✅ Found from dictionary lookup:', result);
         return { ...result, source: 'dictionary' };
       }
     }
     
     // 2. Second try: DictionaryAPI.dev
-    console.log('🌐 Trying dictionaryapi.dev...');
     const apiResult = await this.fetchFromDictionaryAPI(word);
     if (apiResult.phonetic || apiResult.audioUrl) {
-      console.log('✅ Found from dictionaryapi.dev:', apiResult);
       return { ...apiResult, source: 'api' };
     }
     
     // 3. Last resort: Fallback phonetic + TTS
-    console.log('🔄 Using fallback methods...');
     const fallbackPhonetic = this.generateFallbackPhonetic(word);
     return { 
       phonetic: fallbackPhonetic, 
@@ -1045,7 +1019,6 @@ export class DictionaryModal {
     try {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log('⏰ DictionaryAPI timeout after 5 seconds');
         controller.abort();
       }, 5000);
       
@@ -1061,7 +1034,6 @@ export class DictionaryModal {
       clearTimeout(timeoutId);
 
       if (!response.ok) {
-        console.log('❌ DictionaryAPI response not OK:', response.status);
         return {};
       }
 
@@ -1080,7 +1052,6 @@ export class DictionaryModal {
       }
       return {};
     } catch (error) {
-      console.log('❌ Error fetching from DictionaryAPI:', error);
       return {};
     }
   }
@@ -1096,21 +1067,17 @@ export class DictionaryModal {
       if (result.phonetic) {
         phoneticInput.value = result.phonetic;
         phoneticInput.readOnly = false;
-        console.log(`✅ Set phonetic from ${result.source}:`, result.phonetic);
       } else {
         phoneticInput.value = this.generateFallbackPhonetic(word);
         phoneticInput.readOnly = false;
-        console.log('📝 Using fallback phonetic:', phoneticInput.value);
       }
     }
     
     if (audioBtn && result.audioUrl) {
       audioBtn.dataset.audio = result.audioUrl;
-      console.log(`🔊 Set audio URL from ${result.source}:`, result.audioUrl);
     } else if (audioBtn) {
       // Clear audio URL for TTS fallback
       audioBtn.removeAttribute('data-audio');
-      console.log('🔊 No audio URL, will use TTS fallback');
     }
   }
 
@@ -1202,7 +1169,7 @@ export class DictionaryModal {
     }
 
     try {
-      console.log('🔊 Playing audio from URL:', audioUrl);
+
       const audio = new Audio(audioUrl);
       audio.play().catch((error) => {
         console.warn('Audio playback failed:', error);
@@ -1229,7 +1196,6 @@ export class DictionaryModal {
     // Prevent multiple calls
     const saveBtn = this.modal.querySelector('.vocab-srs-btn-save') as HTMLButtonElement;
     if (saveBtn?.disabled) {
-      console.log('Save already in progress, ignoring duplicate call');
       return;
     }
 
@@ -1349,7 +1315,7 @@ export class DictionaryModal {
   }
 
   private autoPlayWordAudio(word: string): void {
-    console.log('🔊 Auto-playing audio for word:', word);
+
     
     // Small delay to ensure UI is ready
     setTimeout(() => {
@@ -1359,7 +1325,7 @@ export class DictionaryModal {
       if (this.lookupResults?.entries) {
         for (const entry of this.lookupResults.entries) {
           if (entry.audio) {
-            console.log('🎵 Playing audio from dictionary entry:', entry.audio);
+
             this.playAudio(entry.audio);
             audioPlayed = true;
             break;
@@ -1373,7 +1339,7 @@ export class DictionaryModal {
         const audioUrl = audioBtn?.dataset?.audio;
         
         if (audioUrl && audioUrl.trim() !== '') {
-          console.log('🎵 Playing audio from input tab:', audioUrl);
+
           this.playAudio(audioUrl);
           audioPlayed = true;
         }
@@ -1381,7 +1347,6 @@ export class DictionaryModal {
       
       // Fallback to TTS if no audio URL available
       if (!audioPlayed) {
-        console.log('🗣️ Using TTS for word:', word);
         this.playTextToSpeech(word);
       }
     }, 500); // 500ms delay to ensure audio elements are ready

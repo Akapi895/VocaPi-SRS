@@ -128,15 +128,94 @@ export const calculateWordDistribution = (words: VocabWord[]): WordDistribution 
  */
 export const calculateStreakInfo = (
   gamification?: GamificationData,
-  analytics?: AnalyticsData
+  analytics?: AnalyticsData,
+  words?: VocabWord[]
 ) => {
-  const currentStreak = gamification?.streak || 0;
-  const longestStreak = analytics?.longestStreak || Math.max(currentStreak, analytics?.currentStreak || 0);
+  let currentStreak = gamification?.streak || 0;
+  
+  // If we have words data, calculate streak from actual review activity
+  if (words && words.length > 0) {
+    const realTimeStreak = calculateRealTimeStreak(words);
+    // Use the calculated streak if it's different from stored value
+    if (realTimeStreak !== currentStreak) {
+      currentStreak = realTimeStreak;
+    }
+  }
+  
+  const longestStreak = Math.max(
+    analytics?.longestStreak || 0,
+    currentStreak,
+    analytics?.currentStreak || 0
+  );
   
   return {
     currentStreak,
     longestStreak
   };
+};
+
+/**
+ * Calculate current streak based on actual word review activity
+ * @param words Array of vocabulary words
+ * @returns Current streak based on daily activity
+ */
+const calculateRealTimeStreak = (words: VocabWord[]): number => {
+  const now = Date.now();
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  let streak = 0;
+  
+  // Check each day going backwards from today
+  for (let daysAgo = 0; daysAgo < 365; daysAgo++) { // Max 365 days
+    const dayStart = new Date(now - daysAgo * oneDayMs);
+    dayStart.setHours(0, 0, 0, 0);
+    const dayStartMs = dayStart.getTime();
+    const dayEndMs = dayStartMs + oneDayMs - 1;
+    
+    const wordsReviewedThisDay = countWordsReviewedOnDate(words, dayStartMs, dayEndMs);
+    
+    if (wordsReviewedThisDay >= 10) {
+      streak++;
+    } else if (daysAgo === 0) {
+      // Today: if < 10 words but > 0, keep current streak (don't break it)
+      if (wordsReviewedThisDay === 0) {
+        break; // No activity today breaks the streak
+      }
+      // If 1-9 words today, continue checking previous days
+    } else {
+      // Previous days: any day with < 10 words breaks the streak
+      break;
+    }
+  }
+  
+  return streak;
+};
+
+/**
+ * Count words reviewed on a specific date
+ * @param words Array of vocabulary words
+ * @param dayStart Start timestamp of the day
+ * @param dayEnd End timestamp of the day  
+ * @returns Number of unique words reviewed on that day
+ */
+const countWordsReviewedOnDate = (words: VocabWord[], dayStart: number, dayEnd: number): number => {
+  const uniqueWords = new Set<string>();
+  
+  words.forEach(word => {
+    const wasReviewedThisDay = word.lastReviewTime && 
+      word.lastReviewTime >= dayStart && 
+      word.lastReviewTime <= dayEnd;
+      
+    const wasUpdatedThisDay = word.updatedAt && 
+      word.updatedAt >= dayStart && 
+      word.updatedAt <= dayEnd &&
+      (word.totalReviews || 0) > 0;
+    
+    if (wasReviewedThisDay || wasUpdatedThisDay) {
+      uniqueWords.add(word.id);
+    }
+  });
+  
+  return uniqueWords.size;
 };
 
 /**
@@ -323,7 +402,7 @@ export const getAnalyticsSummary = (data: any) => {
   
   const coreStats = calculateCoreStatistics(words, analytics);
   const wordDistribution = calculateWordDistribution(words);
-  const streakInfo = calculateStreakInfo(gamification, analytics);
+  const streakInfo = calculateStreakInfo(gamification, analytics, words);
   const weeklyProgress = generateWeeklyProgress(words);
   const studyPatterns = analyzeStudyPatterns(words);
   const difficultWords = getDifficultWords(words);
