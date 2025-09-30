@@ -14,18 +14,32 @@ import type { GamificationAnalysisData } from '@/gamification/core/types';
  * @returns Words due for review
  */
 export const getDueWords = (words: VocabWord[], currentTime: number = Date.now()): VocabWord[] => {
-  return words.filter(word => {
+  // Use Map to deduplicate by ID first (same logic as getWordsForReview)
+  const uniqueWords = new Map<string, VocabWord>();
+  
+  words.forEach(word => {
     // Safety checks
-    if (!word || typeof word !== 'object') return false;
+    if (!word || typeof word !== 'object' || !word.id) return;
     
+    // Only keep the most recent version if there are duplicates
+    if (!uniqueWords.has(word.id) || 
+        (uniqueWords.get(word.id)!.updatedAt || 0) < (word.updatedAt || 0)) {
+      uniqueWords.set(word.id, word);
+    }
+  });
+  
+  // Filter words that are actually due (same logic as getWordsForReview)
+  return Array.from(uniqueWords.values()).filter(word => {
     // Check if nextReview exists and is a valid number
     if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
-      // If no nextReview is set, consider it due for review (new words)
+      // If no nextReview is set, only include new words (repetitions === 0)
       return word.repetitions === 0;
     }
     
-    // Word is due if nextReview time has passed
-    return word.nextReview <= currentTime;
+    // Add a small buffer (1 minute) to prevent timing issues (same as getWordsForReview)
+    // Word is due if nextReview time has passed (with 1 minute tolerance)
+    const dueTime = word.nextReview - (60 * 1000); // 1 minute buffer
+    return dueTime <= currentTime;
   });
 };
 
@@ -189,6 +203,7 @@ export interface ExportData {
   gamification: any;
   analytics: any;
   settings: any;
+  reviewSessions: any[];
   exportDate: string;
   version: string;
 }
@@ -204,8 +219,9 @@ export const createExportData = (data: any): ExportData => {
     gamification: data.gamification || {},
     analytics: data.analytics || {},
     settings: data.settings || {},
+    reviewSessions: data.reviewSessions || [],
     exportDate: new Date().toISOString(),
-    version: '1.0.1' // Match analytics export version
+    version: '1.1.0'
   };
 };
 
@@ -274,6 +290,11 @@ export const validateImportData = (importData: any): { isValid: boolean; error?:
       if (!word.id || !word.word || !word.meaning) {
         return { isValid: false, error: 'Invalid word data structure. Each word must have id, word, and meaning.' };
       }
+      
+      // Ensure required fields have proper types
+      if (typeof word.id !== 'string' || typeof word.word !== 'string' || typeof word.meaning !== 'string') {
+        return { isValid: false, error: 'Invalid word data types. ID, word, and meaning must be strings.' };
+      }
     }
 
     return { 
@@ -323,7 +344,8 @@ export const processDataImport = async (
       vocabWords: importData.vocabWords,
       gamification: importData.gamification || currentData?.gamification || {},
       analytics: importData.analytics || currentData?.analytics || {},
-      settings: importData.settings || currentData?.settings || {}
+      settings: importData.settings || currentData?.settings || {},
+      reviewSessions: importData.reviewSessions || currentData?.reviewSessions || []
     };
 
     return { 

@@ -101,9 +101,15 @@ export const useChromeStorage = () => {
   const updateWord = useCallback(async (wordId: string, updates: Partial<VocabWord>) => {
     if (!data) return;
     
+    const wordToUpdate = data.vocabWords.find(word => word.id === wordId);
+    if (!wordToUpdate) {
+      return;
+    }
+    
     const updatedWords = data.vocabWords.map(word => 
       word.id === wordId ? { ...word, ...updates, updatedAt: Date.now() } : word
     );
+    
     await saveData({ vocabWords: updatedWords });
   }, [data, saveData]);
 
@@ -137,6 +143,27 @@ export const useChromeStorage = () => {
 
   useEffect(() => {
     loadData();
+    
+    // Listen for storage changes to auto-reload data
+    const handleStorageChange = (changes: { [key: string]: chrome.storage.StorageChange }) => {
+      // Check if any of our keys changed
+      const relevantKeys = ['vocabWords', 'gamification', 'analytics', 'settings', 'reviewSessions'];
+      const hasRelevantChanges = relevantKeys.some(key => changes[key]);
+      
+      if (hasRelevantChanges) {
+        loadData();
+      }
+    };
+    
+    // Add listener if chrome.storage is available
+    if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.onChanged) {
+      chrome.storage.onChanged.addListener(handleStorageChange);
+      
+      // Cleanup listener on unmount
+      return () => {
+        chrome.storage.onChanged.removeListener(handleStorageChange);
+      };
+    }
   }, [loadData]);
 
   return {

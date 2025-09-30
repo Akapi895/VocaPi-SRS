@@ -1,5 +1,6 @@
 // Content script for VocaPi extension
 import { VocabWord } from '@/types';
+import { DictionaryModal, type WordData } from './DictionaryModal';
 
 // Global variables
 let selectedText = '';
@@ -640,6 +641,12 @@ function showFloatingButton() {
     return;
   }
   
+  // Don't show floating button when modal is open
+  if (isModalOpen) {
+    hideFloatingButton();
+    return;
+  }
+  
   const selection = window.getSelection();
   
   if (!selection || selection.toString().trim() === '') {
@@ -724,116 +731,6 @@ function hideFloatingButton() {
     button.style.visibility = 'hidden';
     button.style.opacity = '0';
     button.style.pointerEvents = 'none';
-  }
-}
-
-// Fetch word data from API
-async function fetchWordData(word: string): Promise<{ phonetic: string; pronunUrl: string }> {
-  const fallbackData = {
-    phonetic: generateSimplePhonetic(word),
-    pronunUrl: ''
-  };
-
-  try {
-    // Add timeout to prevent hanging
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
-    const response = await fetch(
-      `https://api.dictionaryapi.dev/api/v2/entries/en/${encodeURIComponent(word)}`,
-      { 
-        signal: controller.signal,
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json',
-        }
-      }
-    );
-    
-    clearTimeout(timeoutId);
-    
-    if (response.ok && response.status === 200) {
-      const data = await response.json();
-      if (data && Array.isArray(data) && data.length > 0) {
-        const entry = data[0];
-        
-        // Extract phonetic with multiple fallbacks
-        let phonetic = '';
-        if (entry.phonetic) {
-          phonetic = entry.phonetic;
-        } else if (entry.phonetics && Array.isArray(entry.phonetics)) {
-          // Try to find phonetic with text
-          for (const phoneticEntry of entry.phonetics) {
-            if (phoneticEntry.text && phoneticEntry.text.trim()) {
-              phonetic = phoneticEntry.text;
-              break;
-            }
-          }
-        }
-        
-        // Extract audio URL with multiple fallbacks
-        let audioUrl = '';
-        if (entry.phonetics && Array.isArray(entry.phonetics)) {
-          for (const phoneticEntry of entry.phonetics) {
-            if (phoneticEntry.audio && phoneticEntry.audio.trim()) {
-              audioUrl = phoneticEntry.audio;
-              break;
-            }
-          }
-        }
-        
-        return {
-          phonetic: phonetic || fallbackData.phonetic,
-          pronunUrl: audioUrl || ''
-        };
-      }
-    }
-    
-    return fallbackData;
-    
-  } catch (error) {
-    return fallbackData;
-  }
-}
-
-// Simple phonetic generation fallback
-function generateSimplePhonetic(word: string): string {
-  // This is a very basic phonetic approximation
-  // In a real app, you'd want a proper phonetic library
-  return `/${word.toLowerCase()}/`;
-}
-
-// Play audio for a word with given audio URL
-function playWordAudio(word: string, pronunUrl: string): void {
-  // Try to play from pronunUrl first
-  if (pronunUrl && pronunUrl.trim() !== '') {
-    const audio = new Audio(pronunUrl);
-    audio.play().catch(() => {
-      // Fallback to TTS if audio URL fails
-      playTextToSpeech(word);
-    });
-  } else {
-    // Use TTS if no audio URL available
-    playTextToSpeech(word);
-  }
-}
-
-// Play text-to-speech for a word
-function playTextToSpeech(word: string): void {
-  if ('speechSynthesis' in window) {
-    try {
-      // Cancel any existing speech
-      window.speechSynthesis.cancel();
-      
-      const utterance = new SpeechSynthesisUtterance(word);
-      utterance.lang = 'en-US';
-      utterance.rate = 0.85;
-      utterance.volume = 0.8;
-      
-      window.speechSynthesis.speak(utterance);
-    } catch (error) {
-      // Silent fail
-    }
   }
 }
 
@@ -1081,250 +978,6 @@ function showCustomConfirmDialog(options: ConfirmDialogOptions): Promise<boolean
   });
 }
 
-// Custom error dialog
-interface ErrorDialogOptions {
-  title: string;
-  message: string;
-  details: string;
-  suggestion: string;
-  buttonText: string;
-}
-
-function showCustomErrorDialog(options: ErrorDialogOptions): Promise<void> {
-  return new Promise((resolve) => {
-    // Create modal
-    const modal = document.createElement('div');
-    modal.id = 'vocab-srs-error-modal';
-    modal.className = 'vocab-srs-modal';
-    
-    modal.innerHTML = `
-      <div class="vocab-srs-modal-overlay">
-        <div class="vocab-srs-modal-content vocab-srs-error-dialog">
-          <div class="vocab-srs-modal-header">
-            <h3>${options.title}</h3>
-          </div>
-          <div class="vocab-srs-modal-body">
-            <div class="vocab-srs-error-content">
-              <div class="vocab-srs-error-icon">
-                <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <circle cx="12" cy="12" r="10"/>
-                  <line x1="15" y1="9" x2="9" y2="15"/>
-                  <line x1="9" y1="9" x2="15" y2="15"/>
-                </svg>
-              </div>
-              
-              <div class="vocab-srs-error-message">
-                <p>${options.message}</p>
-              </div>
-              
-              <div class="vocab-srs-error-details">
-                <div class="vocab-srs-details-label">Details:</div>
-                <div class="vocab-srs-details-text">${options.details}</div>
-              </div>
-              
-              <div class="vocab-srs-error-suggestion">
-                <div class="vocab-srs-suggestion-icon">💡</div>
-                <div class="vocab-srs-suggestion-text">${options.suggestion}</div>
-              </div>
-            </div>
-          </div>
-          <div class="vocab-srs-modal-footer">
-            <button class="vocab-srs-btn-ok" data-action="ok">${options.buttonText}</button>
-          </div>
-        </div>
-      </div>
-    `;
-
-    // Add custom styles for error dialog
-    const errorStyle = document.createElement('style');
-    errorStyle.id = 'vocab-srs-error-styles';
-    errorStyle.textContent = `
-      .vocab-srs-error-dialog {
-        max-width: 450px !important;
-      }
-      
-      .vocab-srs-error-content {
-        text-align: center !important;
-      }
-      
-      .vocab-srs-error-icon {
-        margin: 0 auto 20px !important;
-        width: 64px !important;
-        height: 64px !important;
-        background: linear-gradient(135deg, #fef2f2, #fee2e2) !important;
-        border: 3px solid #f87171 !important;
-        border-radius: 50% !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-      }
-      
-      .vocab-srs-error-icon svg {
-        color: #dc2626 !important;
-        width: 32px !important;
-        height: 32px !important;
-      }
-      
-      .vocab-srs-error-message {
-        margin-bottom: 20px !important;
-        font-size: 16px !important;
-        color: #374151 !important;
-        line-height: 1.5 !important;
-      }
-      
-      .vocab-srs-error-details {
-        background: #fef2f2 !important;
-        border: 2px solid #fecaca !important;
-        border-radius: 12px !important;
-        padding: 16px !important;
-        margin: 16px 0 !important;
-        text-align: left !important;
-      }
-      
-      .vocab-srs-details-label {
-        font-weight: 600 !important;
-        color: #dc2626 !important;
-        font-size: 14px !important;
-        margin-bottom: 8px !important;
-      }
-      
-      .vocab-srs-details-text {
-        font-size: 14px !important;
-        color: #991b1b !important;
-        font-style: italic !important;
-      }
-      
-      .vocab-srs-error-suggestion {
-        background: linear-gradient(135deg, #fffbeb, #fef3c7) !important;
-        border: 2px solid #fbbf24 !important;
-        border-radius: 12px !important;
-        padding: 16px !important;
-        margin: 16px 0 !important;
-        display: flex !important;
-        align-items: flex-start !important;
-        gap: 12px !important;
-        text-align: left !important;
-      }
-      
-      .vocab-srs-suggestion-icon {
-        font-size: 20px !important;
-        flex-shrink: 0 !important;
-        margin-top: 2px !important;
-      }
-      
-      .vocab-srs-suggestion-text {
-        font-size: 14px !important;
-        color: #92400e !important;
-        line-height: 1.4 !important;
-      }
-      
-      .vocab-srs-btn-ok {
-        background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
-        color: white !important;
-        padding: 12px 32px !important;
-        border-radius: 10px !important;
-        font-size: 14px !important;
-        font-weight: 600 !important;
-        cursor: pointer !important;
-        transition: all 0.3s ease !important;
-        border: none !important;
-        box-shadow: 0 4px 20px rgba(59, 130, 246, 0.3) !important;
-        min-width: 120px !important;
-      }
-      
-      .vocab-srs-btn-ok:hover {
-        background: linear-gradient(135deg, #60a5fa, #3b82f6) !important;
-        transform: translateY(-2px) !important;
-        box-shadow: 0 8px 25px rgba(59, 130, 246, 0.4) !important;
-      }
-      
-      /* Dark mode support */
-      @media (prefers-color-scheme: dark) {
-        .vocab-srs-error-message {
-          color: #d1d5db !important;
-        }
-        
-        .vocab-srs-error-icon {
-          background: linear-gradient(135deg, #450a0a, #7f1d1d) !important;
-          border-color: #ef4444 !important;
-        }
-        
-        .vocab-srs-error-icon svg {
-          color: #f87171 !important;
-        }
-        
-        .vocab-srs-error-details {
-          background: #450a0a !important;
-          border-color: #dc2626 !important;
-        }
-        
-        .vocab-srs-details-label {
-          color: #f87171 !important;
-        }
-        
-        .vocab-srs-details-text {
-          color: #fca5a5 !important;
-        }
-        
-        .vocab-srs-error-suggestion {
-          background: linear-gradient(135deg, #451a03, #78350f) !important;
-          border-color: #d97706 !important;
-        }
-        
-        .vocab-srs-suggestion-text {
-          color: #fbbf24 !important;
-        }
-      }
-    `;
-
-    document.head.appendChild(errorStyle);
-    document.body.appendChild(modal);
-
-    // Add event listeners
-    const handleAction = () => {
-      // Remove modal and styles
-      document.body.removeChild(modal);
-      document.head.removeChild(errorStyle);
-      
-      // Resolve promise
-      resolve();
-    };
-
-    // Button event listener
-    modal.addEventListener('click', (e) => {
-      const target = e.target as HTMLElement;
-      if (target.dataset.action === 'ok') {
-        handleAction();
-      }
-    });
-
-    // Close on overlay click
-    modal.querySelector('.vocab-srs-modal-overlay')?.addEventListener('click', (e) => {
-      if (e.target === e.currentTarget) {
-        handleAction();
-      }
-    });
-
-    // ESC key to close
-    const handleEscKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        event.preventDefault();
-        event.stopPropagation();
-        document.removeEventListener('keydown', handleEscKey);
-        handleAction();
-      }
-    };
-
-    document.addEventListener('keydown', handleEscKey);
-
-    // Focus on OK button
-    setTimeout(() => {
-      const okBtn = modal.querySelector('.vocab-srs-btn-ok') as HTMLElement;
-      okBtn?.focus();
-    }, 100);
-  });
-}
-
 // Show add modal
 function showAddModal(word?: string) {
   if (isModalOpen) return;
@@ -1334,497 +987,112 @@ function showAddModal(word?: string) {
   // Hide floating button when modal opens
   hideFloatingButton();
   
-  // Create modal
-  const modal = document.createElement('div');
-  modal.id = 'vocab-srs-modal';
-  modal.innerHTML = `
-    <div class="vocab-srs-modal-overlay">
-      <div class="vocab-srs-modal-content">
-        <div class="vocab-srs-modal-header">
-          <h3>Add to Dictionary</h3>
-          <button class="vocab-srs-modal-close">&times;</button>
-        </div>
-        <div class="vocab-srs-modal-body">
-          <div class="vocab-srs-form-group">
-            <label>Word *</label>
-            <input type="text" id="vocab-word" value="${word || ''}" placeholder="Enter word" required>
-          </div>
-          <div class="vocab-srs-form-group">
-            <label>Meaning *</label>
-            <input type="text" id="vocab-meaning" placeholder="Enter meaning" required>
-          </div>
-          <div class="vocab-srs-form-group">
-            <label>Phonetic *</label>
-            <div class="vocab-srs-phonetic-group">
-              <input type="text" id="vocab-phonetic" placeholder="Loading phonetic..." readonly>
-              <button type="button" class="vocab-srs-play-audio" title="Play pronunciation">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polygon points="11 5,6 9,2 9,2 15,6 15,11 19,11 5"></polygon>
-                  <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="vocab-srs-form-group">
-            <label>Word Type *</label>
-            <select id="vocab-word-type" required>
-              <option value="">Select word type</option>
-              <option value="noun">Noun</option>
-              <option value="verb">Verb</option>
-              <option value="adjective">Adjective</option>
-              <option value="adverb">Adverb</option>
-              <option value="idiom">Idiom</option>
-              <option value="phrase">Phrase</option>
-              <option value="other">Other</option>
-            </select>
-          </div>
-          <div class="vocab-srs-form-group">
-            <label>Example (optional)</label>
-            <input type="text" id="vocab-example" placeholder="Enter example sentence">
-          </div>
-        </div>
-        <div class="vocab-srs-modal-footer">
-          <button class="vocab-srs-btn-cancel">Cancel</button>
-          <button class="vocab-srs-btn-save">Save to Dictionary</button>
-        </div>
-      </div>
-    </div>
-  `;
-  
-  // Set modal classes
-  modal.className = 'vocab-srs-modal';
-  
-  // Add additional styles for specific elements
-  const additionalStyle = document.createElement('style');
-  additionalStyle.textContent = `
-    .vocab-srs-phonetic-group {
-      display: flex !important;
-      gap: 10px !important;
-      align-items: center !important;
-    }
-    
-    .vocab-srs-phonetic-group input {
-      flex: 1 !important;
-    }
-    
-    .vocab-srs-play-audio {
-      background: #f9fafb !important;
-      border: 2px solid #e5e7eb !important;
-      border-radius: 8px !important;
-      padding: 10px !important;
-      cursor: pointer !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      transition: all 0.2s ease !important;
-      min-width: 42px !important;
-      height: 42px !important;
-    }
-    
-    .vocab-srs-play-audio:hover {
-      background: rgba(34, 197, 94, 0.1) !important;
-      border-color: #22c55e !important;
-      transform: scale(1.05) !important;
-    }
-    
-    .vocab-srs-play-audio:active {
-      transform: scale(0.98) !important;
-    }
-    
-    .vocab-srs-play-audio:disabled {
-      opacity: 0.5 !important;
-      cursor: not-allowed !important;
-      transform: none !important;
-    }
-    
-    .vocab-srs-play-audio svg {
-      color: #22c55e !important;
-    }
-    
-    /* Enhanced select dropdown styling */
-    #vocab-word-type {
-      width: 100% !important;
-      padding: 12px 40px 12px 16px !important;
-      font-size: 15px !important;
-      font-weight: 500 !important;
-      line-height: 1.5 !important;
-      color: #374151 !important;
-      background: #ffffff !important;
-      border: 2px solid #e5e7eb !important;
-      border-radius: 8px !important;
-      cursor: pointer !important;
-      appearance: none !important;
-      -webkit-appearance: none !important;
-      -moz-appearance: none !important;
-      background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") !important;
-      background-position: right 12px center !important;
-      background-repeat: no-repeat !important;
-      background-size: 16px !important;
-      transition: all 0.2s ease !important;
-      min-height: 44px !important;
-    }
-    
-    #vocab-word-type:hover {
-      border-color: #22c55e !important;
-      background-color: #f8fafc !important;
-    }
-    
-    #vocab-word-type:focus {
-      outline: none !important;
-      border-color: #22c55e !important;
-      box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1) !important;
-      background-color: #ffffff !important;
-    }
-    
-    #vocab-word-type option {
-      padding: 8px 12px !important;
-      font-size: 14px !important;
-      font-weight: 500 !important;
-      color: #374151 !important;
-      background: #ffffff !important;
-    }
-    
-    #vocab-word-type option:checked,
-    #vocab-word-type option:hover {
-      background: #22c55e !important;
-      color: #ffffff !important;
-    }
-    
-    .vocab-srs-modal-footer {
-      display: flex !important;
-      gap: 16px !important;
-      padding: 24px 28px !important;
-      border-top: 1px solid #e5e7eb !important;
-    }
-    
-    .vocab-srs-btn-cancel,
-    .vocab-srs-btn-save,
-    .vocab-srs-btn-confirm {
-      flex: 1 !important;
-      padding: 12px 20px !important;
-      border-radius: 10px !important;
-      font-size: 14px !important;
-      font-weight: 600 !important;
-      cursor: pointer !important;
-      transition: all 0.3s ease !important;
-      border: none !important;
-    }
-    
-    .vocab-srs-btn-cancel {
-      background: #f3f4f6 !important;
-      color: #374151 !important;
-      border: 2px solid #e5e7eb !important;
-    }
-    
-    .vocab-srs-btn-cancel:hover {
-      background: #e5e7eb !important;
-      transform: translateY(-1px) !important;
-    }
-    
-    .vocab-srs-btn-save {
-      background: linear-gradient(135deg, #22c55e, #16a34a) !important;
-      color: white !important;
-      box-shadow: 0 4px 20px rgba(34, 197, 94, 0.3) !important;
-    }
-    
-    .vocab-srs-btn-save:hover {
-      background: linear-gradient(135deg, #34d399, #22c55e) !important;
-      transform: translateY(-2px) !important;
-      box-shadow: 0 8px 25px rgba(34, 197, 94, 0.4) !important;
-    }
-    
-    .vocab-srs-btn-save:disabled {
-      opacity: 0.6 !important;
-      cursor: not-allowed !important;
-      transform: none !important;
-      box-shadow: none !important;
-    }
-    
-    /* Dark mode styles for modal buttons */
-    @media (prefers-color-scheme: dark) {
-      .vocab-srs-modal-footer {
-        border-top-color: #374151 !important;
-      }
-      
-      .vocab-srs-btn-cancel {
-        background: #374151 !important;
-        color: #d1d5db !important;
-        border-color: #4b5563 !important;
-      }
-      
-      .vocab-srs-btn-cancel:hover {
-        background: #4b5563 !important;
-        color: #f9fafb !important;
-      }
-      
-      .vocab-srs-play-audio {
-        background: #374151 !important;
-        border-color: #4b5563 !important;
-      }
-      
-      .vocab-srs-play-audio:hover {
-        background: rgba(34, 197, 94, 0.2) !important;
-        border-color: #22c55e !important;
-      }
-      
-      .vocab-srs-play-audio svg {
-        color: #34d399 !important;
-      }
-      
-      /* Dark mode for select dropdown */
-      #vocab-word-type {
-        color: #d1d5db !important;
-        background: #374151 !important;
-        border-color: #4b5563 !important;
-        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%239ca3af' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='m6 8 4 4 4-4'/%3e%3c/svg%3e") !important;
-      }
-      
-      #vocab-word-type:hover {
-        border-color: #34d399 !important;
-        background-color: #4b5563 !important;
-      }
-      
-      #vocab-word-type:focus {
-        border-color: #34d399 !important;
-        background-color: #374151 !important;
-        box-shadow: 0 0 0 3px rgba(52, 211, 153, 0.1) !important;
-      }
-      
-      #vocab-word-type option {
-        color: #d1d5db !important;
-        background: #374151 !important;
-      }
-      
-      #vocab-word-type option:checked,
-      #vocab-word-type option:hover {
-        background: #34d399 !important;
-        color: #065f46 !important;
-      }
-    }
-  `;
-  
-  document.head.appendChild(additionalStyle);
-  document.body.appendChild(modal);
-  
-  // Add event listeners
-  const closeBtn = modal.querySelector('.vocab-srs-modal-close');
-  const cancelBtn = modal.querySelector('.vocab-srs-btn-cancel');
-  const saveBtn = modal.querySelector('.vocab-srs-btn-save');
-  const playAudioBtn = modal.querySelector('.vocab-srs-play-audio');
-  
-  const closeModal = () => {
-    document.body.removeChild(modal);
-    document.head.removeChild(additionalStyle);
-    isModalOpen = false;
-    
-    // Remove ESC key listener when modal closes
-    document.removeEventListener('keydown', handleEscKey);
-  };
-  
-  // Handle ESC key to close modal
-  const handleEscKey = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && isModalOpen) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeModal();
-    }
-  };
-  
-  // Add ESC key listener
-  document.addEventListener('keydown', handleEscKey);
-  
-  closeBtn?.addEventListener('click', closeModal);
-  cancelBtn?.addEventListener('click', closeModal);
-  
-  // Add play audio functionality
-  playAudioBtn?.addEventListener('click', () => {
-    if (word) {
-      playWordAudio(word, modal.dataset.pronunUrl || '');
-    }
-  });
-  
-  saveBtn?.addEventListener('click', async () => {
-    const wordInput = modal.querySelector('#vocab-word') as HTMLInputElement;
-    const meaningInput = modal.querySelector('#vocab-meaning') as HTMLInputElement;
-    const exampleInput = modal.querySelector('#vocab-example') as HTMLInputElement;
-    const phoneticInput = modal.querySelector('#vocab-phonetic') as HTMLInputElement;
-    const wordTypeInput = modal.querySelector('#vocab-word-type') as HTMLSelectElement;
-    const saveBtnElement = saveBtn as HTMLButtonElement;
-    
-    const word = wordInput?.value.trim();
-    const meaning = meaningInput?.value.trim();
-    let phonetic = phoneticInput?.value.trim();
-    const wordType = wordTypeInput?.value as VocabWord['wordType'];
-    
-    // Basic validation
-    if (!word || !meaning || !wordType) {
-      showErrorPopup('Please fill in the required fields: Word, Meaning, and Word Type', 4000);
-      return;
-    }
-    
-    // Use fallback phonetic if none provided or still loading
-    if (!phonetic || phonetic === 'Loading...' || phonetic === 'Fetching phonetic data...') {
-      phonetic = generateSimplePhonetic(word);
-    }
-    
-    // Get the pronunUrl from the fetched data
-    const pronunUrl = modal.dataset.pronunUrl || '';
-    
-    const newWord: VocabWord = {
-      id: `word_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-      word,
-      meaning,
-      example: exampleInput?.value.trim() || undefined,
-      phonetic,
-      pronunUrl,
-      wordType,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      interval: 1,
-      repetitions: 0,
-      easeFactor: 2.5,
-      nextReview: Date.now(), // New words are immediately available for review
-      quality: 0,
-      totalReviews: 0,
-      correctReviews: 0
-    };
-    
-    try {
-      // Disable save button to prevent double submission
-      saveBtnElement.disabled = true;
-      saveBtnElement.textContent = 'Saving...';
-      
-      // Save to storage
-      const result = await chrome.storage.local.get(['vocabWords']);
-      const existingWords = result.vocabWords || [];
-      
-      // Check if word with same meaning already exists
-      const existingWord = existingWords.find((w: VocabWord) => 
-        w.word.toLowerCase() === word.toLowerCase() && 
-        w.meaning.toLowerCase() === meaning.toLowerCase()
-      );
-      
-      if (existingWord) {
-        // Show custom error dialog for duplicate word+meaning
-        await showCustomErrorDialog({
-          title: '⚠️ Duplicate Entry',
-          message: `The word "<strong>${word}</strong>" with this exact meaning already exists in your dictionary.`,
-          details: `Existing meaning: "${existingWord.meaning}"`,
-          suggestion: 'You can add the same word with a different meaning, or edit the existing entry.',
-          buttonText: 'Got it'
-        });
-        saveBtnElement.disabled = false;
-        saveBtnElement.textContent = 'Save to Dictionary';
-        return;
-      }
-      
-      // Show existing meanings if word exists with different meanings
-      const existingMeanings = existingWords.filter((w: VocabWord) => 
-        w.word.toLowerCase() === word.toLowerCase()
-      );
-      
-      if (existingMeanings.length > 0) {
-        // Show custom confirmation dialog instead of native alert
-        const shouldContinue = await showCustomConfirmDialog({
-          title: '🔍 Word Already Exists',
-          message: `The word "<strong>${word}</strong>" already exists in your dictionary with these meanings:`,
-          existingMeanings: existingMeanings.map((w: VocabWord) => w.meaning),
-          newMeaning: meaning,
-          confirmText: 'Add New Meaning',
-          cancelText: 'Cancel'
-        });
+  // Create and show dictionary modal
+  const dictionaryModal = new DictionaryModal({
+    word,
+    onSave: async (wordData: WordData) => {
+      console.log('Content Script: onSave called with:', wordData);
+      try {
+        // Convert WordData to VocabWord format
+        const vocabWord: VocabWord = {
+          id: Date.now().toString(),
+          word: wordData.word,
+          meaning: wordData.meaning,
+          phonetic: wordData.phonetic,
+          pronunUrl: wordData.audioUrl || '',
+          wordType: wordData.wordType as VocabWord['wordType'],
+          example: wordData.example,
+          audioUrl: wordData.audioUrl,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          
+          // SRS defaults
+          interval: 1,
+          repetitions: 0,
+          easeFactor: 2.5,
+          nextReview: Date.now(),
+          quality: 0,
+          
+          // Analytics defaults
+          totalReviews: 0,
+          correctReviews: 0
+        };
         
-        if (!shouldContinue) {
-          saveBtnElement.disabled = false;
-          saveBtnElement.textContent = 'Save to Dictionary';
-          return;
+        // Use direct storage save for faster performance (skip service worker)
+        console.log('Content Script: Saving directly to storage for faster response:', vocabWord);
+        
+        const result = await chrome.storage.local.get(['vocabWords']);
+        const existingWords = result.vocabWords || [];
+        
+        // Check if word already exists
+        const existingWord = existingWords.find((w: any) => 
+          w.word.toLowerCase() === vocabWord.word.toLowerCase() &&
+          w.meaning.toLowerCase() === vocabWord.meaning.toLowerCase()
+        );
+        
+        let response;
+        if (existingWord) {
+          // Show confirmation for existing word
+          const confirmed = await showCustomConfirmDialog({
+            title: 'Word Already Exists',
+            message: `The word "${vocabWord.word}" is already in your dictionary.`,
+            existingMeanings: [existingWord.meaning],
+            newMeaning: vocabWord.meaning,
+            confirmText: 'Update Word',
+            cancelText: 'Cancel'
+          });
+          
+          if (!confirmed) {
+            return; // User cancelled
+          }
+          
+          // Update existing word
+          const wordIndex = existingWords.findIndex((w: any) => w.id === existingWord.id);
+          existingWords[wordIndex] = {
+            ...existingWords[wordIndex],
+            meaning: vocabWord.meaning,
+            phonetic: vocabWord.phonetic,
+            wordType: vocabWord.wordType,
+            example: vocabWord.example,
+            audioUrl: vocabWord.audioUrl,
+            pronunUrl: vocabWord.pronunUrl,
+            updatedAt: Date.now()
+          };
+          await chrome.storage.local.set({ vocabWords: existingWords });
+          response = { success: true, word: existingWords[wordIndex] };
+        } else {
+          // Add new word
+          existingWords.push(vocabWord);
+          await chrome.storage.local.set({ vocabWords: existingWords });
+          response = { success: true, word: vocabWord };
         }
+        
+        console.log('Content Script: Direct save completed:', response);
+        
+        if (response && response.success) {
+          const isUpdate = existingWord ? 'updated' : 'added';
+          showSuccessPopup(`Word "${vocabWord.word}" ${isUpdate} successfully!`);
+          hideFloatingButton();
+          
+          // Clear selection
+          if (window.getSelection) {
+            window.getSelection()?.removeAllRanges();
+          }
+          selectedText = '';
+        } else {
+          showErrorPopup('Failed to save word. Please try again.');
+        }
+      } catch (error) {
+        console.error('Error saving word:', error);
+        showErrorPopup('Failed to save word. Please check your internet connection and try again.');
       }
-      
-      existingWords.push(newWord);
-      await chrome.storage.local.set({ vocabWords: existingWords });
-      
-      // Show success message
-      showSuccessPopup(`Word "${word}" added to dictionary successfully!`, 4000);
-      closeModal();
-      
-      // Hide floating button
-      hideFloatingButton();
-      
-    } catch (error) {
-      console.error('Failed to save word:', error);
-      showErrorPopup('Failed to save word. Please try again.', 4000);
-      
-      // Re-enable save button
-      saveBtnElement.disabled = false;
-      saveBtnElement.textContent = 'Save to Dictionary';
+    },
+    onClose: () => {
+      isModalOpen = false;
     }
   });
   
-  // Close on overlay click
-  modal.querySelector('.vocab-srs-modal-overlay')?.addEventListener('click', (e) => {
-    if (e.target === e.currentTarget) {
-      closeModal();
-    }
-  });
-  
-  // Auto-fetch word data if word is provided
-  if (word) {
-    const phoneticInput = modal.querySelector('#vocab-phonetic') as HTMLInputElement;
-    const saveBtn = modal.querySelector('.vocab-srs-btn-save') as HTMLButtonElement;
-    const playAudioBtn = modal.querySelector('.vocab-srs-play-audio') as HTMLButtonElement;
-    
-    // Set initial loading state
-    phoneticInput.value = 'Loading...';
-    phoneticInput.placeholder = 'Fetching phonetic data...';
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Loading...';
-    playAudioBtn.disabled = true;
-    
-    // Fetch word data with better error handling
-    fetchWordData(word)
-      .then(({ phonetic, pronunUrl }) => {
-        // Update UI with fetched data
-        phoneticInput.value = phonetic || generateSimplePhonetic(word);
-        phoneticInput.placeholder = phonetic || 'No phonetic available';
-        
-        // Store pronunUrl in modal dataset for later use
-        modal.dataset.pronunUrl = pronunUrl || '';
-        
-        // Re-enable save button and play button
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save to Dictionary';
-        playAudioBtn.disabled = false;
-        
-        // Auto-play pronunciation if available
-        playWordAudio(word, pronunUrl);
-      })
-      .catch((error) => {
-        console.error('Failed to fetch word data:', error);
-        
-        // Set fallback data
-        const fallbackPhonetic = generateSimplePhonetic(word);
-        phoneticInput.value = fallbackPhonetic;
-        phoneticInput.placeholder = 'Fallback phonetic';
-        
-        // Store empty pronunUrl in modal dataset
-        modal.dataset.pronunUrl = '';
-        
-        // Re-enable save button and play button
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save to Dictionary';
-        playAudioBtn.disabled = false;
-        
-        // Use TTS as fallback
-        playTextToSpeech(word);
-      });
-  }
-  
-  // Focus on meaning input
-  setTimeout(() => {
-    const meaningInput = modal.querySelector('#vocab-meaning') as HTMLInputElement;
-    meaningInput?.focus();
-  }, 100);
+  dictionaryModal.show();
 }
 
 // Handle messages from popup

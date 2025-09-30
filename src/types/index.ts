@@ -172,3 +172,12 @@ export interface VocabWord {
     }>;
     audioUrl?: string;
   }
+
+  // Dictionary types for offline lookup
+  export interface DictionaryEntry {
+    definitions: string[];
+    examples: string[];
+    types: string[];
+    phonetic: string;
+    audio?: string;
+  }

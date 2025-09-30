@@ -161,7 +161,7 @@ const Popup: React.FC = () => {
   }
 
   const dueWords = getCurrentDueWords();
-
+  
   return (
     <div className="w-full h-full max-w-[400px] max-h-[600px] bg-background dark:bg-dark-background flex flex-col">
       {/* Header */}

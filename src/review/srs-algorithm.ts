@@ -48,9 +48,9 @@ const defaultSRSSettings: SRSSettings = {
   hardPenalty: 1.2,
   intervalModifier: 1.0,
   maximumInterval: 365,
-  minimumInterval: 1,
-  graduatingInterval: 1,
-  easyInterval: 4
+  minimumInterval: 3, // Increased from 1 to prevent immediate reappearance  
+  graduatingInterval: 3, // Increased from 1 to 3 days for first success
+  easyInterval: 7 // Increased from 4 to 7 days for second success
 };
 
 export const calculateSRSValues = (
@@ -181,13 +181,14 @@ const getQualityMultiplier = (quality: QualityRating): number => {
 
 /**
  * Get interval for failed reviews based on quality and repetition history
+ * Fixed: Ensure minimum intervals to prevent immediate reappearance
  */
 const getFailureInterval = (quality: QualityRating, repetitions: number): number => {
   switch (quality) {
-    case 0: return 1;  // Complete blackout - restart
-    case 1: return Math.min(3, Math.max(1, Math.floor(repetitions / 2))); // Partial memory
-    case 2: return Math.min(5, Math.max(2, Math.floor(repetitions / 1.5))); // Easy recall but wrong
-    default: return 1;
+    case 0: return 1;  // Complete blackout - restart in 1 day
+    case 1: return Math.min(7, Math.max(3, Math.floor(repetitions / 2) + 2)); // Partial memory - min 3 days
+    case 2: return Math.min(14, Math.max(5, Math.floor(repetitions / 1.5) + 3)); // Easy recall but wrong - min 5 days
+    default: return 3; // Default minimum 3 days
   }
 };
 

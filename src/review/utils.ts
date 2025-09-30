@@ -45,26 +45,28 @@ export interface QualityDeterminationParams {
 export const determineQualityRating = (params: QualityDeterminationParams): QualityRating => {
   const { isCorrect, usedHint, userSelectedQuality, isSkipped } = params;
 
-  if (isSkipped) {
-    return 0; // Skip button was pressed
-  }
+  let finalQuality: QualityRating;
 
-  if (usedHint) {
+  if (isSkipped) {
+    finalQuality = 0; // Skip button was pressed
+  } else if (usedHint) {
     // User used hint
     if (isCorrect) {
-      return 2; // Used hint + correct = quality 2
+      finalQuality = 2; // Used hint + correct = quality 2
     } else {
-      return 0; // Used hint + wrong = quality 0
+      finalQuality = 0; // Used hint + wrong = quality 0
     }
   } else {
     // User didn't use hint
     if (isCorrect) {
       // User can choose 3-5 based on difficulty
-      return userSelectedQuality || 3;
+      finalQuality = userSelectedQuality || 3;
     } else {
-      return 1; // No hint + wrong = quality 1
+      finalQuality = 1; // No hint + wrong = quality 1
     }
   }
+
+  return finalQuality;
 };
 
 /**
@@ -172,29 +174,43 @@ export const createReviewSession = (params: {
 
 /**
  * Get words that are due for review, sorted by priority
+ * Fixed: Better duplicate detection and stricter due time checking
  * @param words Array of vocabulary words
  * @param currentTime Current timestamp (defaults to now)
  * @param maxWords Maximum number of words to return (optional)
- * @returns Words due for review, prioritized
+ * @returns Words due for review, prioritized and deduplicated
  */
 export const getWordsForReview = (
   words: VocabWord[], 
   currentTime: number = Date.now(),
   maxWords?: number
 ): VocabWord[] => {
-  // Filter words that are due
-  const dueWords = words.filter(word => {
+  // Use Map to deduplicate by ID first
+  const uniqueWords = new Map<string, VocabWord>();
+  
+  words.forEach(word => {
     // Safety checks
-    if (!word || typeof word !== 'object') return false;
+    if (!word || typeof word !== 'object' || !word.id) return;
     
+    // Only keep the most recent version if there are duplicates
+    if (!uniqueWords.has(word.id) || 
+        (uniqueWords.get(word.id)!.updatedAt || 0) < (word.updatedAt || 0)) {
+      uniqueWords.set(word.id, word);
+    }
+  });
+  
+  // Filter words that are actually due
+  const dueWords = Array.from(uniqueWords.values()).filter(word => {
     // Check if nextReview exists and is a valid number
     if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
-      // If no nextReview is set, consider it due for review (new words)
+      // If no nextReview is set, only include new words (repetitions === 0)
       return word.repetitions === 0;
     }
     
-    // Word is due if nextReview time has passed
-    return word.nextReview <= currentTime;
+    // Add a small buffer (1 minute) to prevent timing issues
+    // Word is due if nextReview time has passed (with 1 minute tolerance)
+    const dueTime = word.nextReview - (60 * 1000); // 1 minute buffer
+    return dueTime <= currentTime;
   });
   
   // Prioritize the due words  
@@ -401,17 +417,20 @@ export const calculateGamificationUpdate = (params: {
 };
 
 /**
- * Update daily streak based on daily goal completion
+ * Update daily streak based on new logic:
+ * - ≥10 từ: streak++  
+ * - 1-9 từ: streak giữ nguyên
+ * - 0 từ: streak = 0
  * @param params Streak update parameters
  * @returns Updated gamification data with proper streak handling
  */
 export const updateDailyStreak = (params: {
   currentGamification: any;
   wordsReviewedToday: number;
-  dailyGoal: number;
+  dailyGoal?: number; // Optional for backward compatibility
   currentDate?: Date;
-}): { streak: number; lastStreakUpdate: number; streakIncremented: boolean } => {
-  const { currentGamification, wordsReviewedToday, dailyGoal, currentDate = new Date() } = params;
+}): { streak: number; lastStreakUpdate: number; streakIncremented: boolean; shouldResetStreak: boolean } => {
+  const { currentGamification, wordsReviewedToday, currentDate = new Date() } = params;
   
   // Get current streak and last update date
   const currentStreak = currentGamification.streak || 0;
@@ -426,56 +445,71 @@ export const updateDailyStreak = (params: {
   lastUpdateDate.setHours(0, 0, 0, 0);
   const lastUpdateTimestamp = lastUpdateDate.getTime();
   
-  // If already updated today, don't increment again
+  // Check if we need to process yesterday's result (gap detection)
+  const oneDayMs = 24 * 60 * 60 * 1000;
+  const daysDiff = Math.round((todayTimestamp - lastUpdateTimestamp) / oneDayMs);
+  
+  // If there was a gap of more than 1 day, reset streak to 0
+  if (lastStreakUpdate > 0 && daysDiff > 1) {
+    return {
+      streak: 0,
+      lastStreakUpdate: todayTimestamp,
+      streakIncremented: false,
+      shouldResetStreak: true
+    };
+  }
+  
+  // If already processed today, don't update again
   if (lastUpdateTimestamp === todayTimestamp) {
     return {
       streak: currentStreak,
       lastStreakUpdate: lastStreakUpdate,
-      streakIncremented: false
+      streakIncremented: false,
+      shouldResetStreak: false
     };
   }
   
-  // Check if daily goal is met
-  if (wordsReviewedToday >= dailyGoal) {
-    // Check if this is consecutive day or first time
-    const oneDayMs = 24 * 60 * 60 * 1000;
-    const daysDiff = Math.round((todayTimestamp - lastUpdateTimestamp) / oneDayMs);
-    
-    let newStreak;
+  // New streak logic:
+  let newStreak = currentStreak;
+  let streakIncremented = false;
+  let shouldResetStreak = false;
+  
+  if (wordsReviewedToday >= 10) {
+    // ≥10 từ: streak++
     if (lastStreakUpdate === 0) {
       // First time streak
       newStreak = 1;
     } else if (daysDiff === 1) {
       // Consecutive day - increment streak
       newStreak = currentStreak + 1;
-    } else if (daysDiff > 1) {
-      // Gap in days - reset to 1
-      newStreak = 1;
     } else {
-      // Same day (should not happen due to earlier check)
-      newStreak = currentStreak;
+      // Gap handled above, this shouldn't happen
+      newStreak = 1;
     }
-    
-    return {
-      streak: newStreak,
-      lastStreakUpdate: todayTimestamp,
-      streakIncremented: true
-    };
+    streakIncremented = true;
+  } else if (wordsReviewedToday > 0 && wordsReviewedToday < 10) {
+    // 1-9 từ: streak giữ nguyên
+    newStreak = currentStreak;
+    streakIncremented = false;
+  } else {
+    // 0 từ: streak = 0 (only if this is end of day check)
+    newStreak = 0;
+    shouldResetStreak = true;
   }
   
-  // Goal not met yet - keep current streak
   return {
-    streak: currentStreak,
-    lastStreakUpdate: lastStreakUpdate,
-    streakIncremented: false
+    streak: newStreak,
+    lastStreakUpdate: todayTimestamp,
+    streakIncremented: streakIncremented,
+    shouldResetStreak: shouldResetStreak
   };
 };
 
 /**
- * Count words reviewed today
+ * Count words reviewed today - Fixed to count unique words only
  * @param words Array of vocabulary words
  * @param currentDate Current date (defaults to today)
- * @returns Number of words reviewed today
+ * @returns Number of unique words reviewed today
  */
 export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = new Date()): number => {
   const today = new Date(currentDate);
@@ -483,13 +517,19 @@ export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = 
   const todayStart = today.getTime();
   const todayEnd = todayStart + (24 * 60 * 60 * 1000) - 1;
   
-  const reviewedToday = words.filter(word => {
-    return word.lastReviewTime && 
-           word.lastReviewTime >= todayStart && 
-           word.lastReviewTime <= todayEnd;
+  // Use Set to ensure unique word IDs only
+  const uniqueWordsReviewedToday = new Set<string>();
+  
+  words.forEach(word => {
+    // Check if word was reviewed today (has lastReviewTime in today's range)
+    if (word.lastReviewTime && 
+        word.lastReviewTime >= todayStart && 
+        word.lastReviewTime <= todayEnd) {
+      uniqueWordsReviewedToday.add(word.id);
+    }
   });
   
-  return reviewedToday.length;
+  return uniqueWordsReviewedToday.size;
 };
 
 // ===============================
