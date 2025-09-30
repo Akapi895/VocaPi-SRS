@@ -463,13 +463,6 @@ export const calculateLearningStats = (data: any) => {
   // Calculate streak using same logic as analytics (with real-time calculation)
   const streakInfo = calculateStreakInfo(gamification, analytics, words);
   
-  console.log('🔥 Popup Streak Calculation:', {
-    storedStreak: gamification.streak || 0,
-    calculatedStreak: streakInfo.currentStreak,
-    wordsCount: words.length,
-    analyticsStreak: analytics?.currentStreak || 0
-  });
-  
   // Create gamification analysis data
   const gamificationData: GamificationAnalysisData = {
     totalWords,

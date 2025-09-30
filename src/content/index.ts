@@ -991,7 +991,6 @@ function showAddModal(word?: string) {
   const dictionaryModal = new DictionaryModal({
     word,
     onSave: async (wordData: WordData) => {
-      console.log('Content Script: onSave called with:', wordData);
       try {
         // Convert WordData to VocabWord format
         const vocabWord: VocabWord = {
@@ -1019,8 +1018,6 @@ function showAddModal(word?: string) {
         };
         
         // Use direct storage save for faster performance (skip service worker)
-        console.log('Content Script: Saving directly to storage for faster response:', vocabWord);
-        
         const result = await chrome.storage.local.get(['vocabWords']);
         const existingWords = result.vocabWords || [];
         
@@ -1066,8 +1063,6 @@ function showAddModal(word?: string) {
           await chrome.storage.local.set({ vocabWords: existingWords });
           response = { success: true, word: vocabWord };
         }
-        
-        console.log('Content Script: Direct save completed:', response);
         
         if (response && response.success) {
           const isUpdate = existingWord ? 'updated' : 'added';

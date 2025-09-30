@@ -136,11 +136,6 @@ export const calculateStreakInfo = (
   // If we have words data, calculate streak from actual review activity
   if (words && words.length > 0) {
     const realTimeStreak = calculateRealTimeStreak(words);
-    console.log('🔥 Analytics Streak Calculation:', {
-      storedStreak: gamification?.streak || 0,
-      realTimeStreak,
-      wordsCount: words.length
-    });
     // Use the calculated streak if it's different from stored value
     if (realTimeStreak !== currentStreak) {
       currentStreak = realTimeStreak;

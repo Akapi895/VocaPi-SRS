@@ -460,18 +460,10 @@ const Review: React.FC = () => {
           
           const wordsReviewedToday = countWordsReviewedToday(updatedWords);
           
-          console.log('🔥 Streak Update Check:', {
-            wordsReviewedToday,
-            currentStreak: data.gamification?.streak || 0,
-            lastStreakUpdate: data.gamification?.lastStreakUpdate || 0
-          });
-          
           const streakUpdate = updateDailyStreak({
             currentGamification: data.gamification,
             wordsReviewedToday
           });
-          
-          console.log('🔥 Streak Update Result:', streakUpdate);
           
           // Update streak if it changed
           if (streakUpdate.streakIncremented || streakUpdate.shouldResetStreak || 
@@ -483,7 +475,6 @@ const Review: React.FC = () => {
             };
             
             await updateGamification(streakGamificationUpdate);
-            console.log('🔥 Streak Updated Successfully:', streakGamificationUpdate.streak);
           }
         } catch (error) {
           console.warn('Failed to update streak after word review:', error);
@@ -741,8 +732,8 @@ const Review: React.FC = () => {
             <div className="mt-4">
               <div className="w-full bg-surface-secondary rounded-full h-2 overflow-hidden">
                 <div 
-                  className="bg-gradient-to-r from-primary-500 to-primary-600 h-2 rounded-full transition-all duration-500 ease-out"
-                  style={{ width: `${progress}%` }}
+                  className="h-2 rounded-full transition-all duration-500 ease-out"
+                  style={getProgressStyle(progress)}
                 ></div>
               </div>
             </div>
