@@ -235,7 +235,7 @@ const Popup: React.FC = () => {
               <div className="flex items-center gap-2">
                 <Zap className="w-4 h-4 text-primary-500" />
                 <span className="text-foreground-muted">XP:</span>
-                <span className="font-semibold text-foreground">{getStats().xp}</span>
+                <span className="font-semibold text-foreground">{getStats().progressXP} / {getStats().neededXP}</span>
               </div>
               <div className="flex items-center gap-2">
                 <Target className="w-4 h-4 text-accent-500" />

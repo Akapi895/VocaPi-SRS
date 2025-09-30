@@ -522,9 +522,17 @@ export const countWordsReviewedToday = (words: VocabWord[], currentDate: Date = 
   
   words.forEach(word => {
     // Check if word was reviewed today (has lastReviewTime in today's range)
-    if (word.lastReviewTime && 
-        word.lastReviewTime >= todayStart && 
-        word.lastReviewTime <= todayEnd) {
+    // Also count words that have totalReviews > 0 and updated recently
+    const wasReviewedToday = word.lastReviewTime && 
+      word.lastReviewTime >= todayStart && 
+      word.lastReviewTime <= todayEnd;
+      
+    const wasUpdatedToday = word.updatedAt && 
+      word.updatedAt >= todayStart && 
+      word.updatedAt <= todayEnd &&
+      (word.totalReviews || 0) > 0;
+    
+    if (wasReviewedToday || wasUpdatedToday) {
       uniqueWordsReviewedToday.add(word.id);
     }
   });

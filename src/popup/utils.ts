@@ -1,5 +1,5 @@
 import { VocabWord } from '@/types';
-import { calculateCoreStatistics, calculateWordDistribution } from '@/analytics/utils';
+import { calculateCoreStatistics, calculateWordDistribution, calculateStreakInfo } from '@/analytics/utils';
 import { getGamificationSummary } from '@/gamification';
 import type { GamificationAnalysisData } from '@/gamification/core/types';
 
@@ -460,10 +460,20 @@ export const calculateLearningStats = (data: any) => {
   // Calculate word distribution
   const wordDistribution = calculateWordDistribution(words);
   
+  // Calculate streak using same logic as analytics (with real-time calculation)
+  const streakInfo = calculateStreakInfo(gamification, analytics, words);
+  
+  console.log('🔥 Popup Streak Calculation:', {
+    storedStreak: gamification.streak || 0,
+    calculatedStreak: streakInfo.currentStreak,
+    wordsCount: words.length,
+    analyticsStreak: analytics?.currentStreak || 0
+  });
+  
   // Create gamification analysis data
   const gamificationData: GamificationAnalysisData = {
     totalWords,
-    currentStreak: gamification.streak || 0,
+    currentStreak: streakInfo.currentStreak, // Use calculated streak instead of stored value
     accuracy: coreStats.accuracy,
     totalStudyTime: coreStats.totalStudyTime,
     wordDistribution,
@@ -480,8 +490,11 @@ export const calculateLearningStats = (data: any) => {
     totalWords,
     dueWordsCount: dueWords.length,
     level: gamificationSummary.levelProgress.currentLevel,
-    xp: gamificationSummary.levelProgress.totalXP,
-    streak: gamificationData.currentStreak,
+    xp: gamificationSummary.levelProgress.totalXP, // Keep total XP for backward compatibility
+    // Level-specific XP display (current level progress)
+    progressXP: gamificationSummary.levelProgress.progressXP,
+    neededXP: gamificationSummary.levelProgress.neededXP,
+    streak: streakInfo.currentStreak, // Use calculated streak for consistency with analytics
     accuracy: coreStats.accuracy,
     // Additional calculated stats
     completionRate: totalWords > 0 ? Math.round(((totalWords - dueWords.length) / totalWords) * 100) : 0,
