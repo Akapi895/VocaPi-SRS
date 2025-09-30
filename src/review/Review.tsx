@@ -142,6 +142,7 @@ const Review: React.FC = () => {
   const [usedHintForCurrentWord, setUsedHintForCurrentWord] = useState(false);
   const [showReviewStep, setShowReviewStep] = useState(false);
   const [selectedQuality, setSelectedQuality] = useState<QualityRating | null>(null);
+  const [wasSkipped, setWasSkipped] = useState(false); // Track if current word was skipped
   const [sessionStats, setSessionStats] = useState({
     correct: 0,
     total: 0,
@@ -160,19 +161,96 @@ const Review: React.FC = () => {
   const [isPracticeSession, setIsPracticeSession] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
 
+  // Save session progress (shared logic for early exit and completion)
+  const saveSessionProgress = async (forceComplete: boolean = false) => {
+    if (!data || !data.vocabWords) return;
+    
+    const endTime = Date.now();
+    const totalTime = endTime - sessionStats.startTime;
+    
+    // Calculate actual words reviewed based on sessionStats
+    const totalWordsInSession = sessionStats.total;
+    
+    // For early exit, we still count the words that were attempted
+    // because they have been updated in the database already
+    const wordsReviewedIds = Array.from({ length: totalWordsInSession }, (_, i) => `session_${sessionStats.startTime}_${i}`);
+    
+    // Create review session record (only for first review, not practice sessions)
+    if (!isPracticeSession && totalWordsInSession > 0) {
+      const reviewSession = createReviewSession({
+        startTime: sessionStats.startTime,
+        endTime,
+        wordsReviewed: wordsReviewedIds,
+        correctAnswers: sessionStats.correct,
+        totalAnswers: sessionStats.total
+      });
+
+      // Save review session to chrome storage
+      try {
+        const result = await chrome.storage.local.get(['reviewSessions']);
+        const existingSessions = result.reviewSessions || [];
+        const updatedSessions = [...existingSessions, reviewSession];
+        await chrome.storage.local.set({ reviewSessions: updatedSessions });
+      } catch (error) {
+        console.warn('Failed to save review session:', error);
+      }
+    }
+
+    // Check and update daily streak after session (only for first review)
+    if (data.gamification && !isPracticeSession && totalWordsInSession > 0) {
+      try {
+        // Fix daily goal for existing users who have 20 set to 10
+        let dailyGoal = data.gamification.dailyGoal || 10;
+        if (dailyGoal === 20) {
+          dailyGoal = 10;
+          // Update storage with correct daily goal
+          const fixedGamification = { ...data.gamification, dailyGoal: 10 };
+          await updateGamification(fixedGamification);
+        }
+        
+        const wordsReviewedToday = countWordsReviewedToday(data.vocabWords);
+        
+        const streakUpdate = updateDailyStreak({
+          currentGamification: data.gamification,
+          wordsReviewedToday
+        });
+        
+        // Update if streak was incremented OR needs reset
+        if (streakUpdate.streakIncremented || streakUpdate.shouldResetStreak || 
+            streakUpdate.streak !== data.gamification.streak) {
+          const streakGamificationUpdate = {
+            ...data.gamification,
+            streak: streakUpdate.streak,
+            lastStreakUpdate: streakUpdate.lastStreakUpdate
+          };
+          
+          await updateGamification(streakGamificationUpdate);
+        }
+      } catch (error) {
+        console.warn('Failed to update streak:', error);
+      }
+    }
+
+    // Update session stats and complete session if forced or natural completion
+    if (forceComplete || reviewWords.length <= 1) {
+      setSessionStats(prev => ({ ...prev, totalTime }));
+      setIsRetryMode(false);
+      setRetryQuality(null);
+      setTimeout(() => {
+        setSessionComplete(true);
+      }, 0);
+    }
+  };
+
   // Initialize review session (only once)
   useEffect(() => {
     if (data && data.vocabWords && !isInitialized) {
       const dueWords = getWordsForReview(data.vocabWords);
       
       if (dueWords.length > 0) {
-        // Deduplicate words by ID to prevent duplicates
-        const uniqueWords = dueWords.filter((word, index, arr) => 
-          arr.findIndex(w => w.id === word.id) === index
-        );
-        
-        // Shuffle unique words for better learning
-        const shuffled = shuffleArray(uniqueWords);
+        // Words are already deduplicated in getWordsForReview
+        // Shuffle words for better learning experience
+        const shuffled = shuffleArray(dueWords);
 
         setReviewWords(shuffled);
         setSessionStats(prev => ({ ...prev, startTime: Date.now() }));
@@ -274,6 +352,7 @@ const Review: React.FC = () => {
   // Handle skip - show review step immediately
   const handleSkip = () => {
     setSelectedQuality(0); // Skip = quality 0
+    setWasSkipped(true); // Mark as skipped
     setShowAnswer(true);
     setShowReviewStep(true);
     
@@ -307,7 +386,7 @@ const Review: React.FC = () => {
         isCorrect,
         usedHint: usedHintForCurrentWord,
         userSelectedQuality: quality === 0 ? undefined : quality,
-        isSkipped: quality === 0
+        isSkipped: wasSkipped // Use explicit skip state instead of quality === 0
       });
       
       // Check if this word requires retry (quality <= 2) - but only if NOT already in retry mode and retry is enabled
@@ -364,13 +443,13 @@ const Review: React.FC = () => {
 
       // Move to next word or complete review
       if (reviewWords.length > 1) {
-        // Remove the current word from review queue and reset states
-        const updatedReviewWords = reviewWords.filter((_, index) => index !== currentWordIndex);
+        // Remove the current word from review queue by ID to prevent duplicates
+        const currentWordId = reviewWords[currentWordIndex].id;
+        const updatedReviewWords = reviewWords.filter(word => word.id !== currentWordId);
         setReviewWords(updatedReviewWords);
         
-        // Reset current word index if it's now out of bounds
-        const newIndex = currentWordIndex >= updatedReviewWords.length ? 0 : currentWordIndex;
-        setCurrentWordIndex(newIndex);
+        // Reset current word index - always go to 0 to avoid index issues
+        setCurrentWordIndex(0);
         
         // Reset all states for next word
         setShowAnswer(false);
@@ -379,77 +458,13 @@ const Review: React.FC = () => {
         setUsedHintForCurrentWord(false);
         setShowReviewStep(false);
         setSelectedQuality(null);
+        setWasSkipped(false); // Reset skip state
         setIsRetryMode(false);
         setRetryQuality(null);
         setRetryError('');
       } else {
-        // Complete review session
-        const endTime = Date.now();
-        const totalTime = endTime - sessionStats.startTime;
-        
-        // Create review session record (only for first review, not practice sessions)
-        if (!isPracticeSession) {
-          const reviewSession = createReviewSession({
-            startTime: sessionStats.startTime,
-            endTime,
-            wordsReviewed: reviewWords.map(w => w.id),
-            correctAnswers: sessionStats.correct,
-            totalAnswers: sessionStats.total
-          });
-
-          // Save review session to chrome storage
-          try {
-            const result = await chrome.storage.local.get(['reviewSessions']);
-            const existingSessions = result.reviewSessions || [];
-            const updatedSessions = [...existingSessions, reviewSession];
-            await chrome.storage.local.set({ reviewSessions: updatedSessions });
-          } catch (error) {
-            // Silent fail - non-critical for user experience
-          }
-        }
-
-        // Check and update daily streak after completing session (only for first review)
-        if (data && data.vocabWords && data.gamification && !isPracticeSession) {
-          try {
-            // Fix daily goal for existing users who have 20 set to 10
-            let dailyGoal = data.gamification.dailyGoal || 10;
-            if (dailyGoal === 20) {
-              dailyGoal = 10;
-              // Update storage with correct daily goal
-              const fixedGamification = { ...data.gamification, dailyGoal: 10 };
-              await updateGamification(fixedGamification);
-            }
-            
-            const wordsReviewedToday = countWordsReviewedToday(data.vocabWords);
-            
-            const streakUpdate = updateDailyStreak({
-              currentGamification: data.gamification,
-              wordsReviewedToday,
-              dailyGoal
-            });
-            
-            // Only update if streak was incremented
-            if (streakUpdate.streakIncremented) {
-              const streakGamificationUpdate = {
-                ...data.gamification,
-                streak: streakUpdate.streak,
-                lastStreakUpdate: streakUpdate.lastStreakUpdate
-              };
-              
-              await updateGamification(streakGamificationUpdate);
-            }
-          } catch (error) {
-            // Silent fail - non-critical for user experience
-          }
-        }
-
-        // Update session stats and complete session atomically
-        setSessionStats(prev => ({ ...prev, totalTime }));
-        setIsRetryMode(false);
-        setRetryQuality(null);
-        setTimeout(() => {
-          setSessionComplete(true);
-        }, 0);
+        // Complete review session - use shared save logic
+        await saveSessionProgress(true);
       }
     } catch (error) {
       // Continue to next word even if there's an error
@@ -480,6 +495,7 @@ const Review: React.FC = () => {
       setUsedHintForCurrentWord(false);
       setShowReviewStep(false);
       setSelectedQuality(null);
+      setWasSkipped(false); // Reset skip state for restart
       setIsRetryMode(false);
       setRetryQuality(null);
       setRetryError('');
@@ -514,11 +530,14 @@ const Review: React.FC = () => {
   };
 
   // Confirm action
-  const confirmAction = () => {
+  const confirmAction = async () => {
     if (pendingAction === 'pause') {
-      // When pausing, show session statistics
+      // When pausing, save progress and show session statistics
+      await saveSessionProgress(false);
       setShowStatsModal(true);
     } else if (pendingAction === 'stop') {
+      // When stopping early, save progress and show session statistics  
+      await saveSessionProgress(true);
       setShowStatsModal(true);
     }
     setShowConfirmDialog(false);

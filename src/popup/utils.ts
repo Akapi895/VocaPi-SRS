@@ -14,18 +14,32 @@ import type { GamificationAnalysisData } from '@/gamification/core/types';
  * @returns Words due for review
  */
 export const getDueWords = (words: VocabWord[], currentTime: number = Date.now()): VocabWord[] => {
-  return words.filter(word => {
+  // Use Map to deduplicate by ID first (same logic as getWordsForReview)
+  const uniqueWords = new Map<string, VocabWord>();
+  
+  words.forEach(word => {
     // Safety checks
-    if (!word || typeof word !== 'object') return false;
+    if (!word || typeof word !== 'object' || !word.id) return;
     
+    // Only keep the most recent version if there are duplicates
+    if (!uniqueWords.has(word.id) || 
+        (uniqueWords.get(word.id)!.updatedAt || 0) < (word.updatedAt || 0)) {
+      uniqueWords.set(word.id, word);
+    }
+  });
+  
+  // Filter words that are actually due (same logic as getWordsForReview)
+  return Array.from(uniqueWords.values()).filter(word => {
     // Check if nextReview exists and is a valid number
     if (!word.nextReview || typeof word.nextReview !== 'number' || isNaN(word.nextReview)) {
-      // If no nextReview is set, consider it due for review (new words)
+      // If no nextReview is set, only include new words (repetitions === 0)
       return word.repetitions === 0;
     }
     
-    // Word is due if nextReview time has passed
-    return word.nextReview <= currentTime;
+    // Add a small buffer (1 minute) to prevent timing issues (same as getWordsForReview)
+    // Word is due if nextReview time has passed (with 1 minute tolerance)
+    const dueTime = word.nextReview - (60 * 1000); // 1 minute buffer
+    return dueTime <= currentTime;
   });
 };
 
