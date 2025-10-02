@@ -1,6 +1,6 @@
 # Privacy Policy for VocaPi - Vocabulary SRS Extension
 
-**Last updated:** [Current Date]
+**Last updated:** 2025/02/10
 
 ## Overview
 
