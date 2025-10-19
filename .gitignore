@@ -7,6 +7,8 @@ yarn-error.log*
 # Build outputs
 dist/
 build/
+convert/
+dist.zip
 
 # Environment variables
 .env
